@@ -19,3 +19,6 @@ dist/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Manual capture/replay smoke-test output
+replays/
