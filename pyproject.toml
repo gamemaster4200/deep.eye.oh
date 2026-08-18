@@ -8,9 +8,16 @@ version = "0.0.1"
 description = "Autonomous agent research project for diep.io, driven by screen capture and ordinary keyboard/mouse input."
 requires-python = ">=3.10"
 readme = "README.md"
+dependencies = [
+    "numpy>=1.24",
+    "Pillow>=10",
+]
 
 [project.optional-dependencies]
 dev = ["pytest"]
+
+[project.scripts]
+deep-eye-oh = "deep_eye_oh.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
