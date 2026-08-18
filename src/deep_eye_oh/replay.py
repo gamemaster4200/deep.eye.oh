@@ -81,6 +81,7 @@ class ReplayWriter:
         self._frame_count += 1
 
     def close(self) -> None:
+        """Finalize a successfully-completed replay: write manifest.json."""
         if self._closed:
             return
         self._jsonl_file.close()
@@ -95,11 +96,26 @@ class ReplayWriter:
         )
         self._closed = True
 
+    def abort(self) -> None:
+        """Stop writing without finalizing: no manifest.json is written.
+
+        Already-written frame PNGs and frames.jsonl lines are left on disk
+        (manually salvageable), but the directory is not a valid
+        ReplayReader input — there is no completed manifest.json.
+        """
+        if self._closed:
+            return
+        self._jsonl_file.close()
+        self._closed = True
+
     def __enter__(self) -> "ReplayWriter":
         return self
 
-    def __exit__(self, *exc: object) -> None:
-        self.close()
+    def __exit__(self, exc_type: object, exc_val: object, exc_tb: object) -> None:
+        if exc_type is None:
+            self.close()
+        else:
+            self.abort()
 
 
 class ReplayReader:

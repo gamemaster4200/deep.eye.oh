@@ -108,3 +108,57 @@ def test_replay_writer_rejects_non_increasing_frame_index(tmp_path):
         writer.write(_make_observation(vp, 0, seed=1))
         with pytest.raises(ValueError):
             writer.write(_make_observation(vp, 0, seed=2))
+
+
+def test_replay_writer_clean_close_writes_manifest(tmp_path):
+    vp = Viewport(left=0, top=0, width=4, height=4)
+    replay_dir = tmp_path / "replay"
+
+    with ReplayWriter(replay_dir, vp) as writer:
+        writer.write(_make_observation(vp, 0, seed=1))
+
+    assert (replay_dir / "manifest.json").exists()
+    reader = ReplayReader(replay_dir)
+    assert reader.frame_count == 1
+
+
+def test_replay_writer_aborts_on_exception_no_manifest(tmp_path):
+    vp = Viewport(left=0, top=0, width=4, height=4)
+    replay_dir = tmp_path / "replay"
+
+    class _SimulatedFailure(Exception):
+        pass
+
+    with pytest.raises(_SimulatedFailure):
+        with ReplayWriter(replay_dir, vp) as writer:
+            writer.write(_make_observation(vp, 0, seed=1))
+            writer.write(_make_observation(vp, 1, seed=2))
+            raise _SimulatedFailure("simulated capture failure")
+
+    # manifest must not exist — the replay is not considered complete
+    assert not (replay_dir / "manifest.json").exists()
+
+    # already-written frames/jsonl remain physically salvageable
+    assert (replay_dir / "frames" / "000000.png").exists()
+    assert (replay_dir / "frames" / "000001.png").exists()
+    jsonl_lines = (replay_dir / "frames.jsonl").read_text(encoding="utf-8").splitlines()
+    assert len(jsonl_lines) == 2
+
+    # ReplayReader must refuse to treat it as a valid replay
+    with pytest.raises(FileNotFoundError):
+        ReplayReader(replay_dir)
+
+
+def test_replay_writer_aborts_on_keyboard_interrupt(tmp_path):
+    vp = Viewport(left=0, top=0, width=4, height=4)
+    replay_dir = tmp_path / "replay"
+
+    with pytest.raises(KeyboardInterrupt):
+        with ReplayWriter(replay_dir, vp) as writer:
+            writer.write(_make_observation(vp, 0, seed=1))
+            raise KeyboardInterrupt
+
+    assert not (replay_dir / "manifest.json").exists()
+    assert (replay_dir / "frames" / "000000.png").exists()
+    with pytest.raises(FileNotFoundError):
+        ReplayReader(replay_dir)
