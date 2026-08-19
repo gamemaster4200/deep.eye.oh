@@ -27,7 +27,7 @@ class ScreenCapture:
     def grab_one(self, frame_index: int) -> Observation:
         v = self.viewport
         bbox = (v.left, v.top, v.left + v.width, v.top + v.height)
-        image = ImageGrab.grab(bbox=bbox)
+        image = ImageGrab.grab(bbox=bbox, all_screens=True)
         timestamp = time.time()
         monotonic = time.perf_counter()
 
