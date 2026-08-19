@@ -12,6 +12,7 @@ dependencies = [
     "numpy>=1.24",
     "Pillow>=10",
     "pywin32>=306",
+    "opencv-python>=4.9",
 ]
 
 [project.optional-dependencies]
