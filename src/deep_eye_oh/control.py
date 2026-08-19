@@ -120,11 +120,18 @@ class Controller:
     def arm(self, target: TargetWindow | None = None) -> None:
         """Arm on `target` (or whatever window is currently foreground, if
         omitted). Transactional: commits `armed = True` only after (a) any
-        prior session is fully retired, (b) a fresh EmergencyStop and
-        FocusWatcher for this target are started and report healthy, (c)
-        nothing tripped during that startup window, and (d) a final
+        prior session is fully retired, (b) no previously-owned key/button
+        remains unreleased (a failed release from shutdown() is a hard
+        refusal -- ControlArmFailedError("unreleased_input"), no new
+        watchdog infrastructure is started), (c) a fresh EmergencyStop and
+        FocusWatcher for this target are started and report healthy, (d)
+        nothing tripped during that startup window, and (e) a final
         synchronous foreground check passes -- all reverified atomically
-        under the lock at commit time. Raises ControlArmFailedError and
+        under the lock at commit time. Watchdog construction/start is
+        itself a rollback-on-any-failure transaction (including
+        KeyboardInterrupt/BaseException): whatever got started before a
+        failure is stopped before the exception propagates. Raises
+        ControlArmFailedError (or propagates whatever startup raised) and
         leaves the Controller disarmed, with no leaked watcher threads, if
         any of that fails.
         """
@@ -136,22 +143,53 @@ class Controller:
         with self._lock:
             my_epoch = self._epoch
             self._trip_reason = None
+            unreleased_input = bool(self._held_keys or self._held_buttons)
+
+        if unreleased_input:
+            # Some previously-owned key/button failed to release during
+            # shutdown() and is still tracked (possibly still physically
+            # held). Starting a new session on top of that is unsafe --
+            # fail closed, start no new watchdog infrastructure. A later
+            # release_all()/arm() retry can succeed once the release does.
+            raise ControlArmFailedError("unreleased_input")
 
         if not window_focus.target_still_exists(target):
             raise ControlArmFailedError("target window no longer exists")
 
-        new_estop = EmergencyStop(
-            on_trip=lambda reason: self._trip_if_epoch(my_epoch, reason),
-            panic_key=self._panic_key,
-        )
-        new_estop.start()
+        # Startup transaction: if anything raises (including
+        # KeyboardInterrupt/other BaseException) while constructing or
+        # starting the watchdogs, roll back whatever was already started
+        # before the exception propagates -- EmergencyStop.start() starts
+        # its polling thread before registering the console handler, so a
+        # registration failure can leave that thread already live.
+        new_estop: EmergencyStop | None = None
+        new_focus_watcher: FocusWatcher | None = None
+        startup_ok = False
+        try:
+            new_estop = EmergencyStop(
+                on_trip=lambda reason: self._trip_if_epoch(my_epoch, reason),
+                panic_key=self._panic_key,
+            )
+            new_estop.start()
 
-        new_focus_watcher = FocusWatcher(
-            target=target,
-            has_held_buttons=self._has_held_buttons,
-            on_trip=lambda reason: self._trip_if_epoch(my_epoch, reason),
-        )
-        new_focus_watcher.start()
+            new_focus_watcher = FocusWatcher(
+                target=target,
+                has_held_buttons=self._has_held_buttons,
+                on_trip=lambda reason: self._trip_if_epoch(my_epoch, reason),
+            )
+            new_focus_watcher.start()
+            startup_ok = True
+        finally:
+            if not startup_ok:
+                for watchdog in (new_focus_watcher, new_estop):
+                    if watchdog is None:
+                        continue
+                    try:
+                        watchdog.stop()
+                    except Exception:
+                        logger.warning(
+                            "failed to stop watchdog during arm() rollback", exc_info=True
+                        )
 
         committed = False
         failure_reason: str | None = None

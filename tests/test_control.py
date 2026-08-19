@@ -409,3 +409,152 @@ def test_delayed_click_release_is_epoch_checked(monkeypatch):
 
     assert "left" in c._held_buttons
     assert c.armed is True
+
+
+# ---- arm() exception-safety during watchdog startup ---------------------
+
+
+def test_arm_rolls_back_if_emergency_stop_start_raises(monkeypatch):
+    watchdogs, sent = _patch_healthy_environment(monkeypatch)
+
+    class RaisingStartEstop(FakeWatchdog):
+        def start(self) -> None:
+            self._alive = True  # simulate: polling thread already live
+            self.started = True
+            raise RuntimeError("SetConsoleCtrlHandler failed")
+
+    def make_estop(*args, **kwargs):
+        w = RaisingStartEstop(*args, **kwargs)
+        watchdogs["estop"] = w
+        return w
+
+    monkeypatch.setattr(ctrl_mod, "EmergencyStop", make_estop)
+
+    c = ctrl_mod.Controller()
+    with pytest.raises(RuntimeError):
+        c.arm(TARGET)
+
+    assert c.armed is False
+    assert watchdogs["estop"].stopped is True
+    assert watchdogs["estop"].is_alive() is False
+
+
+def test_arm_rolls_back_if_focus_watcher_start_raises(monkeypatch):
+    watchdogs, sent = _patch_healthy_environment(monkeypatch)
+
+    class RaisingStartFocus(FakeWatchdog):
+        def start(self) -> None:
+            self.started = True
+            raise RuntimeError("focus watcher failed to start")
+
+    def make_focus(*args, **kwargs):
+        w = RaisingStartFocus(*args, **kwargs)
+        watchdogs["focus"] = w
+        return w
+
+    monkeypatch.setattr(ctrl_mod, "FocusWatcher", make_focus)
+
+    c = ctrl_mod.Controller()
+    with pytest.raises(RuntimeError):
+        c.arm(TARGET)
+
+    assert c.armed is False
+    # EmergencyStop started fine before FocusWatcher's start() raised --
+    # it must still be rolled back, not left running.
+    assert watchdogs["estop"].stopped is True
+    assert watchdogs["estop"].is_alive() is False
+    assert watchdogs["focus"].stopped is True
+    assert watchdogs["focus"].is_alive() is False
+
+
+def test_arm_rolls_back_on_keyboard_interrupt_during_start(monkeypatch):
+    watchdogs, sent = _patch_healthy_environment(monkeypatch)
+
+    class InterruptingEstop(FakeWatchdog):
+        def start(self) -> None:
+            self.started = True
+            raise KeyboardInterrupt()
+
+    def make_estop(*args, **kwargs):
+        w = InterruptingEstop(*args, **kwargs)
+        watchdogs["estop"] = w
+        return w
+
+    monkeypatch.setattr(ctrl_mod, "EmergencyStop", make_estop)
+
+    c = ctrl_mod.Controller()
+    with pytest.raises(KeyboardInterrupt):
+        c.arm(TARGET)
+
+    assert c.armed is False
+    assert watchdogs["estop"].stopped is True
+
+
+# ---- refuse to arm with unreleased input (round-9) ----------------------
+
+
+def test_arm_refused_when_unreleased_key_remains(monkeypatch):
+    c, watchdogs, sent = _armed_controller(monkeypatch)
+    c.press_key("w")
+
+    def failing_send_key_up(name):
+        raise OSError("simulated failure")
+
+    monkeypatch.setattr(win32_input, "send_key_up", failing_send_key_up)
+
+    estop_call_count = {"n": 0}
+
+    def counting_estop(*args, **kwargs):
+        estop_call_count["n"] += 1
+        return FakeWatchdog(*args, **kwargs)
+
+    monkeypatch.setattr(ctrl_mod, "EmergencyStop", counting_estop)
+
+    with pytest.raises(ctrl_mod.ControlArmFailedError, match="unreleased_input"):
+        c.arm(TARGET)
+
+    assert "w" in c._held_keys
+    assert c.armed is False
+    assert estop_call_count["n"] == 0  # no new watchdog infrastructure started
+
+
+def test_arm_refused_when_unreleased_button_remains(monkeypatch):
+    c, watchdogs, sent = _armed_controller(monkeypatch)
+    c.press_button("left")
+
+    def failing_send_button_up(button):
+        raise OSError("simulated failure")
+
+    monkeypatch.setattr(win32_input, "send_mouse_button_up", failing_send_button_up)
+
+    with pytest.raises(ctrl_mod.ControlArmFailedError, match="unreleased_input"):
+        c.arm(TARGET)
+
+    assert "left" in c._held_buttons
+    assert c.armed is False
+
+
+def test_arm_succeeds_after_unreleased_input_later_clears(monkeypatch):
+    c, watchdogs, sent = _armed_controller(monkeypatch)
+    c.press_key("w")
+
+    state = {"fail": True}
+
+    def flaky_send_key_up(name):
+        if state["fail"]:
+            raise OSError("simulated failure")
+        sent.append(("up", name))
+
+    monkeypatch.setattr(win32_input, "send_key_up", flaky_send_key_up)
+
+    with pytest.raises(ctrl_mod.ControlArmFailedError, match="unreleased_input"):
+        c.arm(TARGET)
+    assert "w" in c._held_keys
+    assert c.armed is False
+
+    state["fail"] = False
+    c.release_all()
+    assert "w" not in c._held_keys
+
+    c.arm(TARGET)
+    assert c.armed is True
