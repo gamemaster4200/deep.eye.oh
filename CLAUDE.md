@@ -58,5 +58,9 @@ Environment
 
 ## Current status
 
-Bootstrap only: minimal Python project skeleton, no game-specific logic.
-Next planned slice: `capture + replay v0`.
+Completed slices: bootstrap; `capture + replay v0` (screen capture,
+Observation contract, replay recording/reading); control/focus-safety/
+emergency-stop/debug-tooling v0 (Windows keyboard/mouse control gated by
+an armed-window focus check, mouse cursor-target check, and an
+independent emergency stop, plus replay/capture inspection CLI tooling).
+No game-specific perception or policy logic exists yet.
