@@ -52,3 +52,64 @@ def test_cli_replay_warns_on_mismatched_frame_count(tmp_path, capsys):
 
     out = capsys.readouterr().out
     assert "WARNING" in out
+
+
+def test_cli_replay_inspect_prints_frame_fields(tmp_path, capsys):
+    vp = Viewport(left=0, top=0, width=4, height=4)
+    replay_dir = tmp_path / "replay"
+    _write_fixture_replay(replay_dir, vp, frame_count=3)
+
+    cli.main(["replay-inspect", "--in", str(replay_dir), "--frame", "1"])
+
+    out = capsys.readouterr().out
+    assert "frame_index: 1" in out
+    assert "shape=(4, 4, 3)" in out
+
+
+def test_cli_replay_inspect_can_save_png(tmp_path, capsys):
+    vp = Viewport(left=0, top=0, width=4, height=4)
+    replay_dir = tmp_path / "replay"
+    _write_fixture_replay(replay_dir, vp, frame_count=2)
+    out_png = tmp_path / "frame.png"
+
+    cli.main(["replay-inspect", "--in", str(replay_dir), "--frame", "0", "--save", str(out_png)])
+
+    assert out_png.exists()
+    out = capsys.readouterr().out
+    assert "saved to" in out
+
+
+def test_cli_replay_inspect_out_of_range_frame(tmp_path, capsys):
+    vp = Viewport(left=0, top=0, width=4, height=4)
+    replay_dir = tmp_path / "replay"
+    _write_fixture_replay(replay_dir, vp, frame_count=2)
+
+    cli.main(["replay-inspect", "--in", str(replay_dir), "--frame", "99"])
+
+    out = capsys.readouterr().out
+    assert "ERROR" in out
+    assert "out of range" in out
+
+
+def test_cli_replay_timing_prints_stats(tmp_path, capsys):
+    vp = Viewport(left=0, top=0, width=4, height=4)
+    replay_dir = tmp_path / "replay"
+    _write_fixture_replay(replay_dir, vp, frame_count=5)
+
+    cli.main(["replay-timing", "--in", str(replay_dir)])
+
+    out = capsys.readouterr().out
+    assert "frames read: 5" in out
+    assert "delta t (s):" in out
+    assert "implied fps" in out
+
+
+def test_cli_replay_timing_too_few_frames(tmp_path, capsys):
+    vp = Viewport(left=0, top=0, width=4, height=4)
+    replay_dir = tmp_path / "replay"
+    _write_fixture_replay(replay_dir, vp, frame_count=1)
+
+    cli.main(["replay-timing", "--in", str(replay_dir)])
+
+    out = capsys.readouterr().out
+    assert "not enough frames" in out

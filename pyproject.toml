@@ -11,6 +11,7 @@ readme = "README.md"
 dependencies = [
     "numpy>=1.24",
     "Pillow>=10",
+    "pywin32>=306",
 ]
 
 [project.optional-dependencies]

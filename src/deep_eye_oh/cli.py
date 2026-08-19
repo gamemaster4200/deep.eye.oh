@@ -1,12 +1,17 @@
-"""Minimal CLI for manual capture/replay smoke testing.
+"""Minimal CLI for manual capture/replay/control smoke testing.
 
     python -m deep_eye_oh.cli capture --left 0 --top 0 --width 800 --height 600 --duration 8 --out replays\r1
     python -m deep_eye_oh.cli replay --in replays\r1
+    python -m deep_eye_oh.cli replay-inspect --in replays\r1 --frame 0 --save frame0.png
+    python -m deep_eye_oh.cli replay-timing --in replays\r1
+    python -m deep_eye_oh.cli capture-inspect --left 0 --top 0 --width 800 --height 600 --save live.png
+    python -m deep_eye_oh.cli control-smoke-test
 """
 
 from __future__ import annotations
 
 import argparse
+import statistics
 from pathlib import Path
 
 from deep_eye_oh.capture import ScreenCapture
@@ -99,6 +104,78 @@ def _cmd_replay(args: argparse.Namespace) -> None:
         print(f"monotonic span: {last_mono - first_mono:.3f}s")
 
 
+def _cmd_replay_inspect(args: argparse.Namespace) -> None:
+    reader = ReplayReader(Path(args.in_))
+    obs = None
+    for i, candidate in enumerate(reader):
+        if i == args.frame:
+            obs = candidate
+            break
+    if obs is None:
+        print(f"ERROR: frame {args.frame} out of range (frame_count={reader.frame_count})")
+        return
+
+    print(f"frame_index: {obs.frame_index}")
+    print(f"timestamp: {obs.timestamp}")
+    print(f"monotonic: {obs.monotonic}")
+    print(
+        f"viewport: left={obs.viewport.left} top={obs.viewport.top} "
+        f"width={obs.viewport.width} height={obs.viewport.height}"
+    )
+    print(f"frame: shape={obs.frame.shape} dtype={obs.frame.dtype}")
+
+    if args.save:
+        from PIL import Image
+
+        Image.fromarray(obs.frame).save(args.save)
+        print(f"saved to: {args.save}")
+
+
+def _cmd_replay_timing(args: argparse.Namespace) -> None:
+    reader = ReplayReader(Path(args.in_))
+    monotonics = [obs.monotonic for obs in reader]
+    print(f"frames read: {len(monotonics)} (manifest frame_count: {reader.frame_count})")
+    if len(monotonics) < 2:
+        print("not enough frames to compute timing statistics")
+        return
+
+    deltas = [b - a for a, b in zip(monotonics, monotonics[1:])]
+    mean_dt = statistics.fmean(deltas)
+    stdev_dt = statistics.pstdev(deltas) if len(deltas) > 1 else 0.0
+    print(
+        f"delta t (s): min={min(deltas):.4f} max={max(deltas):.4f} "
+        f"mean={mean_dt:.4f} stdev={stdev_dt:.4f}"
+    )
+    if mean_dt > 0:
+        print(f"implied fps (from mean delta): {1.0 / mean_dt:.2f}")
+
+
+def _cmd_capture_inspect(args: argparse.Namespace) -> None:
+    viewport = Viewport(left=args.left, top=args.top, width=args.width, height=args.height)
+    capturer = ScreenCapture(viewport)
+    obs = capturer.grab_one(frame_index=0)
+
+    print(f"timestamp: {obs.timestamp}")
+    print(f"monotonic: {obs.monotonic}")
+    print(
+        f"viewport: left={viewport.left} top={viewport.top} "
+        f"width={viewport.width} height={viewport.height}"
+    )
+    print(f"frame: shape={obs.frame.shape} dtype={obs.frame.dtype}")
+
+    if args.save:
+        from PIL import Image
+
+        Image.fromarray(obs.frame).save(args.save)
+        print(f"saved to: {args.save}")
+
+
+def _cmd_control_smoke_test(args: argparse.Namespace) -> None:
+    from deep_eye_oh.smoke_test import run_menu
+
+    run_menu()
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="deep_eye_oh", description="capture/replay v0 CLI")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -115,6 +192,35 @@ def build_parser() -> argparse.ArgumentParser:
     p_replay = sub.add_parser("replay", help="read a replay back and print stats")
     p_replay.add_argument("--in", dest="in_", type=str, required=True, help="replay directory")
     p_replay.set_defaults(func=_cmd_replay)
+
+    p_replay_inspect = sub.add_parser(
+        "replay-inspect", help="inspect a single frame from a stored replay"
+    )
+    p_replay_inspect.add_argument("--in", dest="in_", type=str, required=True)
+    p_replay_inspect.add_argument("--frame", type=int, required=True)
+    p_replay_inspect.add_argument("--save", type=str, default=None, help="save frame as PNG")
+    p_replay_inspect.set_defaults(func=_cmd_replay_inspect)
+
+    p_replay_timing = sub.add_parser(
+        "replay-timing", help="per-frame timing/jitter statistics for a stored replay"
+    )
+    p_replay_timing.add_argument("--in", dest="in_", type=str, required=True)
+    p_replay_timing.set_defaults(func=_cmd_replay_timing)
+
+    p_capture_inspect = sub.add_parser(
+        "capture-inspect", help="single-shot live capture of one Observation"
+    )
+    p_capture_inspect.add_argument("--left", type=int, required=True)
+    p_capture_inspect.add_argument("--top", type=int, required=True)
+    p_capture_inspect.add_argument("--width", type=int, required=True)
+    p_capture_inspect.add_argument("--height", type=int, required=True)
+    p_capture_inspect.add_argument("--save", type=str, default=None, help="save frame as PNG")
+    p_capture_inspect.set_defaults(func=_cmd_capture_inspect)
+
+    p_control_smoke = sub.add_parser(
+        "control-smoke-test", help="interactive manual Windows control smoke-test menu"
+    )
+    p_control_smoke.set_defaults(func=_cmd_control_smoke_test)
 
     return parser
 
