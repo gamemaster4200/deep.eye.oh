@@ -1,0 +1,17 @@
+﻿.codex-result.txt
+.chrome-profile/
+.chrome-dev-profile/
+tmp/
+temp/
+captures/
+recordings/
+logs/
+*.log
+*.har
+*.har.txt
+*.tmp
+*.bak
+*.download
+node_modules/
+.env
+.env.*
