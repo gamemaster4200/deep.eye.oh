@@ -1,0 +1,582 @@
+{
+  "format_version": 1,
+  "replay": "squares_dev",
+  "viewport": {
+    "left": 1920,
+    "top": 0,
+    "width": 1920,
+    "height": 1080
+  },
+  "frames": {
+    "0": {
+      "file": "frames/000000.png",
+      "sha256": "b0263ddd6e59d8cfdb4aff608ff176389fbb94ccdc19c1299ed5c3b7090508a3",
+      "annotations": [
+        {
+          "cx": 1164.0,
+          "cy": 112.5,
+          "half_size": 30.5
+        },
+        {
+          "cx": 1359.5,
+          "cy": 157.0,
+          "half_size": 27.5
+        },
+        {
+          "cx": 1417.0,
+          "cy": 293.5,
+          "half_size": 30.5
+        },
+        {
+          "cx": 1420.5,
+          "cy": 479.5,
+          "half_size": 30.5
+        },
+        {
+          "cx": 1017.0,
+          "cy": 453.5,
+          "half_size": 28.5
+        },
+        {
+          "cx": 929.0,
+          "cy": 671.0,
+          "half_size": 30.0
+        }
+      ]
+    },
+    "4": {
+      "file": "frames/000004.png",
+      "sha256": "2702990fcf1af77a00f8b8786327be485f4bc4d9e5a34edad6a55203fdde9d09",
+      "annotations": [
+        {
+          "cx": 1155.5,
+          "cy": 102.0,
+          "half_size": 27.5
+        },
+        {
+          "cx": 1347.5,
+          "cy": 153.5,
+          "half_size": 29.5
+        },
+        {
+          "cx": 1407.0,
+          "cy": 284.0,
+          "half_size": 31.0
+        },
+        {
+          "cx": 1426.5,
+          "cy": 489.5,
+          "half_size": 29.5
+        },
+        {
+          "cx": 1008.0,
+          "cy": 442.5,
+          "half_size": 30.0
+        },
+        {
+          "cx": 926.0,
+          "cy": 685.0,
+          "half_size": 29.0
+        },
+        {
+          "cx": 1838.0,
+          "cy": 278.5,
+          "half_size": 27.0
+        }
+      ]
+    },
+    "9": {
+      "file": "frames/000009.png",
+      "sha256": "769fec5b70e42dcf34ebf37d81092bede4a4daa2d77e8be6d0549aabd69a7081",
+      "annotations": [
+        {
+          "cx": 1147.5,
+          "cy": 90.5,
+          "half_size": 23.5
+        },
+        {
+          "cx": 1333.5,
+          "cy": 147.5,
+          "half_size": 31.5
+        },
+        {
+          "cx": 1399.5,
+          "cy": 272.0,
+          "half_size": 30.5
+        },
+        {
+          "cx": 1433.0,
+          "cy": 503.0,
+          "half_size": 27.0
+        },
+        {
+          "cx": 998.0,
+          "cy": 430.0,
+          "half_size": 31.0
+        },
+        {
+          "cx": 926.5,
+          "cy": 701.0,
+          "half_size": 24.0
+        },
+        {
+          "cx": 1822.0,
+          "cy": 284.0,
+          "half_size": 30.0
+        }
+      ]
+    },
+    "14": {
+      "file": "frames/000014.png",
+      "sha256": "ecace2b33320d47fb14eebe8713733fdecd5ec4018b6b9c649af689f2ff97816",
+      "annotations": [
+        {
+          "cx": 1139.5,
+          "cy": 79.0,
+          "half_size": 29.5
+        },
+        {
+          "cx": 1320.5,
+          "cy": 142.5,
+          "half_size": 31.5
+        },
+        {
+          "cx": 1393.5,
+          "cy": 259.0,
+          "half_size": 27.5
+        },
+        {
+          "cx": 1444.0,
+          "cy": 513.5,
+          "half_size": 26.0
+        },
+        {
+          "cx": 990.5,
+          "cy": 417.5,
+          "half_size": 31.5
+        },
+        {
+          "cx": 925.0,
+          "cy": 715.5,
+          "half_size": 28.5
+        },
+        {
+          "cx": 1810.5,
+          "cy": 289.5,
+          "half_size": 31.5
+        }
+      ]
+    },
+    "19": {
+      "file": "frames/000019.png",
+      "sha256": "30b96e031e215b04b2140d9418af0b01a034add5b3dbb5445c97bf16ba73f64e",
+      "annotations": [
+        {
+          "cx": 1126.0,
+          "cy": 69.5,
+          "half_size": 31.5
+        },
+        {
+          "cx": 1309.0,
+          "cy": 134.5,
+          "half_size": 30.5
+        },
+        {
+          "cx": 1797.0,
+          "cy": 295.5,
+          "half_size": 31.5
+        },
+        {
+          "cx": 1452.5,
+          "cy": 523.5,
+          "half_size": 30.5
+        },
+        {
+          "cx": 1388.0,
+          "cy": 244.0,
+          "half_size": 23.0
+        },
+        {
+          "cx": 985.0,
+          "cy": 404.5,
+          "half_size": 28.0
+        },
+        {
+          "cx": 927.5,
+          "cy": 727.0,
+          "half_size": 29.5
+        }
+      ]
+    },
+    "24": {
+      "file": "frames/000024.png",
+      "sha256": "3b9e5cdc5a6c7620e499d632ecda5fb47182812091c4ae870eee91fa2b080578",
+      "annotations": [
+        {
+          "cx": 1114.5,
+          "cy": 59.5,
+          "half_size": 31.5
+        },
+        {
+          "cx": 1296.0,
+          "cy": 124.5,
+          "half_size": 25.5
+        },
+        {
+          "cx": 1383.0,
+          "cy": 231.0,
+          "half_size": 29.0
+        },
+        {
+          "cx": 978.0,
+          "cy": 390.5,
+          "half_size": 23.0
+        },
+        {
+          "cx": 1463.5,
+          "cy": 534.5,
+          "half_size": 31.5
+        },
+        {
+          "cx": 931.0,
+          "cy": 742.0,
+          "half_size": 31.0
+        }
+      ]
+    },
+    "29": {
+      "file": "frames/000029.png",
+      "sha256": "ceadf9df6c653c80543527c3796db25b52d87f04adb7309e2e88e27753d16533",
+      "annotations": [
+        {
+          "cx": 1102.5,
+          "cy": 53.0,
+          "half_size": 31.0
+        },
+        {
+          "cx": 1284.5,
+          "cy": 115.5,
+          "half_size": 28.5
+        },
+        {
+          "cx": 1378.5,
+          "cy": 218.0,
+          "half_size": 32.0
+        },
+        {
+          "cx": 1475.5,
+          "cy": 542.0,
+          "half_size": 32.0
+        },
+        {
+          "cx": 975.0,
+          "cy": 377.5,
+          "half_size": 29.0
+        },
+        {
+          "cx": 936.5,
+          "cy": 756.5,
+          "half_size": 31.5
+        }
+      ]
+    },
+    "34": {
+      "file": "frames/000034.png",
+      "sha256": "1444b592102aa3428df700caeaa0e4e83ae29577674e7c62e596c9d1148c4d5a",
+      "annotations": [
+        {
+          "cx": 529.0,
+          "cy": 153.5,
+          "half_size": 28.0
+        },
+        {
+          "cx": 1089.5,
+          "cy": 44.5,
+          "half_size": 29.5
+        },
+        {
+          "cx": 1273.5,
+          "cy": 104.5,
+          "half_size": 31.5
+        },
+        {
+          "cx": 1376.0,
+          "cy": 203.0,
+          "half_size": 32.0
+        },
+        {
+          "cx": 1488.0,
+          "cy": 550.5,
+          "half_size": 30.5
+        },
+        {
+          "cx": 972.0,
+          "cy": 363.0,
+          "half_size": 31.0
+        },
+        {
+          "cx": 941.0,
+          "cy": 770.0,
+          "half_size": 28.0
+        }
+      ]
+    },
+    "39": {
+      "file": "frames/000039.png",
+      "sha256": "6fa22a436f5a99a087cba364fa4904e31ef90579e412242065c98c4cbb56a7be",
+      "annotations": [
+        {
+          "cx": 1075.0,
+          "cy": 38.0,
+          "half_size": 26.0
+        },
+        {
+          "cx": 1264.0,
+          "cy": 94.5,
+          "half_size": 32.5
+        },
+        {
+          "cx": 1375.5,
+          "cy": 187.5,
+          "half_size": 30.5
+        },
+        {
+          "cx": 1502.5,
+          "cy": 558.0,
+          "half_size": 25.0
+        },
+        {
+          "cx": 968.0,
+          "cy": 348.0,
+          "half_size": 33.0
+        },
+        {
+          "cx": 538.5,
+          "cy": 140.5,
+          "half_size": 24.5
+        },
+        {
+          "cx": 947.5,
+          "cy": 781.5,
+          "half_size": 23.5
+        }
+      ]
+    },
+    "44": {
+      "file": "frames/000044.png",
+      "sha256": "6784563f961e53159b71e3438aefa8cf42126a25c8426d838f7045a5b2b05b3b",
+      "annotations": [
+        {
+          "cx": 1399.0,
+          "cy": 34.0,
+          "half_size": 33.0
+        },
+        {
+          "cx": 1375.5,
+          "cy": 172.5,
+          "half_size": 28.5
+        },
+        {
+          "cx": 1257.5,
+          "cy": 82.5,
+          "half_size": 30.5
+        },
+        {
+          "cx": 969.5,
+          "cy": 332.0,
+          "half_size": 30.5
+        },
+        {
+          "cx": 1514.5,
+          "cy": 564.5,
+          "half_size": 27.5
+        },
+        {
+          "cx": 547.0,
+          "cy": 130.5,
+          "half_size": 29.0
+        },
+        {
+          "cx": 957.0,
+          "cy": 795.5,
+          "half_size": 29.5
+        },
+        {
+          "cx": 1062.5,
+          "cy": 33.0,
+          "half_size": 31.5
+        }
+      ]
+    },
+    "49": {
+      "file": "frames/000049.png",
+      "sha256": "d0efc6fce215401044aa8c9eff28b2dacdb21670051db2eae83e63303a751758",
+      "annotations": [
+        {
+          "cx": 1049.0,
+          "cy": 31.0,
+          "half_size": 31.0
+        },
+        {
+          "cx": 1249.5,
+          "cy": 70.5,
+          "half_size": 30.5
+        },
+        {
+          "cx": 1401.5,
+          "cy": 47.5,
+          "half_size": 31.5
+        },
+        {
+          "cx": 1378.5,
+          "cy": 160.5,
+          "half_size": 23.5
+        },
+        {
+          "cx": 1528.0,
+          "cy": 568.5,
+          "half_size": 31.5
+        },
+        {
+          "cx": 967.5,
+          "cy": 318.5,
+          "half_size": 29.5
+        },
+        {
+          "cx": 556.0,
+          "cy": 119.0,
+          "half_size": 32.0
+        },
+        {
+          "cx": 964.5,
+          "cy": 806.0,
+          "half_size": 30.5
+        }
+      ]
+    },
+    "54": {
+      "file": "frames/000054.png",
+      "sha256": "05389de4ac19a767ce35592c46d443b346f0e2a1b18dc1519ad0ce97e6ecb245",
+      "annotations": [
+        {
+          "cx": 567.5,
+          "cy": 110.0,
+          "half_size": 32.0
+        },
+        {
+          "cx": 969.5,
+          "cy": 302.0,
+          "half_size": 25.0
+        },
+        {
+          "cx": 1242.0,
+          "cy": 57.0,
+          "half_size": 25.0
+        },
+        {
+          "cx": 1399.0,
+          "cy": 62.0,
+          "half_size": 33.0
+        },
+        {
+          "cx": 1380.0,
+          "cy": 145.5,
+          "half_size": 29.0
+        },
+        {
+          "cx": 1542.0,
+          "cy": 573.5,
+          "half_size": 32.0
+        },
+        {
+          "cx": 973.5,
+          "cy": 817.0,
+          "half_size": 31.5
+        },
+        {
+          "cx": 1034.5,
+          "cy": 30.0,
+          "half_size": 32.5
+        }
+      ]
+    },
+    "59": {
+      "file": "frames/000059.png",
+      "sha256": "667b3a5641eb589d5a289f6f705d6de782b19bb5da6fa69b5450de7c4c29e30f",
+      "annotations": [
+        {
+          "cx": 579.0,
+          "cy": 102.5,
+          "half_size": 30.5
+        },
+        {
+          "cx": 1236.5,
+          "cy": 42.5,
+          "half_size": 29.5
+        },
+        {
+          "cx": 1555.5,
+          "cy": 575.5,
+          "half_size": 32.5
+        },
+        {
+          "cx": 1021.5,
+          "cy": 27.5,
+          "half_size": 28.5
+        },
+        {
+          "cx": 984.5,
+          "cy": 828.0,
+          "half_size": 33.0
+        }
+      ]
+    },
+    "64": {
+      "file": "frames/000064.png",
+      "sha256": "5a760d437b298bd93a1855bc9177c1d68fc2a9f1a6a41c6a08f9c97acf686621",
+      "annotations": [
+        {
+          "cx": 1005.0,
+          "cy": 26.0,
+          "half_size": 26.0
+        },
+        {
+          "cx": 1231.5,
+          "cy": 30.0,
+          "half_size": 30.5
+        },
+        {
+          "cx": 592.0,
+          "cy": 93.0,
+          "half_size": 27.0
+        },
+        {
+          "cx": 1573.5,
+          "cy": 577.0,
+          "half_size": 30.0
+        },
+        {
+          "cx": 996.0,
+          "cy": 840.5,
+          "half_size": 28.5
+        }
+      ]
+    },
+    "69": {
+      "file": "frames/000069.png",
+      "sha256": "84f19f38e67e5f3adc033c26859558de23b789e97cbe742777eb3f73451c2b59",
+      "annotations": [
+        {
+          "cx": 604.5,
+          "cy": 86.5,
+          "half_size": 26.5
+        },
+        {
+          "cx": 1007.5,
+          "cy": 844.5,
+          "half_size": 23.5
+        }
+      ]
+    }
+  }
+}

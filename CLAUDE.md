@@ -64,3 +64,11 @@ emergency-stop/debug-tooling v0 (Windows keyboard/mouse control gated by
 an armed-window focus check, mouse cursor-target check, and an
 independent emergency stop, plus replay/capture inspection CLI tooling).
 No game-specific perception or policy logic exists yet.
+
+`shape-perception-v0` (branch `feat/shape-perception-v0`, WIP): human
+ground-truth annotation tooling (`tools/annotate_squares.py`,
+`tools/freeze_benchmark.py`, `tools/evaluate_squares.py`) and a frozen
+`squares_v0` benchmark (`benchmarks/squares_v0/`) for an upcoming
+`SquareDetector`. See `benchmarks/squares_v0/README.md` for the annotation
+and evaluation methodology. No detector/GameState/Policy/Action
+implementation exists yet.
