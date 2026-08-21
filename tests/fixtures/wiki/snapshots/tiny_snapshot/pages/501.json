@@ -1,0 +1,17 @@
+{
+  "format_version": 1,
+  "pageid": 501,
+  "title": "Talk:Basic",
+  "namespace_id": 1,
+  "namespace_name": "Talk",
+  "canonical_url": "https://example.fandom.com/wiki/Talk:Basic",
+  "is_redirect": false,
+  "redirect_target_title": null,
+  "redirect_target_pageid": null,
+  "categories": [],
+  "revision": {"revid": 5007, "parentid": null, "timestamp": "2025-06-01T00:00:00Z", "contentmodel": "wikitext", "contentformat": "text/x-wiki"},
+  "wikitext": "Should we buff this tank?",
+  "content_sha256": "test-fixture-hash-501",
+  "retrieved_at": "2026-01-01T00:01:30Z",
+  "source_query": {"endpoint": "https://example.fandom.com/api.php", "params_digest": "fixture"}
+}

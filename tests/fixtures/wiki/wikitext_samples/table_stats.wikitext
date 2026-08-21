@@ -1,0 +1,8 @@
+== Stats ==
+{| class="wikitable"
+! Level !! HP !! Speed
+|-
+| 1 || 100 || 1
+|-
+| 45 || 500 || 1.2
+|}

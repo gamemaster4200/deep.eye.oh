@@ -1,0 +1,15 @@
+{
+  "batchcomplete": true,
+  "query": {
+    "pages": [
+      {
+        "pageid": 103,
+        "ns": 0,
+        "title": "Overlord Redirect",
+        "fullurl": "https://example.fandom.com/wiki/Overlord_Redirect",
+        "redirect": true,
+        "categories": []
+      }
+    ]
+  }
+}

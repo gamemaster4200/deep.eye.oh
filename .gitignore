@@ -22,3 +22,7 @@ Thumbs.db
 
 # Manual capture/replay smoke-test output
 replays/
+
+# Raw wiki snapshots: large, regenerable from the live wiki (see
+# knowledge/inventory/ for the small, tracked, derived outputs)
+knowledge/raw/

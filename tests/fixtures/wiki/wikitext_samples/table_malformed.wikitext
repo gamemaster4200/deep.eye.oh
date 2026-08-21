@@ -1,0 +1,9 @@
+== Upgrades ==
+{| class="wikitable"
+! Tier !! Name !! Notes
+|-
+| 1 || Twin
+this is a stray continuation line inside a cell
+|-
+| 2 || Triplet || Machine Gun || extra unexpected cell
+|}

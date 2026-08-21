@@ -1,0 +1,9 @@
+{{Infobox shape
+|health=10
+}}
+
+Some shapes below use "Health" and others use "health" for the same field.
+
+{{Infobox shape
+|Health=10
+}}
