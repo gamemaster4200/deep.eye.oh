@@ -1,0 +1,189 @@
+{
+  "provenance": {
+    "snapshot_id": "20260821T022701Z",
+    "acquisition_completed_at": "2026-08-21T02:28:46Z",
+    "source_manifest_sha256": "3a374d91ae20e115a1d61d5657d0d883f41c33a41cfe283d0545b13d9f4150bc",
+    "inventory_schema_version": 1
+  },
+  "total_pages": 20432,
+  "by_namespace": {
+    "Category": 266,
+    "User": 6894,
+    "User blog": 933,
+    "Project": 702,
+    "User blog comment": 3026,
+    "Template": 1356,
+    "Template talk": 427,
+    "Category talk": 249,
+    "Project talk": 699,
+    "MediaWiki": 165,
+    "MediaWiki talk": 325,
+    "Blog": 6,
+    "Blog talk": 3,
+    "Help talk": 434,
+    "(Main)": 380,
+    "Module talk": 10,
+    "Module": 11,
+    "Fanon": 2544,
+    "Help": 18,
+    "Fanon talk": 1586,
+    "Tale of Diep talk": 333,
+    "Talk": 23,
+    "Tale of Diep": 42
+  },
+  "by_page_type": {
+    "categories": 266,
+    "user_pages": 10853,
+    "unknown": 7258,
+    "templates": 1356,
+    "discussion_forum": 699
+  },
+  "unknown_page_type_by_namespace": {
+    "Project": 702,
+    "Project talk": 699,
+    "MediaWiki": 165,
+    "MediaWiki talk": 325,
+    "Blog": 6,
+    "Blog talk": 3,
+    "Help talk": 434,
+    "(Main)": 380,
+    "Module talk": 10,
+    "Module": 11,
+    "Fanon": 2544,
+    "Help": 18,
+    "Fanon talk": 1586,
+    "Tale of Diep talk": 333,
+    "Tale of Diep": 42
+  },
+  "redirect_count": 1353,
+  "redirect_status_mismatch_count": 0,
+  "acquisition_failure_count": 0,
+  "links": {
+    "orphan_page_count": 17651,
+    "orphan_example_titles": [
+      "2 TDM Maze",
+      "Ambulance",
+      "Arena Closer(Gaed)",
+      "Armorboat",
+      "Arms Race",
+      "Assembler",
+      "Assets",
+      "Baritone",
+      "Base Triangles",
+      "Basic",
+      "Battle Carrier",
+      "Bergenconfusung",
+      "Beta Tester",
+      "Beta.diep.io",
+      "Blog talk:Featured Blogs",
+      "Blog talk:Games",
+      "Blog talk:Recent posts",
+      "Blog:Featured Blogs",
+      "Blog:Fuzzo the fuzzy bee:Environmental Game Mechanics",
+      "Blog:Recent posts"
+    ],
+    "hub_titles": [
+      {
+        "title": "Staff",
+        "in_degree": 719
+      },
+      {
+        "title": "Cannons",
+        "in_degree": 603
+      },
+      {
+        "title": "Destroyer",
+        "in_degree": 571
+      },
+      {
+        "title": "Tank",
+        "in_degree": 406
+      },
+      {
+        "title": "Board:Violation Reporting",
+        "in_degree": 400
+      },
+      {
+        "title": "Drones",
+        "in_degree": 371
+      },
+      {
+        "title": "Smasher",
+        "in_degree": 347
+      },
+      {
+        "title": "Overseer",
+        "in_degree": 333
+      },
+      {
+        "title": "Trapper",
+        "in_degree": 320
+      },
+      {
+        "title": "Sniper",
+        "in_degree": 320
+      },
+      {
+        "title": "Bullets",
+        "in_degree": 302
+      },
+      {
+        "title": "Machine Gun",
+        "in_degree": 278
+      },
+      {
+        "title": "Gunner",
+        "in_degree": 276
+      },
+      {
+        "title": "Booster",
+        "in_degree": 259
+      },
+      {
+        "title": "Triplet",
+        "in_degree": 249
+      },
+      {
+        "title": "Tiers",
+        "in_degree": 239
+      },
+      {
+        "title": "Necromancer",
+        "in_degree": 238
+      },
+      {
+        "title": "Spawners",
+        "in_degree": 235
+      },
+      {
+        "title": "Auto Turrets",
+        "in_degree": 224
+      },
+      {
+        "title": "Annihilator",
+        "in_degree": 218
+      }
+    ]
+  },
+  "manifest_summary": {
+    "snapshot_id": "20260821T022701Z",
+    "wiki_base_url": "https://diepio.fandom.com",
+    "started_at": "2026-08-21T02:27:01Z",
+    "completed_at": "2026-08-21T02:28:46Z",
+    "source_backend": "dump",
+    "source_dump": {
+      "wikiid": "diepio",
+      "dump_url": "https://s3.amazonaws.com/wikia_xml_dumps/d/di/diepio_pages_current.xml.7z",
+      "dump_last_modified": "Fri, 12 Jun 2026 14:18:41 GMT",
+      "archive_sha256": "36f9c7efb89946aa48e869ddd33ccbd7e7aac118d303b55a3fc61600880fec81",
+      "dump_type": "mediawiki-xml-export-pages-current"
+    },
+    "robots_txt_status": {
+      "url": "https://diepio.fandom.com/robots.txt",
+      "outcome": "unavailable_permitted",
+      "http_status": 403,
+      "reason": "HTTP 403 fetching robots.txt (RFC 9309 \u00a72.3.1.3: 4xx = unavailable; proceeding with no restrictions)",
+      "checked_at": "2026-08-21T02:27:01Z"
+    }
+  }
+}

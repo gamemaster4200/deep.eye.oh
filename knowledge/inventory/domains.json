@@ -1,0 +1,97 @@
+{
+  "provenance": {
+    "snapshot_id": "20260821T022701Z",
+    "acquisition_completed_at": "2026-08-21T02:28:46Z",
+    "source_manifest_sha256": "3a374d91ae20e115a1d61d5657d0d883f41c33a41cfe283d0545b13d9f4150bc",
+    "inventory_schema_version": 1
+  },
+  "domains": {
+    "tanks": {
+      "page_count": 0,
+      "example_pageids": []
+    },
+    "tank_tiers_classes": {
+      "page_count": 0,
+      "example_pageids": []
+    },
+    "upgrade_relationships": {
+      "page_count": 0,
+      "example_pageids": []
+    },
+    "shapes_polygons": {
+      "page_count": 0,
+      "example_pageids": []
+    },
+    "bosses": {
+      "page_count": 0,
+      "example_pageids": []
+    },
+    "weapons": {
+      "page_count": 0,
+      "example_pageids": []
+    },
+    "ammunition": {
+      "page_count": 0,
+      "example_pageids": []
+    },
+    "stats": {
+      "page_count": 0,
+      "example_pageids": []
+    },
+    "mechanics": {
+      "page_count": 0,
+      "example_pageids": []
+    },
+    "levels": {
+      "page_count": 0,
+      "example_pageids": []
+    },
+    "game_modes": {
+      "page_count": 0,
+      "example_pageids": []
+    },
+    "maps_map_features": {
+      "page_count": 0,
+      "example_pageids": []
+    },
+    "changelog_updates": {
+      "page_count": 152,
+      "example_pageids": [
+        105223,
+        110285,
+        111119,
+        112112,
+        124682,
+        128210,
+        128210,
+        128791,
+        128791,
+        128888
+      ]
+    },
+    "builds_strategies": {
+      "page_count": 0,
+      "example_pageids": []
+    },
+    "historical_removed_content": {
+      "page_count": 188,
+      "example_pageids": [
+        102055,
+        103834,
+        10486,
+        105223,
+        1101,
+        114580,
+        128616,
+        128632,
+        128689,
+        128747
+      ]
+    },
+    "event_content": {
+      "page_count": 0,
+      "example_pageids": []
+    }
+  },
+  "unknown_domain_page_count": 20188
+}

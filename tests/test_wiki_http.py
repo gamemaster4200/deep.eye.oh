@@ -116,6 +116,59 @@ def test_robots_txt_allowed_path_proceeds():
     assert result == {"ok": True}
 
 
+def test_check_robots_obeyed_on_success():
+    opener = _FakeOpener([b"User-agent: *\nDisallow: /private/\n"])
+    result = _http.check_robots("https://example.test", user_agent="ua/1", timeout=5.0, opener=opener)
+    assert result["outcome"] == "obeyed"
+    assert result["http_status"] == 200
+    assert result["parser"] is not None
+    assert result["parser"].can_fetch("ua/1", "https://example.test/private/x") is False
+    assert result["parser"].can_fetch("ua/1", "https://example.test/api.php") is True
+
+
+def test_check_robots_4xx_is_unavailable_permitted_no_retry():
+    err = urllib.error.HTTPError("https://example.test/robots.txt", 403, "Forbidden", {}, None)
+    opener = _FakeOpener([err])
+    result = _http.check_robots("https://example.test", user_agent="ua/1", timeout=5.0, retries=3, opener=opener)
+    assert result["outcome"] == "unavailable_permitted"
+    assert result["http_status"] == 403
+    assert result["parser"] is None
+    assert len(opener.calls) == 1  # RFC 9309: 4xx is definitive, no retry needed
+
+
+def test_check_robots_5xx_fails_closed_after_retries():
+    err = urllib.error.HTTPError("https://example.test/robots.txt", 503, "Service Unavailable", {}, None)
+    opener = _FakeOpener([err, err, err])
+    sleeps = []
+    with pytest.raises(_http.TransientAcquisitionError):
+        _http.check_robots("https://example.test", user_agent="ua/1", timeout=5.0, retries=2, delay=0.01, opener=opener, sleep=_sleeps(sleeps))
+    assert len(opener.calls) == 3
+
+
+def test_check_robots_network_error_fails_closed_after_retries():
+    opener = _FakeOpener([urllib.error.URLError("connection refused")])
+    with pytest.raises(_http.TransientAcquisitionError):
+        _http.check_robots("https://example.test", user_agent="ua/1", timeout=5.0, retries=0, opener=opener)
+
+
+def test_fetch_head_returns_result_on_success():
+    def fake_head_opener(request, timeout):
+        assert request.get_method() == "HEAD"
+        return _http.HeadResult(200, {"Last-Modified": "Fri, 12 Jun 2026 14:18:41 GMT", "Content-Length": "23053825"})
+
+    result = _http.fetch_head("https://s3.amazonaws.com/dump.7z", user_agent="ua/1", timeout=5.0, opener=fake_head_opener)
+    assert result.status == 200
+    assert result.get("last-modified") == "Fri, 12 Jun 2026 14:18:41 GMT"  # case-insensitive lookup
+
+
+def test_fetch_head_returns_none_on_failure():
+    def fake_head_opener(request, timeout):
+        raise urllib.error.HTTPError("https://s3.amazonaws.com/dump.7z", 404, "Not Found", {}, None)
+
+    result = _http.fetch_head("https://s3.amazonaws.com/dump.7z", user_agent="ua/1", timeout=5.0, opener=fake_head_opener)
+    assert result is None
+
+
 def test_user_agent_flag_is_required_with_no_default():
     parser = __import__("argparse").ArgumentParser()
     _http.add_http_args(parser)

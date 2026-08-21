@@ -1,153 +1,152 @@
 # Diep.io Wiki Corpus — Structural Inventory Report
 
-**This is not a corpus inventory. It is an honest report of a failed live-acquisition attempt.**
-No page content from `https://diepio.fandom.com` was acquired this session. Nothing below should
-be read as describing the real wiki corpus — only what the tooling itself is capable of, as
-verified against synthetic test fixtures.
-
-## What happened
-
-`tools/wiki/discover.py` was run for real against `https://diepio.fandom.com` with a generic,
-non-personal User-Agent (`deep-eye-oh-wiki-inventory/0.1 (+research tool; see project repo)`),
-using the public MediaWiki `action=query` API via Python's `urllib`, per the plan's approved
-design (stdlib HTTP client, no `requests`).
-
-Per this project's access constraints, the tool checks `robots.txt` before making any other
-request and currently refuses to proceed if that check does not succeed. That check did not
-succeed: `https://diepio.fandom.com/robots.txt` returned **HTTP 403 Forbidden** to this tool's
-`urllib` client, consistently, across 4 repeated attempts.
-
-**Correction from an earlier version of this report**: that 403 is *not* a robots-protocol
-prohibition on crawling, and should not have been described as one. RFC 9309 (the Robots
-Exclusion Protocol), §2.3.1.3, classifies a 4xx response when fetching `robots.txt` as
-**"unavailable"**, and explicitly permits a crawler to proceed as if there were no restrictions
-in that case (this is distinct from a 5xx/"unreachable" response, which the RFC treats more
-cautiously). So, per the protocol itself, an HTTP 403 on `robots.txt` alone does not obligate a
-crawler to stop. The tool's current refusal to proceed is a deliberate, conservative
-implementation choice that is stricter than the protocol requires — not something robots.txt
-itself is mandating — and it remains in place for a different, more concrete reason described
-below (Fandom's Terms of Use), not because of the 403 itself.
-
-### Diagnosis (evidence, not a workaround)
-
-To understand — not bypass — this failure, a few read-only diagnostic checks were run (outside
-the committed tool code):
-
-- `curl` (same machine, same network, same User-Agent string) fetched the same
-  `https://diepio.fandom.com/robots.txt` URL successfully (HTTP 200). Its response carried
-  `CF-Cache-Status: HIT` and `Age: 25512`, i.e. a Cloudflare-edge-cached response served without
-  reaching the origin.
-- The same Python `urllib` client, requesting `https://diepio.fandom.com/api.php` (the actual
-  resource the tool needs for content), succeeded (HTTP 200) — the block is specific to the
-  `/robots.txt` path for this client, not the whole site.
-- Swapping the `User-Agent` string sent by `urllib` (including sending the literal string
-  `curl/8.0`) did not change the outcome — `urllib` was still blocked on `/robots.txt` while
-  `curl` itself, actually run as `curl`, was not.
-
-Together this points to Cloudflare bot-management fingerprinting the HTTP client (TLS/HTTP stack
-signature) rather than anything about the User-Agent header content or request headers. This is
-exactly the kind of anti-bot protection this project's access constraints forbid working around —
-no TLS/client impersonation, proxy, or CAPTCHA-solving was attempted, and none should be.
-
-### Where the acquisition gate currently sits
-
-The tool refuses all further requests (including to `/api.php`, even though that specific
-endpoint is independently reachable) whenever the `robots.txt` check does not cleanly succeed.
-This refusal is implemented in `tools/wiki/discover.py`'s
-`_build_robot_parser_or_record_failure` (mirrored in `fetch.py`), which durably records the
-failed attempt to `knowledge/raw/fandom/acquisition_attempt_log.jsonl` before exiting — see that
-file for the raw record (timestamp, URL, HTTP status, reason). No page content, page list, or
-snapshot was written; there is nothing to preserve raw-vs-derived separation over, because
-nothing was acquired.
-
-As corrected above, this gate is not required by robots.txt itself for a 4xx response — it is
-being left in place deliberately, unchanged, because of a separate and more directly applicable
-restriction, below. **The crawler has not been changed to bypass or loosen this gate.**
-
-## Actual current blocker: Fandom's Terms of Use
-
-Independent of the robots.txt technical question, Fandom's Terms of Use restrict automated
-scraping/retrieval of site content without express written permission, and separately restrict
-using or copying site content for software/AI development purposes without prior written
-consent. This project's stated purpose for this data — structured prior knowledge feeding a
-software/AI system (perception, world-modelling, simulator development, eventually policy) — is
-exactly the kind of use those terms require prior written consent for.
-
-This is the real, controlling blocker on further acquisition right now, not the `robots.txt`
-403. It is a licensing/permissions question, not a technical or engineering one, and resolving
-it (requesting/obtaining Fandom's written permission, or choosing a different path) is a
-decision for a human, outside the scope of this tooling slice.
-
-### Known sanctioned alternative, deliberately not used yet
-
-Fandom officially publishes database dumps of wiki content, linked from each wiki's
-`Special:Statistics` page. This is a legitimate, sanctioned bulk-access mechanism distinct from
-live API scraping, and would sidestep the robots.txt/live-crawling question entirely. **This
-project has not ingested such a dump in this slice.** Doing so would not, by itself, resolve the
-open question above: the same Terms of Use restriction on using/copying content for software/AI
-development without prior written consent would still apply to dump-derived content, since the
-restriction is about the *use*, not the *acquisition method*. Ingesting a dump before that
-consent question is resolved would just move the unresolved policy risk downstream rather than
-address it.
+- snapshot_id: `20260821T022701Z`
+- acquisition_completed_at: `2026-08-21T02:28:46Z`
+- source_manifest_sha256: `3a374d91ae20e115a1d61d5657d0d883f41c33a41cfe283d0545b13d9f4150bc`
+- inventory_schema_version: `1`
 
 ## Corpus
 
-- pages discovered: 0
-- pages acquired: 0
-- pages failed: 0 (no *pages* were attempted — acquisition never got past the robots.txt gate)
-- redirects: unknown — not reached
-- canonical candidates / fanon / community / other: unknown — not reached
+- total pages: 20432
+- acquisition failures recorded: 0
+- redirects: 1353 (API/wikitext redirect-status mismatches: 0)
+- pages by namespace:
+  - User: 6894
+  - User blog comment: 3026
+  - Fanon: 2544
+  - Fanon talk: 1586
+  - Template: 1356
+  - User blog: 933
+  - Project: 702
+  - Project talk: 699
+  - Help talk: 434
+  - Template talk: 427
+  - (Main): 380
+  - Tale of Diep talk: 333
+  - MediaWiki talk: 325
+  - Category: 266
+  - Category talk: 249
+  - MediaWiki: 165
+  - Tale of Diep: 42
+  - Talk: 23
+  - Help: 18
+  - Module: 11
+  - Module talk: 10
+  - Blog: 6
+  - Blog talk: 3
+- pages by primary page type (heuristic, evidence-backed — see pages.jsonl for full multi-label evidence):
+  - user_pages: 10853
+  - unknown: 7258
+  - templates: 1356
+  - discussion_forum: 699
+  - categories: 266
 
-## Information structure / Domains / Temporal data
+## Information structure
 
-Not measured against real data this session. The extraction and classification machinery for
-all of this (sections, templates/infoboxes, tables with best-effort `parse_quality`, candidate
-domains, canonical/fanon/community separation) is implemented in `tools/wiki/_wikitext.py` and
-`tools/wiki/_classify.py`, and is verified to work correctly against representative *synthetic*
-wikitext/API-response fixtures and a hand-built `tiny_snapshot` (see `tests/test_wiki_wikitext.py`,
-`tests/test_wiki_classify.py`, `tests/test_wiki_inventory.py` — 57 tests, all passing, fully
-offline). None of that is a substitute for measuring the real corpus; it only establishes that
-the tooling is ready to do so once acquisition succeeds.
+- categories observed: 337
+- unique section headings: 14586
+- most frequent section headings:
+  - "Trivia": 2597
+  - "Design": 2504
+  - "Technical": 2116
+  - "Strategy": 1387
+  - "My favorite pages": 1089
+  - "Gallery": 464
+  - "Attacks": 399
+  - "Description": 383
+  - "Stats": 329
+  - "Overview": 304
+  - "Appearance": 294
+  - "Strategies": 185
+  - "Phase 2": 177
+  - "Phase 1": 168
+  - "History": 136
+- template/infobox types observed: 1149
+- most frequent templates:
+  - "f": 3728 use(s), 2 distinct field(s)
+  - "Fanon": 3434 use(s), 168 distinct field(s) (conflicting field-name groups: [['author-username', 'author username'], ['boss HP?', 'Boss HP?'], ['Title', 'title'], ['level', 'Level'], ['tier', 'Tier'], ['Upgrades from', 'upgrades from']])
+  - "2": 3081 use(s), 3 distinct field(s)
+  - "Talk": 1756 use(s), 0 distinct field(s)
+  - "MW": 1753 use(s), 2 distinct field(s)
+  - "d": 1596 use(s), 2 distinct field(s)
+  - "Build": 920 use(s), 75 distinct field(s)
+  - "Achievement": 867 use(s), 8 distinct field(s) (conflicting field-name groups: [['Color', 'color']])
+  - "User": 833 use(s), 1 distinct field(s)
+  - "p": 810 use(s), 2 distinct field(s)
+  - "u": 774 use(s), 2 distinct field(s)
+  - "NI": 739 use(s), 3 distinct field(s)
+  - "TalkLog": 578 use(s), 0 distinct field(s)
+  - "PA": 478 use(s), 1 distinct field(s)
+  - "TalkHelp": 403 use(s), 0 distinct field(s)
+- tables found: 638 (parse_quality distribution: {'complete': 242, 'partial': 396})
+- link connectivity: 17651 orphan page(s) (no inbound internal link from this corpus); top hub titles: ['Staff', 'Cannons', 'Destroyer', 'Tank', 'Board:Violation Reporting']
+
+## Domains
+
+(candidate domains, heuristic multi-label — a page may appear in multiple domains or none)
+- historical_removed_content: 188 page(s), e.g. pageids [102055, 103834, 10486, 105223, 1101]
+- changelog_updates: 152 page(s), e.g. pageids [105223, 110285, 111119, 112112, 124682]
+- tanks: 0 page(s), e.g. pageids []
+- tank_tiers_classes: 0 page(s), e.g. pageids []
+- upgrade_relationships: 0 page(s), e.g. pageids []
+- shapes_polygons: 0 page(s), e.g. pageids []
+- bosses: 0 page(s), e.g. pageids []
+- weapons: 0 page(s), e.g. pageids []
+- ammunition: 0 page(s), e.g. pageids []
+- stats: 0 page(s), e.g. pageids []
+- mechanics: 0 page(s), e.g. pageids []
+- levels: 0 page(s), e.g. pageids []
+- game_modes: 0 page(s), e.g. pageids []
+- maps_map_features: 0 page(s), e.g. pageids []
+- builds_strategies: 0 page(s), e.g. pageids []
+- event_content: 0 page(s), e.g. pageids []
+- unknown_domain (no signal matched): 20188 page(s)
+
+## Temporal data
+
+- tables flagged changelog_like: 5
+- section headings suggesting versioned/historical content: ['History of the Diep.io Wiki Project', 'History', 'History Project', 'Main Page Updates', 'Banners Script Death — The Future of Weekly Updates', 'News Team Dissolvement (Weekly Updates will continue as normal)', 'Sandboxes & Weekly Updates', 'Weekly Updates Renamed', 'Linking directly to the Changelog page', 'Discontiuned - No more updates', 'Changelog', 'Update 2', 'Update 1', 'Update 3', 'Edits History']
+- pages classified historical_removed_content: 188
+- pages classified changelog_updates: 152
+- still-unknown: whether the corpus provides enough machine-readable structure (vs. free prose) to reliably derive valid_from/valid_to/status/version fields requires reviewing the representative table/section examples above; this run only measures their existence and frequency, not their semantic content.
 
 ## Provenance
 
-Fully designed and tested (see `tools/wiki/inventory.py`'s `provenance` block on every output,
-and the raw page record schema in `fetch.py`), but never exercised against a real snapshot this
-session. What it captures once acquisition succeeds: pageid, title, namespace, canonical URL,
-revision id/parentid/timestamp/contentmodel/contentformat, retrieved_at, content_sha256,
-categories, redirect status/target — deliberately excluding revision author/edit-comment
-(data minimization). Not retained even in the design: sub-page character-offset coordinates for
-a given section/template/table (only page-level and nearest-heading context).
+- fields retained per raw page: pageid, title, namespace, canonical_url, revision id/parentid/timestamp/contentmodel/contentformat, retrieved_at, content_sha256, categories, redirect status/target.
+- fields deliberately NOT retained (data minimization): revision author, revision edit-comment.
+- source coordinates NOT currently retained for sub-page facts: exact character offset of a given section/template/table within a page's wikitext (only page-level plus nearest-heading context is recorded — see tables.json's `heading` field and templates.json's per-template aggregation).
 
 ## Schema implications
 
-- still-unknown: whether the eventual knowledge schema is well-supported by this wiki's actual
-  category/template/table structure cannot be assessed until real acquisition succeeds — this
-  session validates the *tooling*, not the *corpus*.
-- still-unknown: whether/when Fandom will grant the written permission and consent its Terms of
-  Use require for automated retrieval and for software/AI use of the content — that decision,
-  and any consequent choice of acquisition path (live API once permitted, the official
-  `Special:Statistics` database dump once the same consent question is resolved, or a different
-  source entirely), is a call for a human, not something this tool should decide unilaterally.
-- still-unknown (narrower, technical): whether the `robots.txt` 403 itself is specific to this
-  network/environment or a durable edge/CDN behavior was not further investigated, since it turned
-  out not to be the controlling blocker — resolving it would not unblock acquisition on its own.
-- supports: the offline half of the pipeline (fixture-driven discovery/section/template/table/
-  classification parsing and offline inventory regeneration) works correctly and independently
-  of network access, exactly as the plan required ("Analysis/tests must work completely offline
-  from committed test fixtures").
-- contradicts: nothing about the real corpus's structure, since none was observed.
+- requires-extending: 6 template(s) show conflicting/duplicate field-name variants (e.g. differing casing/underscore/spacing for what is likely the same concept) — a future schema needs an explicit field-name normalization/alias layer, not a 1:1 raw-field mapping.
+- still-unknown: 20188 page(s) have no matched domain signal — this is expected given the classification-signal config ships empty in this slice; populating it is a separate, deliberate curation step before domain counts here can be treated as representative.
+- supports: API-reported redirect status and wikitext #REDIRECT markers agreed on every acquired page in this snapshot — a future schema can treat either source as reliable for redirect detection.
+- requires-extending: 396/638 table(s) parsed only partially or failed outright — a future schema must not assume every wiki table is machine-parseable; some stat/upgrade data may need per-template (infobox) extraction instead of table extraction, or manual curation.
+- still-unknown: whether categories alone provide enough of an implicit ontology for the eventual schema, or whether infobox template fields will need to carry most of the semantic weight, cannot be judged until classification_signals.json is populated with real curated vocabulary and re-run.
+- contradicts: nothing in this snapshot outright contradicts the schema ideas reviewed so far; recorded here because every run should explicitly state a finding for this category, not omit it.
 
 ## Data quality problems
 
-- acquisition failures: 1 recorded (`robots.txt` fetch returned HTTP 403 — see
-  `knowledge/raw/fandom/acquisition_attempt_log.jsonl`), 0 page-level failures (no pages were
-  attempted).
-- this REPORT.md itself is a known limitation: it documents an acquisition failure/policy
-  blocker, not a corpus inventory. Do not treat the empty `knowledge/inventory/*.json` state (or
-  absence of files) as evidence about the wiki's actual structure — it reflects only that this
-  run never reached it.
-- an earlier version of this report mischaracterized the HTTP 403 on `robots.txt` as a
-  robots-protocol prohibition on crawling; that has been corrected above (RFC 9309 classifies a
-  4xx robots.txt response as "unavailable," under which a crawler may proceed) — the real,
-  current blocker is Fandom's Terms of Use, not the robots.txt response.
+- acquisition failures: 0 (see acquisition_failures.json)
+- redirect status mismatches: 0
+- table parse_quality != complete: 396
+- templates with likely conflicting/duplicate field-name variants: 6
+- pages with unknown page-type classification: 7258
+  - by namespace (diagnostic only -- classification_signals.json stays empty; this is visibility into which namespaces the current structural rules don't cover, not a proposal to add corpus-specific vocabulary this run):
+    - Fanon: 2544
+    - Fanon talk: 1586
+    - Project: 702
+    - Project talk: 699
+    - Help talk: 434
+    - (Main): 380
+    - Tale of Diep talk: 333
+    - MediaWiki talk: 325
+    - MediaWiki: 165
+    - Tale of Diep: 42
+    - Help: 18
+    - Module: 11
+    - Module talk: 10
+    - Blog: 6
+    - Blog talk: 3
+- pages with unknown_domain: 20188
+

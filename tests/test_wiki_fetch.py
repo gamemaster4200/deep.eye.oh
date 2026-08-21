@@ -4,17 +4,21 @@ resume/skip-successful behavior -- all offline against fixture responses."""
 
 import json
 import sys
+import urllib.robotparser
 from pathlib import Path
 
+import py7zr
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools" / "wiki"))
 
+import _dump
 import _http
 import _mediawiki
 import fetch
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "wiki" / "api_responses"
+SAMPLE_DUMP = Path(__file__).resolve().parent / "fixtures" / "wiki" / "dump_samples" / "sample_dump.xml"
 
 
 def _load(name):
@@ -174,3 +178,105 @@ def test_new_snapshot_isolated_from_existing(tmp_path):
     dir2 = fetch.snapshot_dir_for(out_root, id2)
     assert dir2 != dir1
     assert not dir2.exists()
+
+
+def _make_sample_archive(tmp_path) -> bytes:
+    archive_path = tmp_path / "diepio_pages_current.xml.7z"
+    with py7zr.SevenZipFile(archive_path, mode="w") as archive:
+        archive.write(SAMPLE_DUMP, arcname="diepio_pages_current.xml")
+    return archive_path.read_bytes()
+
+
+def test_run_dump_backend_writes_records_matching_api_shape(tmp_path, monkeypatch):
+    archive_bytes = _make_sample_archive(tmp_path)
+
+    monkeypatch.setattr(_mediawiki._http, "fetch_json", lambda url, **kwargs: {"query": {"general": {"wikiid": "diepio"}}})
+    allow_all = urllib.robotparser.RobotFileParser()
+    allow_all.parse(["User-agent: *", "Allow: /"])
+    monkeypatch.setattr(
+        fetch._http,
+        "check_robots",
+        lambda base_url, **kwargs: {"url": base_url + "/robots.txt", "outcome": "obeyed", "http_status": 200, "reason": None, "checked_at": "t", "parser": allow_all},
+    )
+    monkeypatch.setattr(
+        _dump._http,
+        "fetch_head",
+        lambda url, **kwargs: _http.HeadResult(200, {"Last-Modified": "Fri, 12 Jun 2026 14:18:41 GMT"}),
+    )
+    monkeypatch.setattr(_dump._http, "fetch_bytes", lambda url, **kwargs: archive_bytes)
+
+    snapshot_dir = tmp_path / "snap"
+    snapshot_dir.mkdir()
+    manifest = fetch.init_manifest(snapshot_id="snap", wiki_base_url="https://diepio.fandom.com", discover_source=None, user_agent="ua/1", http_settings={})
+
+    used = fetch.run_dump_backend(
+        "https://diepio.fandom.com",
+        snapshot_dir,
+        manifest,
+        skip_namespaces={"Thread"},
+        dump_variant="current",
+        dump_max_age_days=180,
+        retry_permanent_failures=False,
+        user_agent="ua/1",
+        timeout=5.0,
+    )
+
+    assert used is True
+    assert manifest["source"]["backend"] == "dump"
+    assert manifest["source"]["usable"] is True
+    assert manifest["source"]["wikiid"] == "diepio"
+    assert manifest["source"]["archive_sha256"]
+
+    # Basic/Overlord Redirect/Overlord kept; Thread(namespace-skipped) excluded
+    succeeded = fetch.already_succeeded_pageids(snapshot_dir)
+    assert succeeded == {201, 203, 204}
+
+    basic = json.loads((snapshot_dir / "pages" / "201.json").read_text(encoding="utf-8"))
+    assert basic["categories"] == ["Category:Tanks"]
+    assert basic["content_sha256"] == fetch.sha256_of_text(basic["wikitext"])
+    assert "contributor" not in basic and "contributor" not in basic["revision"]
+    assert set(basic["revision"].keys()) == {"revid", "parentid", "timestamp", "contentmodel", "contentformat"}
+
+    redirect_page = json.loads((snapshot_dir / "pages" / "203.json").read_text(encoding="utf-8"))
+    assert redirect_page["is_redirect"] is True
+    assert redirect_page["redirect_target_title"] == "Overlord"
+    assert redirect_page["redirect_target_pageid"] == 204  # resolved via the dump's own title index
+
+    assert (snapshot_dir / "dump_archive" / "diepio_pages_current.xml.7z").exists()
+
+
+def test_run_dump_backend_returns_false_and_records_reason_when_stale(tmp_path, monkeypatch):
+    monkeypatch.setattr(_mediawiki._http, "fetch_json", lambda url, **kwargs: {"query": {"general": {"wikiid": "diepio"}}})
+    allow_all = urllib.robotparser.RobotFileParser()
+    allow_all.parse(["User-agent: *", "Allow: /"])
+    monkeypatch.setattr(
+        fetch._http,
+        "check_robots",
+        lambda base_url, **kwargs: {"url": base_url + "/robots.txt", "outcome": "obeyed", "http_status": 200, "reason": None, "checked_at": "t", "parser": allow_all},
+    )
+    monkeypatch.setattr(
+        _dump._http,
+        "fetch_head",
+        lambda url, **kwargs: _http.HeadResult(200, {"Last-Modified": "Fri, 12 Jun 2020 14:18:41 GMT"}),  # very old
+    )
+
+    snapshot_dir = tmp_path / "snap"
+    snapshot_dir.mkdir()
+    manifest = fetch.init_manifest(snapshot_id="snap", wiki_base_url="https://diepio.fandom.com", discover_source=None, user_agent="ua/1", http_settings={})
+
+    used = fetch.run_dump_backend(
+        "https://diepio.fandom.com",
+        snapshot_dir,
+        manifest,
+        skip_namespaces=set(),
+        dump_variant="current",
+        dump_max_age_days=180,
+        retry_permanent_failures=False,
+        user_agent="ua/1",
+        timeout=5.0,
+    )
+
+    assert used is False
+    assert manifest["source"]["usable"] is False
+    assert manifest["source"]["stage"] == "freshness"
+    assert fetch.already_succeeded_pageids(snapshot_dir) == set()  # nothing fabricated

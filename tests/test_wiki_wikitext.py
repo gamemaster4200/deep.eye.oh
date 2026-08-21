@@ -42,6 +42,11 @@ def test_extract_internal_links_excludes_file_and_category():
     assert links == ["Basic", "Twin", "Sniper"]
 
 
+def test_extract_category_links_only_categories():
+    categories = _wikitext.extract_category_links(_read("links_sample.wikitext"))
+    assert categories == ["Category:Tanks"]
+
+
 def test_detect_redirect_target():
     assert _wikitext.detect_redirect_target(_read("redirect_page.wikitext")) == "Overlord"
     assert _wikitext.detect_redirect_target(_read("tank_infobox.wikitext")) is None

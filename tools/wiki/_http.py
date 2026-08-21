@@ -15,9 +15,30 @@ import time
 import urllib.error
 import urllib.request
 import urllib.robotparser
+from datetime import datetime, timezone
 from typing import Callable
 
 Opener = Callable[[urllib.request.Request, float], bytes]
+HeadOpener = Callable[[urllib.request.Request, float], "HeadResult"]
+
+
+def now_iso() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+class HeadResult:
+    """Minimal HEAD-response shape (status + headers), independent of
+    urllib's response object so a fake opener can construct one for tests."""
+
+    def __init__(self, status: int, headers: dict[str, str]):
+        self.status = status
+        self.headers = headers
+
+    def get(self, name: str, default: str | None = None) -> str | None:
+        for key, value in self.headers.items():
+            if key.lower() == name.lower():
+                return value
+        return default
 
 # HTTP statuses worth retrying: rate limiting and server-side hiccups.
 TRANSIENT_HTTP_STATUSES = {429, 500, 502, 503, 504}
@@ -43,6 +64,11 @@ class TransientAcquisitionError(Exception):
 def default_opener(request: urllib.request.Request, timeout: float) -> bytes:
     with urllib.request.urlopen(request, timeout=timeout) as response:
         return response.read()
+
+
+def default_head_opener(request: urllib.request.Request, timeout: float) -> HeadResult:
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        return HeadResult(response.status, dict(response.headers))
 
 
 def add_http_args(parser: argparse.ArgumentParser) -> None:
@@ -91,7 +117,7 @@ def _backoff_seconds(attempt: int, base_delay: float) -> float:
     return base_delay * (2 ** (attempt - 1))
 
 
-def _fetch_bytes(
+def fetch_bytes(
     url: str,
     *,
     user_agent: str,
@@ -109,8 +135,11 @@ def _fetch_bytes(
     immediately without retrying. `robot_parser`, if given, is checked
     against this exact `url` before any request is sent — enforcement
     covers only the actual path being requested, never an unrelated
-    representative path. Shared by fetch_json and fetch_robots_txt so both
-    get identical retry/classification/robots-enforcement behavior."""
+    representative path (pass `None` when robots.txt was "unavailable" per
+    RFC 9309 and acquisition is proceeding with no enforced restrictions).
+    Shared by fetch_json (JSON API responses) and any raw-artifact download
+    (e.g. a database dump archive) so both get identical retry/
+    classification/robots-enforcement behavior."""
     if robot_parser is not None and not robot_parser.can_fetch(user_agent, url):
         raise SystemExit(f"robots.txt disallows fetching {url} for user-agent {user_agent!r} — refusing to proceed")
 
@@ -134,7 +163,7 @@ def _fetch_bytes(
             sleep(_backoff_seconds(attempt, delay))
 
 
-def fetch_robots_txt(
+def check_robots(
     base_url: str,
     *,
     user_agent: str,
@@ -143,19 +172,57 @@ def fetch_robots_txt(
     delay: float = 1.0,
     opener: Opener = default_opener,
     sleep: Callable[[float], None] = time.sleep,
-) -> str:
+) -> dict:
+    """Fetch and interpret robots.txt per RFC 9309 semantics (§2.3.1):
+
+    - 2xx: parse the rules and return them for enforcement (`outcome`:
+      "obeyed", `parser`: a RobotFileParser).
+    - 4xx (including 403/404): RFC 9309 §2.3.1.3 classifies this as
+      "unavailable" — a crawler MAY proceed as if there were no
+      restrictions. Returns `outcome`: "unavailable_permitted",
+      `parser`: None (callers pass this through as `robot_parser=None`,
+      i.e. no restriction enforced).
+    - 5xx / network-unreachable, after `retries` exhausted: RFC 9309 does
+      not license proceeding on a genuinely unreachable server — this
+      raises `TransientAcquisitionError` so the caller fails closed.
+
+    Always returns a dict (never raises) for the 2xx/4xx cases, suitable
+    for recording directly as acquisition provenance."""
     url = base_url.rstrip("/") + "/robots.txt"
-    raw = _fetch_bytes(url, user_agent=user_agent, timeout=timeout, retries=retries, delay=delay, opener=opener, sleep=sleep)
-    return raw.decode("utf-8", errors="replace")
+    request = urllib.request.Request(url, headers={"User-Agent": user_agent})
+    attempt = 0
+    while True:
+        attempt += 1
+        try:
+            raw = opener(request, timeout)
+        except urllib.error.HTTPError as exc:
+            if 400 <= exc.code < 500:
+                return {
+                    "url": url,
+                    "outcome": "unavailable_permitted",
+                    "http_status": exc.code,
+                    "reason": f"HTTP {exc.code} fetching robots.txt (RFC 9309 §2.3.1.3: 4xx = unavailable; proceeding with no restrictions)",
+                    "checked_at": now_iso(),
+                    "parser": None,
+                }
+            if attempt > retries:
+                raise TransientAcquisitionError(
+                    f"robots.txt unreachable ({exc.code}) after {attempt} attempt(s) — failing closed (RFC 9309: 5xx is not license to proceed)",
+                    http_status=exc.code,
+                ) from exc
+            sleep(_backoff_seconds(attempt, delay))
+            continue
+        except urllib.error.URLError as exc:
+            if attempt > retries:
+                raise TransientAcquisitionError(
+                    f"robots.txt unreachable (network error) after {attempt} attempt(s) — failing closed: {exc}"
+                ) from exc
+            sleep(_backoff_seconds(attempt, delay))
+            continue
 
-
-def build_robot_parser(
-    base_url: str, *, user_agent: str, timeout: float, retries: int = 3, delay: float = 1.0, opener: Opener = default_opener
-) -> urllib.robotparser.RobotFileParser:
-    rp = urllib.robotparser.RobotFileParser()
-    text = fetch_robots_txt(base_url, user_agent=user_agent, timeout=timeout, retries=retries, delay=delay, opener=opener)
-    rp.parse(text.splitlines())
-    return rp
+        rp = urllib.robotparser.RobotFileParser()
+        rp.parse(raw.decode("utf-8", errors="replace").splitlines())
+        return {"url": url, "outcome": "obeyed", "http_status": 200, "reason": None, "checked_at": now_iso(), "parser": rp}
 
 
 def fetch_json(
@@ -171,11 +238,29 @@ def fetch_json(
     sleep: Callable[[float], None] = time.sleep,
 ) -> dict:
     """GET `url` with the given User-Agent and decode the JSON body. See
-    `_fetch_bytes` for retry/backoff/robots-enforcement behavior."""
-    raw = _fetch_bytes(
+    `fetch_bytes` for retry/backoff/robots-enforcement behavior."""
+    raw = fetch_bytes(
         url, user_agent=user_agent, timeout=timeout, retries=retries, delay=delay, rate_limiter=rate_limiter, robot_parser=robot_parser, opener=opener, sleep=sleep
     )
     try:
         return json.loads(raw)
     except json.JSONDecodeError as exc:
         raise PermanentAcquisitionError(f"non-JSON response from {url}") from exc
+
+
+def fetch_head(
+    url: str,
+    *,
+    user_agent: str,
+    timeout: float,
+    opener: HeadOpener = default_head_opener,
+) -> HeadResult | None:
+    """HEAD `url` to probe for existence/freshness (e.g. before downloading
+    a large dump archive) without retry — a single failure here just means
+    "treat this source as unusable", not a hard acquisition error. Returns
+    `None` on any failure (HTTP error or network error) instead of raising."""
+    request = urllib.request.Request(url, headers={"User-Agent": user_agent}, method="HEAD")
+    try:
+        return opener(request, timeout)
+    except (urllib.error.HTTPError, urllib.error.URLError):
+        return None

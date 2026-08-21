@@ -63,6 +63,19 @@ def extract_internal_links(wikitext: str) -> list[str]:
     return links
 
 
+def extract_category_links(wikitext: str) -> list[str]:
+    """`[[Category:X]]`/`[[Category:X|sortkey]]` links -- membership, not
+    content links. Used by the dump backend, which has no separate
+    categories field the way the MediaWiki API response does."""
+    code = parse(wikitext)
+    categories = []
+    for link in code.filter_wikilinks():
+        title = str(link.title).strip()
+        if title.lower().startswith("category:"):
+            categories.append(title.split("#")[0].strip())
+    return categories
+
+
 def detect_redirect_target(wikitext: str) -> str | None:
     match = _REDIRECT_RE.match(wikitext)
     return match.group(1).strip() if match else None

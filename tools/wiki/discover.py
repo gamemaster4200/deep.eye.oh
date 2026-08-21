@@ -82,27 +82,26 @@ def resolve_redirects(base_url: str, pages: list[dict], **fetch_kwargs) -> None:
         page.setdefault("redirect_target_pageid", None)
 
 
-def _build_robot_parser_or_record_failure(base_url: str, *, user_agent: str, timeout: float, out_path: Path):
-    """Wraps _http.build_robot_parser: if robots.txt itself cannot be
-    fetched (this tool's own client blocked, timeout, etc.), that is a
-    legitimate acquisition failure -- refuse to proceed without confirmed
-    robots.txt compliance, and record the failed attempt durably instead of
-    a raw traceback. Never falls back to skipping the robots.txt check."""
+def _check_robots_or_fail_closed(base_url: str, *, user_agent: str, timeout: float, out_path: Path) -> dict:
+    """Wraps _http.check_robots (RFC 9309 semantics): a successful fetch or
+    a 4xx ("unavailable" -> proceed with no restrictions) both return
+    normally. Only a 5xx/network-unreachable outcome fails closed here --
+    recorded durably instead of a raw traceback, never bypassed."""
     try:
-        return _http.build_robot_parser(base_url, user_agent=user_agent, timeout=timeout)
-    except (_http.PermanentAcquisitionError, _http.TransientAcquisitionError) as exc:
+        return _http.check_robots(base_url, user_agent=user_agent, timeout=timeout)
+    except _http.TransientAcquisitionError as exc:
         record = {
             "attempted_at": _now_iso(),
             "base_url": base_url,
             "target_resource": "robots.txt",
             "user_agent": user_agent,
-            "outcome": "unreachable",
+            "outcome": "unreachable_failed_closed",
             "http_status": getattr(exc, "http_status", None),
             "reason": str(exc),
             "note": (
-                "robots.txt could not be fetched by this tool's standard HTTP client; refusing to proceed "
-                "without confirmed robots.txt compliance. No bypass (TLS/client impersonation, proxy, CAPTCHA "
-                "solving) was attempted."
+                "robots.txt was unreachable (5xx or network error) after retries; per RFC 9309 this is not "
+                "license to proceed, so acquisition is refused. No bypass (TLS/client impersonation, proxy, "
+                "CAPTCHA solving) was attempted."
             ),
         }
         log_path = out_path.parent / "acquisition_attempt_log.jsonl"
@@ -110,17 +109,18 @@ def _build_robot_parser_or_record_failure(base_url: str, *, user_agent: str, tim
         with log_path.open("a", encoding="utf-8") as f:
             f.write(json.dumps(record) + "\n")
         raise SystemExit(
-            f"could not fetch robots.txt from {base_url} ({exc}) -- refusing to proceed without confirmed "
-            f"robots.txt compliance; recorded this failed attempt to {log_path}"
+            f"could not fetch robots.txt from {base_url} ({exc}) -- failing closed per RFC 9309 (5xx/unreachable "
+            f"is not \"unavailable\"); recorded this failed attempt to {log_path}"
         ) from exc
 
 
-def build_pages_index(base_url: str, namespaces: dict[int, str], pages: list[dict]) -> dict:
+def build_pages_index(base_url: str, namespaces: dict[int, str], pages: list[dict], robots_txt_status: dict) -> dict:
     return {
         "format_version": 1,
         "wiki_base_url": base_url,
         "generated_at": _now_iso(),
         "namespaces": {str(ns_id): name for ns_id, name in namespaces.items()},
+        "robots_txt_status": {k: v for k, v in robots_txt_status.items() if k != "parser"},
         "pages": pages,
     }
 
@@ -132,7 +132,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--out", default="knowledge/raw/fandom/pages_index.json", help="output path for pages_index.json")
     args = parser.parse_args(argv)
 
-    robot_parser = _build_robot_parser_or_record_failure(args.base_url, user_agent=args.user_agent, timeout=args.timeout, out_path=Path(args.out))
+    robots_status = _check_robots_or_fail_closed(args.base_url, user_agent=args.user_agent, timeout=args.timeout, out_path=Path(args.out))
     rate_limiter = _http.RateLimiter(args.delay)
     fetch_kwargs = dict(
         user_agent=args.user_agent,
@@ -140,7 +140,7 @@ def main(argv: list[str] | None = None) -> None:
         retries=args.retries,
         delay=args.delay,
         rate_limiter=rate_limiter,
-        robot_parser=robot_parser,
+        robot_parser=robots_status["parser"],
     )
 
     siteinfo = _mediawiki.query(args.base_url, _mediawiki.siteinfo_params(), **fetch_kwargs)
@@ -149,7 +149,7 @@ def main(argv: list[str] | None = None) -> None:
     pages = discover_all_pages(args.base_url, namespaces, **fetch_kwargs)
     resolve_redirects(args.base_url, pages, **fetch_kwargs)
 
-    index = build_pages_index(args.base_url, namespaces, pages)
+    index = build_pages_index(args.base_url, namespaces, pages, robots_status)
 
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -161,6 +161,7 @@ def main(argv: list[str] | None = None) -> None:
     for page in pages:
         by_namespace[page["namespace_name"]] = by_namespace.get(page["namespace_name"], 0) + 1
     redirect_count = sum(1 for p in pages if p["is_redirect"])
+    print(f"robots.txt: {robots_status['outcome']} (http_status={robots_status['http_status']})")
     print(f"discovered {len(pages)} page(s) across {len(namespaces)} namespace(s), {redirect_count} redirect(s) -> {out_path}")
     for ns_name, count in sorted(by_namespace.items(), key=lambda kv: -kv[1]):
         print(f"  {ns_name}: {count}")

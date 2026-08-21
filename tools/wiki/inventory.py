@@ -213,11 +213,14 @@ def build_acquisition_failures_json(snapshot_dir: Path, pages: list[dict], prove
 def build_corpus_json(manifest: dict, pages_jsonl_rows: list[dict], analyses: list[dict], acquisition_failures: list[dict], provenance: dict) -> dict:
     by_namespace: dict[str, int] = {}
     by_page_type: dict[str, int] = {}
+    unknown_page_type_by_namespace: dict[str, int] = {}
     redirect_count = 0
     redirect_mismatch_count = 0
     for row in pages_jsonl_rows:
         by_namespace[row["namespace_name"]] = by_namespace.get(row["namespace_name"], 0) + 1
         by_page_type[row["primary_page_type"]] = by_page_type.get(row["primary_page_type"], 0) + 1
+        if row["primary_page_type"] == "unknown":
+            unknown_page_type_by_namespace[row["namespace_name"]] = unknown_page_type_by_namespace.get(row["namespace_name"], 0) + 1
         if row["is_redirect"]:
             redirect_count += 1
         if row["redirect_status_mismatch"]:
@@ -236,6 +239,7 @@ def build_corpus_json(manifest: dict, pages_jsonl_rows: list[dict], analyses: li
         "total_pages": len(pages_jsonl_rows),
         "by_namespace": by_namespace,
         "by_page_type": by_page_type,
+        "unknown_page_type_by_namespace": unknown_page_type_by_namespace,
         "redirect_count": redirect_count,
         "redirect_status_mismatch_count": redirect_mismatch_count,
         "acquisition_failure_count": len(acquisition_failures),
@@ -249,6 +253,9 @@ def build_corpus_json(manifest: dict, pages_jsonl_rows: list[dict], analyses: li
             "wiki_base_url": manifest.get("wiki_base_url"),
             "started_at": manifest.get("started_at"),
             "completed_at": manifest.get("completed_at"),
+            "source_backend": manifest.get("source", {}).get("backend"),
+            "source_dump": manifest.get("source", {}).get("dump") or {k: v for k, v in manifest.get("source", {}).items() if k in ("dump_url", "dump_last_modified", "archive_sha256", "dump_type", "wikiid")} or None,
+            "robots_txt_status": manifest.get("robots_txt_status"),
         },
     }
 
@@ -453,6 +460,11 @@ def render_report_md(
     lines.append(f"- table parse_quality != complete: {quality_not_complete}")
     lines.append(f"- templates with likely conflicting/duplicate field-name variants: {conflicting_template_fields}")
     lines.append(f"- pages with unknown page-type classification: {corpus['by_page_type'].get('unknown', 0)}")
+    unknown_by_ns = sorted(corpus["unknown_page_type_by_namespace"].items(), key=lambda kv: -kv[1])
+    if unknown_by_ns:
+        lines.append("  - by namespace (diagnostic only -- classification_signals.json stays empty; this is visibility into which namespaces the current structural rules don't cover, not a proposal to add corpus-specific vocabulary this run):")
+        for ns_name, count in unknown_by_ns[:15]:
+            lines.append(f"    - {ns_name}: {count}")
     lines.append(f"- pages with unknown_domain: {domains['unknown_domain_page_count']}")
     lines.append("")
 
