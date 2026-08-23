@@ -1,0 +1,8 @@
+{"pageid": 201, "title": "Basic", "url": "https://example.fandom.com/api.php?action=query&pageids=201", "attempt": 1, "outcome": "success", "http_status": 200, "timestamp": "2026-01-01T00:01:00Z"}
+{"pageid": 202, "title": "Destroyer", "url": "https://example.fandom.com/api.php?action=query&pageids=202", "attempt": 1, "outcome": "success", "http_status": 200, "timestamp": "2026-01-01T00:01:05Z"}
+{"pageid": 203, "title": "Overlord Redirect", "url": "https://example.fandom.com/api.php?action=query&pageids=203", "attempt": 1, "outcome": "success", "http_status": 200, "timestamp": "2026-01-01T00:01:10Z"}
+{"pageid": 204, "title": "Overlord", "url": "https://example.fandom.com/api.php?action=query&pageids=204", "attempt": 1, "outcome": "success", "http_status": 200, "timestamp": "2026-01-01T00:01:15Z"}
+{"pageid": 301, "title": "Category:Tanks", "url": "https://example.fandom.com/api.php?action=query&pageids=301", "attempt": 1, "outcome": "success", "http_status": 200, "timestamp": "2026-01-01T00:01:20Z"}
+{"pageid": 401, "title": "User:SomePlayer", "url": "https://example.fandom.com/api.php?action=query&pageids=401", "attempt": 1, "outcome": "success", "http_status": 200, "timestamp": "2026-01-01T00:01:25Z"}
+{"pageid": 501, "title": "Talk:Basic", "url": "https://example.fandom.com/api.php?action=query&pageids=501", "attempt": 1, "outcome": "success", "http_status": 200, "timestamp": "2026-01-01T00:01:30Z"}
+{"pageid": 999, "title": "Deleted Page", "url": "https://example.fandom.com/api.php?action=query&pageids=999", "attempt": 1, "outcome": "permanent_failure", "http_status": null, "reason": "missingtitle", "timestamp": "2026-01-01T00:01:35Z"}

@@ -1,0 +1,9 @@
+{
+  "provenance": {
+    "snapshot_id": "20260821T022701Z",
+    "acquisition_completed_at": "2026-08-21T02:28:46Z",
+    "source_manifest_sha256": "3a374d91ae20e115a1d61d5657d0d883f41c33a41cfe283d0545b13d9f4150bc",
+    "inventory_schema_version": 1
+  },
+  "failures": []
+}

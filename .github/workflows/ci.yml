@@ -21,7 +21,11 @@ jobs:
           python-version: "3.14"
 
       - name: Install project (with dev extras)
-        run: pip install -e ".[dev]"
+        # WITH_EXTENSION=0: use mwparserfromhell's pure-Python tokenizer so
+        # this doesn't depend on MSVC build tools being present on the runner.
+        run: pip install -e ".[dev,wiki]"
+        env:
+          WITH_EXTENSION: "0"
 
       - name: Run pytest
         run: pytest -v

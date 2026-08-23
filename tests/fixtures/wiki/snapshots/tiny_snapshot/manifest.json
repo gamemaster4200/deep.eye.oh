@@ -1,0 +1,13 @@
+{
+  "format_version": 1,
+  "snapshot_id": "20260101T000000Z",
+  "wiki_base_url": "https://example.fandom.com",
+  "started_at": "2026-01-01T00:00:00Z",
+  "completed_at": "2026-01-01T00:05:00Z",
+  "discover_source": "fixture",
+  "user_agent": "deep-eye-oh-wiki-inventory-tests/0.1",
+  "http_settings": {"delay": 1.0, "timeout": 15.0, "retries": 3},
+  "attempted_page_count": 8,
+  "succeeded_page_count": 7,
+  "failed_page_count": 1
+}

@@ -1,0 +1,10 @@
+Intro text with no heading.
+
+== Design ==
+Design text.
+
+=== Technical ===
+Technical sub-section.
+
+== Trivia ==
+Trivia text.

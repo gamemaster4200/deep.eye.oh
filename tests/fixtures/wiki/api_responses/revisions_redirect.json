@@ -1,0 +1,29 @@
+{
+  "batchcomplete": true,
+  "query": {
+    "pages": [
+      {
+        "pageid": 103,
+        "ns": 0,
+        "title": "Overlord Redirect",
+        "fullurl": "https://example.fandom.com/wiki/Overlord_Redirect",
+        "redirect": true,
+        "categories": [],
+        "revisions": [
+          {
+            "revid": 5003,
+            "parentid": 5000,
+            "timestamp": "2025-09-01T00:00:00Z",
+            "slots": {
+              "main": {
+                "contentmodel": "wikitext",
+                "contentformat": "text/x-wiki",
+                "content": "#REDIRECT [[Overlord]]"
+              }
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

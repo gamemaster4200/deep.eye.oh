@@ -1,0 +1,28 @@
+{
+  "batchcomplete": false,
+  "continue": {"gapcontinue": "Flank Guard", "continue": "gapcontinue||"},
+  "query": {
+    "pages": [
+      {
+        "pageid": 101,
+        "ns": 0,
+        "title": "Basic",
+        "fullurl": "https://example.fandom.com/wiki/Basic",
+        "categories": [
+          {"ns": 14, "title": "Category:Tanks"},
+          {"ns": 14, "title": "Category:Tier 1"}
+        ]
+      },
+      {
+        "pageid": 102,
+        "ns": 0,
+        "title": "Destroyer",
+        "fullurl": "https://example.fandom.com/wiki/Destroyer",
+        "categories": [
+          {"ns": 14, "title": "Category:Tanks"},
+          {"ns": 14, "title": "Category:Tier 3"}
+        ]
+      }
+    ]
+  }
+}

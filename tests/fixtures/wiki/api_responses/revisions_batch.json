@@ -1,0 +1,55 @@
+{
+  "batchcomplete": true,
+  "query": {
+    "pages": [
+      {
+        "pageid": 101,
+        "ns": 0,
+        "title": "Basic",
+        "fullurl": "https://example.fandom.com/wiki/Basic",
+        "categories": [
+          {"ns": 14, "title": "Category:Tanks"},
+          {"ns": 14, "title": "Category:Tier 1"}
+        ],
+        "revisions": [
+          {
+            "revid": 5001,
+            "parentid": 4999,
+            "timestamp": "2025-11-02T18:04:11Z",
+            "slots": {
+              "main": {
+                "contentmodel": "wikitext",
+                "contentformat": "text/x-wiki",
+                "content": "{{Infobox tank\n|hp=100\n|speed=1\n}}\n\n== Design ==\nA basic tank.\n\n== Stats ==\n{| class=\"wikitable\"\n! Level !! HP\n|-\n| 1 || 100\n|-\n| 45 || 500\n|}\n"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "pageid": 102,
+        "ns": 0,
+        "title": "Destroyer",
+        "fullurl": "https://example.fandom.com/wiki/Destroyer",
+        "categories": [
+          {"ns": 14, "title": "Category:Tanks"},
+          {"ns": 14, "title": "Category:Tier 3"}
+        ],
+        "revisions": [
+          {
+            "revid": 5002,
+            "parentid": 4998,
+            "timestamp": "2025-10-15T09:00:00Z",
+            "slots": {
+              "main": {
+                "contentmodel": "wikitext",
+                "contentformat": "text/x-wiki",
+                "content": "{{Infobox tank\n|Health=175\n|Speed=1\n}}\n\n== Changelog ==\nAdded in an early version.\n"
+              }
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

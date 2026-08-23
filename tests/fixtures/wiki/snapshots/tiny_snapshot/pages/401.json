@@ -1,0 +1,17 @@
+{
+  "format_version": 1,
+  "pageid": 401,
+  "title": "User:SomePlayer",
+  "namespace_id": 2,
+  "namespace_name": "User",
+  "canonical_url": "https://example.fandom.com/wiki/User:SomePlayer",
+  "is_redirect": false,
+  "redirect_target_title": null,
+  "redirect_target_pageid": null,
+  "categories": [],
+  "revision": {"revid": 5006, "parentid": null, "timestamp": "2025-05-01T00:00:00Z", "contentmodel": "wikitext", "contentformat": "text/x-wiki"},
+  "wikitext": "Hi, I'm SomePlayer and I like the [[Destroyer]].",
+  "content_sha256": "test-fixture-hash-401",
+  "retrieved_at": "2026-01-01T00:01:25Z",
+  "source_query": {"endpoint": "https://example.fandom.com/api.php", "params_digest": "fixture"}
+}

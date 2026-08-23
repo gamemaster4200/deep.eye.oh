@@ -1,0 +1,17 @@
+{
+  "format_version": 1,
+  "pageid": 204,
+  "title": "Overlord",
+  "namespace_id": 0,
+  "namespace_name": "(Main)",
+  "canonical_url": "https://example.fandom.com/wiki/Overlord",
+  "is_redirect": false,
+  "redirect_target_title": null,
+  "redirect_target_pageid": null,
+  "categories": ["Category:Tanks", "Category:Boss-like"],
+  "revision": {"revid": 5004, "parentid": 5001, "timestamp": "2025-08-01T00:00:00Z", "contentmodel": "wikitext", "contentformat": "text/x-wiki"},
+  "wikitext": "{{Infobox tank\n|hp=1\n|speed=0\n}}\n\n== Trivia ==\nSpawns drones.\n",
+  "content_sha256": "test-fixture-hash-204",
+  "retrieved_at": "2026-01-01T00:01:15Z",
+  "source_query": {"endpoint": "https://example.fandom.com/api.php", "params_digest": "fixture"}
+}

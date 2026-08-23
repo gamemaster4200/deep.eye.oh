@@ -1,0 +1,4650 @@
+{
+  "provenance": {
+    "snapshot_id": "20260821T022701Z",
+    "acquisition_completed_at": "2026-08-21T02:28:46Z",
+    "source_manifest_sha256": "3a374d91ae20e115a1d61d5657d0d883f41c33a41cfe283d0545b13d9f4150bc",
+    "inventory_schema_version": 1
+  },
+  "categories": {
+    "Category:Blog posts": {
+      "member_count": 595,
+      "representative_members": [
+        "User blog:Diep.iownu/ME COOOKKEEEES",
+        "User blog:Son Of Ships/Middle Schol",
+        "User blog:Skye Sim/Sandbox Idea",
+        "User blog:Underslime/THE WIKI APP IS HERE!",
+        "User blog:Skye Sim/Spread Burst(New Tier 4 Tank)",
+        "User blog:AnsonXLGaming/\"Best\" Luck Ever",
+        "User blog:Kappa-6/Tank Rivalry",
+        "User blog:Skye Sim/Random Sites That I Thought You Guys Might Like",
+        "User blog:MegaDestroyer123/Tier 4: Auto Seer",
+        "User blog:Da Clorax/Tier 4: Automaton"
+      ],
+      "parent_categories": [
+        "Category:Community"
+      ],
+      "subcategories": [
+        "Category:BlogListingPage",
+        "Category:Featured Blogs",
+        "Category:Wiki Updates",
+        "Category:Staff Blogs",
+        "Category:Public Blogs",
+        "Category:Best You Can Be"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Chat Logs": {
+      "member_count": 581,
+      "representative_members": [
+        "Project:Chat/Logs/23 April 2017",
+        "Project:Chat/Logs/24 April 2017",
+        "Project:Chat/Logs/25 April 2017",
+        "Project:Chat/Logs/26 April 2017",
+        "Project:Chat/Logs/27 April 2017",
+        "Project:Chat/Logs/28 April 2017",
+        "Project:Chat/Logs/29 April 2017",
+        "Project:Chat/Logs/30 April 2017",
+        "Project:Chat/Logs/1 May 2017",
+        "Project:Chat/Logs/2 May 2017"
+      ],
+      "parent_categories": [
+        "Category:Logs"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:MediaWiki Templates": {
+      "member_count": 4,
+      "representative_members": [
+        "Template:MiniProjectChecklist",
+        "Template:Community-to-do-list/doc",
+        "Template:Community-corner/doc",
+        "Template:RightsChecklist"
+      ],
+      "parent_categories": [
+        "Category:Templates"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Templates": {
+      "member_count": 398,
+      "representative_members": [
+        "Template:MiniProjectChecklist",
+        "Template:BugList",
+        "Template:PC",
+        "Template:Mobile",
+        "Template:WDSExternal/doc",
+        "Template:WDSRightExternal/doc",
+        "Template:WDSLeftExternal/doc",
+        "Template:MP-D",
+        "Template:Shy",
+        "Template:Medal"
+      ],
+      "parent_categories": [
+        "Category:Wiki Management"
+      ],
+      "subcategories": [
+        "Category:MediaWiki Templates",
+        "Category:Formatting Templates",
+        "Category:Article management templates",
+        "Category:WDS Templates",
+        "Category:Template documentation",
+        "Category:Main Page Templates",
+        "Category:Copyright Templates",
+        "Category:Infobox Templates",
+        "Category:Navbox Templates",
+        "Category:Talk Templates",
+        "Category:Link Templates",
+        "Category:Personal Templates",
+        "Category:Icon Templates",
+        "Category:JS Templates",
+        "Category:Lua Templates",
+        "Category:Namespace Templates",
+        "Category:Fanon Templates",
+        "Category:Notice templates",
+        "Category:InterWiki Link Templates",
+        "Category:Dependency Templates",
+        "Category:Builds Templates"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Article Management": {
+      "member_count": 25,
+      "representative_members": [
+        "Category:Bugs",
+        "Category:Removed",
+        "Category:Hidden categories",
+        "Category:Article management templates",
+        "Category:Edit Wars",
+        "Category:Pages with broken file links",
+        "Category:Conjecture",
+        "Category:Redirect",
+        "Category:Limbo",
+        "Category:Unknown author"
+      ],
+      "parent_categories": [
+        "Category:Wiki Management"
+      ],
+      "subcategories": [
+        "Category:Bugs",
+        "Category:Article management templates",
+        "Category:Redirect",
+        "Category:Removed",
+        "Category:Unknown author",
+        "Category:Adopted",
+        "Category:Unreviewed Builds Templates",
+        "Category:Community Pages",
+        "Category:Archived Blogs",
+        "Category:Needs Images",
+        "Category:Disambiguations",
+        "Category:Conjecture",
+        "Category:Cleanup",
+        "Category:Candidates for deletion",
+        "Category:Language Cleanup",
+        "Category:Image Replacement",
+        "Category:References Needed",
+        "Category:Hidden categories",
+        "Category:Edit Wars",
+        "Category:Pages with broken file links",
+        "Category:Limbo",
+        "Category:Temporary Redirect",
+        "Category:Pages using duplicate arguments in template calls",
+        "Category:Galleries",
+        "Category:Vandalism"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Formatting Templates": {
+      "member_count": 52,
+      "representative_members": [
+        "Template:BugList",
+        "Template:FTB",
+        "Template:FTBCode",
+        "Template:Project/doc",
+        "Template:Quote/doc",
+        "Template:Rainbow/doc",
+        "Template:Achievement/doc",
+        "Template:TankIcon",
+        "Template:MercuryTab/doc",
+        "Template:HiddenFootnotes/doc"
+      ],
+      "parent_categories": [
+        "Category:Templates"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Bugs": {
+      "member_count": 3,
+      "representative_members": [
+        "Category:Mobile Bugs",
+        "Category:PC Bugs",
+        "Template:Bugs"
+      ],
+      "parent_categories": [
+        "Category:Article Management"
+      ],
+      "subcategories": [
+        "Category:PC Bugs",
+        "Category:Mobile Bugs"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:PC Bugs": {
+      "member_count": 1,
+      "representative_members": [
+        "Template:PC"
+      ],
+      "parent_categories": [
+        "Category:Bugs"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Article management templates": {
+      "member_count": 10,
+      "representative_members": [
+        "Template:PC",
+        "Template:Mobile",
+        "Template:Bugs",
+        "Template:ArcBlog/doc",
+        "Template:Image/doc",
+        "Template:NTD/doc",
+        "Template:ITD/doc",
+        "Template:Cleanup/doc",
+        "Template:Delete/doc",
+        "Template:Quality"
+      ],
+      "parent_categories": [
+        "Category:Templates",
+        "Category:Article Management"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Mobile Bugs": {
+      "member_count": 1,
+      "representative_members": [
+        "Template:Mobile"
+      ],
+      "parent_categories": [
+        "Category:Bugs"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Redirect": {
+      "member_count": 386,
+      "representative_members": [
+        "Template:Desktop",
+        "Template talk:Desktop",
+        "Category talk:Desktop Bugs",
+        "Template talk:ImageReplace",
+        "Category talk:Game modes",
+        "Template:BarrelNav",
+        "Template:CannonNav",
+        "Launcher",
+        "Spawner",
+        "Template talk:BarrelNav/doc"
+      ],
+      "parent_categories": [
+        "Category:Article Management"
+      ],
+      "subcategories": [
+        "Category:WDS templates",
+        "Category:Rules",
+        "Category:General wiki templates",
+        "Category:Gadgets-Talk",
+        "Category:Gadget Talk",
+        "Category:Main Page",
+        "Category:Concept-Talk",
+        "Category:Live Concept-Talk-Pages",
+        "Category:Concept-Talk-Pages active this month",
+        "Category:Concept-Talk-Pages active this year",
+        "Category:Diep2 Tier 2 Tanks",
+        "Category:Diep2 Tanks",
+        "Category:Diep2 Tier 4 Tanks",
+        "Category:Diep2 Tier 3 Tanks",
+        "Category:Diiep Ammunition",
+        "Category:Diiep Tier 4 Tanks",
+        "Category:Diiep Tier 3 Tanks",
+        "Category:Diiep Tier 2 Tanks",
+        "Category:Diiep Player Tanks",
+        "Category:Diiep Tanks",
+        "Category:Diiep Removed Content",
+        "Category:Game Mechanics",
+        "Category:Public",
+        "Category:Diep2 Ammunition",
+        "Category:Diep2 Player Tanks",
+        "Category:Diep2 Polygons",
+        "Category:Diep2 Removed Content",
+        "Category:Fanon Conceptions",
+        "Category:Fanon Boss Tanks",
+        "Category:Fanon OP Conceptions",
+        "Category:Collaboration",
+        "Category:Arras Beta Contents",
+        "Category:Game modes",
+        "Category:Formatting templates",
+        "Category:Infobox templates",
+        "Category:Navbox templates",
+        "Category:Gameplay Mechanics",
+        "Category:Shape Bosses",
+        "Category:Stub",
+        "Category:Weekly Updates",
+        "Category:Template Image",
+        "Category:Mobile Main Page Image",
+        "Category:Wikia Chat logs",
+        "Category:Infobox Image",
+        "Category:Public Blog"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:WDS Templates": {
+      "member_count": 6,
+      "representative_members": [
+        "Template:WDSExternal/doc",
+        "Template:WDSRightExternal/doc",
+        "Template:WDSLeftExternal/doc",
+        "Template:WDSRight/doc",
+        "Template:WDSLeft/doc",
+        "Template:WDS/doc"
+      ],
+      "parent_categories": [
+        "Category:Link Templates",
+        "Category:Templates"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Template documentation": {
+      "member_count": 141,
+      "representative_members": [
+        "Template:WDSExternal/doc",
+        "Template:WDSRightExternal/doc",
+        "Template:WDSLeftExternal/doc",
+        "Template:WeaponNav/doc",
+        "Template:FTBCode/doc",
+        "Template:FTB/doc",
+        "Template:FTBasic/doc",
+        "Template:Project/doc",
+        "Template:Quote/doc",
+        "Template:Rainbow/doc"
+      ],
+      "parent_categories": [
+        "Category:Templates"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Main Page Templates": {
+      "member_count": 25,
+      "representative_members": [
+        "Template:MP-D",
+        "Template:MP-Chat",
+        "Template:NavButton",
+        "Template:MP-Interlang/doc",
+        "Template:MP-Icons-Fanon",
+        "Template:MP-Icons-Canon",
+        "Template:MP-Links",
+        "Template:DiepButton",
+        "Template:MP-Discord",
+        "Template:MP-Icons-Arras"
+      ],
+      "parent_categories": [
+        "Category:Templates"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Copyright Templates": {
+      "member_count": 9,
+      "representative_members": [
+        "Template:Medal",
+        "Template:HistoryFile",
+        "Template:Fairuse/doc",
+        "Template:Permission/doc",
+        "Template:Self/doc",
+        "Template:PD/doc",
+        "Template:Other free/doc",
+        "Template:CC-BY-SA/doc",
+        "Template:From Wikimedia/doc"
+      ],
+      "parent_categories": [
+        "Category:Templates"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Medal Images": {
+      "member_count": 1,
+      "representative_members": [
+        "Template:Medal"
+      ],
+      "parent_categories": [
+        "Category:File Management"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Images": {
+      "member_count": 8,
+      "representative_members": [
+        "Template:Medal",
+        "Template:HistoryFile",
+        "Category:Editor of the Month Image",
+        "Category:Green Polygons Sightings",
+        "Template:Self",
+        "Category:Arras Images",
+        "Template:Undefined",
+        "Category:Dreadnought Panels"
+      ],
+      "parent_categories": [
+        "Category:File Management"
+      ],
+      "subcategories": [
+        "Category:Arras Images",
+        "Category:Dreadnought Panels",
+        "Category:Green Polygons Sightings",
+        "Category:Editor of the Month Image"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:BlogListingPage": {
+      "member_count": 6,
+      "representative_members": [
+        "Blog:Games",
+        "Blog:Games",
+        "Blog:Featured Blogs",
+        "Blog:Featured Blogs",
+        "Blog:Best You Can Be",
+        "Project:Wiki Updates"
+      ],
+      "parent_categories": [
+        "Category:Blog posts"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Game Bloglists": {
+      "member_count": 1,
+      "representative_members": [
+        "Blog:Games"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Game Blogs": {
+      "member_count": 6,
+      "representative_members": [
+        "User blog:Capt679/Games",
+        "User blog:FlippyCatFan/My Turnip! (12)",
+        "User blog:Underslime/Complete The Alphabet!!",
+        "User blog:PkmnQ/Banana peel (3)",
+        "User blog:Skye Sim/Periodic Table Game",
+        "User blog:PkmnQ/Sort it!"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Infobox Templates": {
+      "member_count": 14,
+      "representative_members": [
+        "Template:Era",
+        "Template:Mode/doc",
+        "Template:Fanon/doc",
+        "Template:BaseStats",
+        "Template:BlogNav/doc",
+        "Template:Boss/doc",
+        "Template:Polygon/doc",
+        "Template:Polygon/Crashers/doc",
+        "Template:Infobox/double/doc",
+        "Template:ArrasBaseStats"
+      ],
+      "parent_categories": [
+        "Category:Templates"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Navbox Templates": {
+      "member_count": 94,
+      "representative_members": [
+        "Template:History",
+        "Template:WeaponNav/doc",
+        "Template:AutoMessage",
+        "Template:AutoMessageAnon",
+        "Template:BlogFooterNew",
+        "Template:Navbox",
+        "Template:DiepmonBossNav",
+        "Template:4LTankNav",
+        "Template:CB'sIdeasNav",
+        "Template:TacoNav"
+      ],
+      "parent_categories": [
+        "Category:Templates"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Talk": {
+      "member_count": 40,
+      "representative_members": [
+        "Template:TalkHistory",
+        "Category:History-Talk",
+        "Template:TalkModule",
+        "Category:Module-Talk",
+        "Template:TalkGadget",
+        "Template:TalkGadget",
+        "Template:TalkGadget",
+        "Template:TalkGadget",
+        "Template:TalkGadget",
+        "Category:Gadget-Talk"
+      ],
+      "parent_categories": [
+        "Category:Wiki Management"
+      ],
+      "subcategories": [
+        "Category:History-Talk",
+        "Category:Archived User-Talk",
+        "Category:Module-Talk",
+        "Category:Gadget-Talk",
+        "Category:MediaWiki-Talk",
+        "Category:Template-Talk",
+        "Category:File-Talk",
+        "Category:Live Talk-Pages",
+        "Category:Category-Talk",
+        "Category:Tale of Diep-Talk",
+        "Category:Blog-Talk",
+        "Category:Canon-Talk",
+        "Category:Fanon-Talk",
+        "Category:Live Fanon-Talk-Pages",
+        "Category:Fanon-Talk-Pages active this year",
+        "Category:Talk-Pages needing edit protection removed",
+        "Category:Talk-Pages needing move protection",
+        "Category:Talk-Pages active this month",
+        "Category:Talk-Pages active this year",
+        "Category:Archived-Administration-Talk",
+        "Category:Log-Talk",
+        "Category:Help-Talk",
+        "Category:Fanon-Talk-Pages active this month"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:History-Talk": {
+      "member_count": 1,
+      "representative_members": [
+        "Template:TalkHistory"
+      ],
+      "parent_categories": [
+        "Category:Talk",
+        "Category:Administration-Talk",
+        "Category:History"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Talk Templates": {
+      "member_count": 11,
+      "representative_members": [
+        "Template:TalkHistory",
+        "Template:TalkModule",
+        "Template:TalkGadget/doc",
+        "Template:Talk/doc",
+        "Template:TalkMedals2",
+        "Template:TalkStaff",
+        "Template:TalkStaff2",
+        "Template:Unsigned",
+        "Template:TalkLog",
+        "Template:TalkMediaWiki"
+      ],
+      "parent_categories": [
+        "Category:Templates"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Administration-Talk": {
+      "member_count": 7,
+      "representative_members": [
+        "Category:History-Talk",
+        "Template:TalkGadget",
+        "Category:Archived-Administration-Talk",
+        "Template:TalkMedals2",
+        "Template:TalkStaff",
+        "Template:TalkStaff2",
+        "Template:TalkSandbox"
+      ],
+      "parent_categories": [
+        "Category:Administration"
+      ],
+      "subcategories": [
+        "Category:History-Talk",
+        "Category:Archived-Administration-Talk"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:History": {
+      "member_count": 10,
+      "representative_members": [
+        "Category:History-Talk",
+        "Project:About/Birth",
+        "Project:About/Dawn",
+        "Project:About/Democratic",
+        "Project:About/Reformation",
+        "Project:DCoW",
+        "Project:About/Unification",
+        "Project:About/Dark",
+        "Category:Archived Administration",
+        "Project:About"
+      ],
+      "parent_categories": [
+        "Category:Administration"
+      ],
+      "subcategories": [
+        "Category:History-Talk",
+        "Category:Archived Administration"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Administration": {
+      "member_count": 13,
+      "representative_members": [
+        "Category:History",
+        "Template:Project",
+        "Category:Site Policies",
+        "Project:Apps",
+        "Project:Discord",
+        "Project:Block",
+        "Category:Archived Administration",
+        "Template:Policies",
+        "Category:Administration-Talk",
+        "Category:Staff Blogs"
+      ],
+      "parent_categories": [
+        "Category:Community",
+        "Category:Wiki Management"
+      ],
+      "subcategories": [
+        "Category:Administration-Talk",
+        "Category:History",
+        "Category:Staff Blogs",
+        "Category:User-Groups",
+        "Category:Archived Administration",
+        "Category:Site Policies"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Player Tanks": {
+      "member_count": 16,
+      "representative_members": [
+        "Category:Invisibility",
+        "Category:Old Classes",
+        "Template:TankNav/test",
+        "Template:TankNav/test",
+        "Template:TankNav/test",
+        "Template:TankNav/test",
+        "Template:TankNav/test",
+        "Firework",
+        "Category:Tier 2 Tanks",
+        "Category:Tier 3 Tanks"
+      ],
+      "parent_categories": [
+        "Category:Tanks"
+      ],
+      "subcategories": [
+        "Category:Old Classes",
+        "Category:Invisibility",
+        "Category:Tier 2 Tanks",
+        "Category:Tier 3 Tanks",
+        "Category:Tier 4 Tanks"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Arras Removed Content": {
+      "member_count": 1,
+      "representative_members": [
+        "Template:Removed"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Removed": {
+      "member_count": 1,
+      "representative_members": [
+        "Template:Removed"
+      ],
+      "parent_categories": [
+        "Category:Article Management"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:History Images": {
+      "member_count": 1,
+      "representative_members": [
+        "Template:HistoryFile"
+      ],
+      "parent_categories": [
+        "Category:File Management"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Infobox Images": {
+      "member_count": 1,
+      "representative_members": [
+        "Template:HistoryFile"
+      ],
+      "parent_categories": [
+        "Category:Template Images",
+        "Category:File Management"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Template Images": {
+      "member_count": 2,
+      "representative_members": [
+        "Template:HistoryFile",
+        "Category:Infobox Images"
+      ],
+      "parent_categories": [
+        "Category:File Management"
+      ],
+      "subcategories": [
+        "Category:Infobox Images"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:File Management": {
+      "member_count": 21,
+      "representative_members": [
+        "Category:History Images",
+        "Category:Editor of the Month Image",
+        "Category:Chat Images",
+        "Category:Green Polygons Sightings",
+        "Category:Era Icon Images",
+        "Category:Blog Images",
+        "Category:Main Page Images",
+        "Category:Mobile Main Page Images",
+        "Category:Infobox Images",
+        "Category:Template Images"
+      ],
+      "parent_categories": [
+        "Category:Wiki Management"
+      ],
+      "subcategories": [
+        "Category:Medal Images",
+        "Category:Images",
+        "Category:History Images",
+        "Category:Infobox Images",
+        "Category:Template Images",
+        "Category:Main Page Images",
+        "Category:Fanon Images",
+        "Category:Arras Images",
+        "Category:Image Review",
+        "Category:Green Polygons Sightings",
+        "Category:Videos",
+        "Category:Editor of the Month Image",
+        "Category:Chat Images",
+        "Category:Era Icon Images",
+        "Category:Blog Images",
+        "Category:Mobile Main Page Images",
+        "Category:Animated Images",
+        "Category:Unidentified Files",
+        "Category:Internal Images",
+        "Category:Achievements",
+        "Category:Refuse Image"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Diep.io": {
+      "member_count": 148,
+      "representative_members": [
+        "Spread Shot",
+        "Streamliner",
+        "Category:Old Classes",
+        "Tri-Angle",
+        "Ranger",
+        "Triplet",
+        "Category:Gameplay",
+        "Auto Trapper",
+        "Machine Gun II",
+        "Booster"
+      ],
+      "parent_categories": [
+        "Category:Diep.io Wiki"
+      ],
+      "subcategories": [
+        "Category:Tanks",
+        "Category:Old Classes",
+        "Category:Gameplay",
+        "Category:Tier 4 Tanks",
+        "Category:Unofficial Features"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Tanks": {
+      "member_count": 27,
+      "representative_members": [
+        "Category:Old Classes",
+        "Category:Player Tanks",
+        "Template:BossNav",
+        "Template:BossNav",
+        "Category:Auto Tanks",
+        "Template:TankNav/test",
+        "Template:TankNav/test",
+        "Template:TankNav/test",
+        "Template:TankNav/test",
+        "Template:TankNav/test"
+      ],
+      "parent_categories": [
+        "Category:Diep.io"
+      ],
+      "subcategories": [
+        "Category:Player Tanks",
+        "Category:Old Classes",
+        "Category:Auto Tanks",
+        "Category:Trapper Tanks",
+        "Category:Bosses",
+        "Category:Special Tanks",
+        "Category:Gunner Tanks"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Archived User-Talk": {
+      "member_count": 16,
+      "representative_members": [
+        "User:TOTMGsRock/Talk",
+        "User:BananaBot/Talk",
+        "User:Radium212/Talk",
+        "User:Count of Howard/Talk",
+        "User:Banarama/Talk",
+        "User:RubberDuckie3/Talk",
+        "User:II Finale II/Talk",
+        "User:TropicalStormChapsteck/Talk",
+        "User:Kurofox zero/Talk",
+        "User:Teamerz/Talk"
+      ],
+      "parent_categories": [
+        "Category:Talk",
+        "Category:Archived-Talk"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Featured Blogs": {
+      "member_count": 18,
+      "representative_members": [
+        "User blog:Ursuul/Some Statistics",
+        "User blog:Capt679/Booster: Speed Demon",
+        "User blog:TheGoldenPatrik1/The Necromancer",
+        "User blog:Capt679/New Diep Discord",
+        "User blog:Electro7101/Factory vs X (Guide)",
+        "User blog:TheGoldenPatrik1/Use Source Editor Peeps",
+        "User blog:TheGoldenPatrik1/A Practical Guide to Bots",
+        "User blog:GellyPop/Smashus Automaticus (A Perceived Description to Auto Smasher)",
+        "User blog:Capt679/New and Improved Editing Tips",
+        "User blog:Type: Sparky/Artillus Automaticus (Description to the Auto-Gunner)"
+      ],
+      "parent_categories": [
+        "Category:Blog posts"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Old Classes": {
+      "member_count": 12,
+      "representative_members": [
+        "Tri-Angle",
+        "Ranger",
+        "Triplet",
+        "Tank",
+        "Flank Guard",
+        "Sniper",
+        "Triple Twin",
+        "Overseer",
+        "Twin",
+        "Destroyer"
+      ],
+      "parent_categories": [
+        "Category:Tanks",
+        "Category:Player Tanks",
+        "Category:Diep.io"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Link Templates": {
+      "member_count": 32,
+      "representative_members": [
+        "Category:WDS Templates",
+        "Template:MW/doc",
+        "Template:Interlang/doc",
+        "Template:MP-Interlang/doc",
+        "Template:F/doc",
+        "Template:D/doc",
+        "Template:CL/doc",
+        "Template:P/doc",
+        "Template:H/doc",
+        "Category:Namespace Templates"
+      ],
+      "parent_categories": [
+        "Category:Templates"
+      ],
+      "subcategories": [
+        "Category:WDS Templates",
+        "Category:Namespace Templates",
+        "Category:InterWiki Link Templates"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Wiki Updates": {
+      "member_count": 4,
+      "representative_members": [
+        "Template:BlogFooterNew",
+        "User blog:Fall Out Wave/Sandbox on 27th!",
+        "User blog:Capt679/A Changing of the Guard",
+        "Template:BlogFooter"
+      ],
+      "parent_categories": [
+        "Category:Staff Blogs",
+        "Category:Blog posts"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Staff Blogs": {
+      "member_count": 6,
+      "representative_members": [
+        "Template:BlogFooterNew",
+        "Category:Wiki Updates",
+        "Template:BlogNav",
+        "Category:Best You Can Be",
+        "Template:BlogFooter",
+        "Template:BlogFooterOld"
+      ],
+      "parent_categories": [
+        "Category:Administration",
+        "Category:Blog posts"
+      ],
+      "subcategories": [
+        "Category:Wiki Updates",
+        "Category:Best You Can Be"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Gameplay": {
+      "member_count": 21,
+      "representative_members": [
+        "Category:Features",
+        "Category:Mechanics",
+        "Category:Game Modes",
+        "Category:Weapons & Ammunition",
+        "Template:Polygon",
+        "Template:Polygon",
+        "Template:PolyNav",
+        "Template:Polygon/Crashers",
+        "Template:TankNav/test",
+        "Template:Gameplay"
+      ],
+      "parent_categories": [
+        "Category:Diep.io"
+      ],
+      "subcategories": [
+        "Category:Mechanics",
+        "Category:Polygons",
+        "Category:General Information",
+        "Category:Mobile",
+        "Category:Game Modes",
+        "Category:Weapons",
+        "Category:Ammunition",
+        "Category:Features",
+        "Category:Weapons & Ammunition"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Wiki Management": {
+      "member_count": 9,
+      "representative_members": [
+        "Category:File Management",
+        "Category:Logs",
+        "Category:Gadgets",
+        "Category:Stubs",
+        "Category:Vandalism",
+        "Category:Talk",
+        "Category:Administration",
+        "Category:Templates",
+        "Category:Article Management"
+      ],
+      "parent_categories": [
+        "Category:Diep.io Wiki"
+      ],
+      "subcategories": [
+        "Category:Templates",
+        "Category:Article Management",
+        "Category:Talk",
+        "Category:Administration",
+        "Category:File Management",
+        "Category:Logs",
+        "Category:Gadgets",
+        "Category:Stubs",
+        "Category:Vandalism"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Diep.io Wiki": {
+      "member_count": 5,
+      "representative_members": [
+        "Category:Wiki Management",
+        "Category:Community",
+        "Category:Fanon",
+        "Project:Home",
+        "Category:Diep.io"
+      ],
+      "parent_categories": [],
+      "subcategories": [
+        "Category:Diep.io",
+        "Category:Wiki Management",
+        "Category:Fanon",
+        "Category:Community"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Personal Templates": {
+      "member_count": 93,
+      "representative_members": [
+        "Template:AboutTaco",
+        "Template:AboutDiepmon",
+        "Template:Zipline",
+        "Template:DiepmonBossNav",
+        "Template:4LTankNav",
+        "Template:CB'sIdeasNav",
+        "Template:TacoNav",
+        "Template:Oo1oo2oo3oo4 idea",
+        "Template:FOWNav",
+        "Template:David's"
+      ],
+      "parent_categories": [
+        "Category:Templates"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:WAM Logs": {
+      "member_count": 1,
+      "representative_members": [
+        "Project:DCoW WAM Log"
+      ],
+      "parent_categories": [
+        "Category:Logs"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:User-Groups": {
+      "member_count": 5,
+      "representative_members": [
+        "Category:Global User-Groups",
+        "Category:Local User-Groups",
+        "Template:Groups",
+        "Template:Groups",
+        "Project:CheckUser"
+      ],
+      "parent_categories": [
+        "Category:Administration"
+      ],
+      "subcategories": [
+        "Category:Global User-Groups",
+        "Category:Local User-Groups"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Mechanics": {
+      "member_count": 2,
+      "representative_members": [
+        "Category:Weapons & Ammunition",
+        "Template:Gameplay"
+      ],
+      "parent_categories": [
+        "Category:Gameplay"
+      ],
+      "subcategories": [
+        "Category:Weapons & Ammunition"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Accoladed Fanon Articles": {
+      "member_count": 8,
+      "representative_members": [
+        "Template:Icon",
+        "Template:Icon",
+        "Template:Icon",
+        "Template:Icon",
+        "Template:Icon",
+        "Template:Icon",
+        "Template:Icon",
+        "Template:Icon"
+      ],
+      "parent_categories": [
+        "Category:Fanon"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Problem Categories": {
+      "member_count": 2,
+      "representative_members": [
+        "Template:Icon",
+        "Template:Sentenced"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Icon Templates": {
+      "member_count": 2,
+      "representative_members": [
+        "Template:Icon/doc",
+        "Template:SIcon/doc"
+      ],
+      "parent_categories": [
+        "Category:Templates"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:JS Templates": {
+      "member_count": 5,
+      "representative_members": [
+        "Template:Icon/doc",
+        "Template:CH/doc",
+        "Template:DiscordIntegrator/doc",
+        "Template:USERNAME/doc",
+        "Template:RailModule"
+      ],
+      "parent_categories": [
+        "Category:Templates"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Lua Templates": {
+      "member_count": 20,
+      "representative_members": [
+        "Template:Navbox",
+        "Template:MW/doc",
+        "Template:F/doc",
+        "Template:D/doc",
+        "Template:P/doc",
+        "Template:H/doc",
+        "Template:M/doc",
+        "Template:W/doc",
+        "Template:DV/doc",
+        "Template:V/doc"
+      ],
+      "parent_categories": [
+        "Category:Templates"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Auto Tanks": {
+      "member_count": 6,
+      "representative_members": [
+        "Auto Trapper",
+        "Auto Smasher",
+        "Battleship",
+        "Auto Gunner",
+        "Auto 3",
+        "Auto 5"
+      ],
+      "parent_categories": [
+        "Category:Tanks"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Trapper Tanks": {
+      "member_count": 6,
+      "representative_members": [
+        "Auto Trapper",
+        "Mega Trapper",
+        "Tri-Trapper",
+        "Trapper",
+        "Gunner Trapper",
+        "Overtrapper"
+      ],
+      "parent_categories": [
+        "Category:Tanks"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Logs": {
+      "member_count": 3,
+      "representative_members": [
+        "Category:WAM Logs",
+        "Category:Rights Logs",
+        "Category:Chat Logs"
+      ],
+      "parent_categories": [
+        "Category:Wiki Management"
+      ],
+      "subcategories": [
+        "Category:Chat Logs",
+        "Category:WAM Logs",
+        "Category:Rights Logs"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Namespace Templates": {
+      "member_count": 13,
+      "representative_members": [
+        "Template:MW/doc",
+        "Template:F/doc",
+        "Template:D/doc",
+        "Template:P/doc",
+        "Template:H/doc",
+        "Template:M/doc",
+        "Template:BL/doc",
+        "Template:U/doc",
+        "Template:CA/doc",
+        "Template:S/doc"
+      ],
+      "parent_categories": [
+        "Category:Link Templates",
+        "Category:Templates"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Module-Talk": {
+      "member_count": 1,
+      "representative_members": [
+        "Template:TalkModule"
+      ],
+      "parent_categories": [
+        "Category:Talk"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Fanon Templates": {
+      "member_count": 66,
+      "representative_members": [
+        "Template:DiepmonBossNav",
+        "Template:4LTankNav",
+        "Template:CB'sIdeasNav",
+        "Template:TacoNav",
+        "Template:Oo1oo2oo3oo4 idea",
+        "Template:FOWNav",
+        "Template:David's",
+        "Template:Author/doc",
+        "Template:ZathsuBossNav",
+        "Template:ZathsuEnemyNav"
+      ],
+      "parent_categories": [
+        "Category:Templates"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Unknown author": {
+      "member_count": 1,
+      "representative_members": [
+        "Template:Author"
+      ],
+      "parent_categories": [
+        "Category:Article Management"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Collaborative Fanon": {
+      "member_count": 5,
+      "representative_members": [
+        "Template:Collab",
+        "Template:Collab",
+        "Template:Fanon",
+        "Fanon:Emiolis",
+        "Template:\ud83c\udd71\ufe0fanon"
+      ],
+      "parent_categories": [
+        "Category:Fanon"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Fanon Tier 1 Tanks": {
+      "member_count": 6,
+      "representative_members": [
+        "Template:TacoNav",
+        "Template:Fanon",
+        "Template:\ud83c\udd71\ufe0fanon",
+        "Template:FexxisNav",
+        "Fanon:Tiers (Tale of Arras)",
+        "Template:11sD-Nav"
+      ],
+      "parent_categories": [
+        "Category:Fanon",
+        "Category:Fanon Tanks"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Fanon Tanks": {
+      "member_count": 441,
+      "representative_members": [
+        "Template:TacoNav",
+        "Template:TacoNav",
+        "Template:TacoNav",
+        "Template:TacoNav",
+        "Fanon:Arsonist",
+        "Fanon:Automaton",
+        "Fanon:Axolotl",
+        "Fanon:Back Shield",
+        "Fanon:Biohazard",
+        "Fanon:Camo-Gunner (GellyPop)"
+      ],
+      "parent_categories": [
+        "Category:Fanon"
+      ],
+      "subcategories": [
+        "Category:Fanon Tier 1 Tanks",
+        "Category:Fanon Tier 2 Tanks",
+        "Category:Fanon Tier 3 Tanks",
+        "Category:Fanon Tier 4 Tanks",
+        "Category:Fanon Tier 5 Tanks",
+        "Category:Fanon Tier 6 Tanks",
+        "Category:Fanon Tier 7 Tanks",
+        "Category:Fanon Tier 8 Tanks"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Fanon Tier 2 Tanks": {
+      "member_count": 37,
+      "representative_members": [
+        "Template:TacoNav",
+        "Fanon:Back Shield",
+        "Fanon:Defense",
+        "Fanon:Gatling",
+        "Fanon:Hexer",
+        "Fanon:Insectoid",
+        "Fanon:Spinner (Diepmon)",
+        "Fanon:Supporter",
+        "Fanon:Swarmer",
+        "Fanon:Split Angle"
+      ],
+      "parent_categories": [
+        "Category:Fanon",
+        "Category:Fanon Tanks"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Fanon Tier 3 Tanks": {
+      "member_count": 78,
+      "representative_members": [
+        "Template:TacoNav",
+        "Fanon:Curvestack",
+        "Fanon:Extender",
+        "Fanon:Flamethrower (GellyPop)",
+        "Fanon:Flank Defense",
+        "Fanon:Flanker",
+        "Fanon:Helix",
+        "Fanon:Hidden Gunner",
+        "Fanon:Jouster",
+        "Fanon:Knight"
+      ],
+      "parent_categories": [
+        "Category:Fanon",
+        "Category:Fanon Tanks"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Fanon Tier 4 Tanks": {
+      "member_count": 197,
+      "representative_members": [
+        "Template:TacoNav",
+        "Fanon:Arsonist",
+        "Fanon:Automaton",
+        "Fanon:Axolotl",
+        "Fanon:Biohazard",
+        "Fanon:Camo-Gunner (GellyPop)",
+        "Fanon:Caravan",
+        "Fanon:Constructor",
+        "Fanon:Cyclone",
+        "Fanon:Dasher"
+      ],
+      "parent_categories": [
+        "Category:Fanon",
+        "Category:Fanon Tanks"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Fanon Bosses": {
+      "member_count": 440,
+      "representative_members": [
+        "Template:TacoNav",
+        "Fanon:Alpha Summoner",
+        "Fanon:Angular Booster",
+        "Fanon:Black Blizzard",
+        "Fanon:Bosses (Extended Tale of Diep)",
+        "Fanon:Bosses (Kacperlupa.polska)",
+        "Fanon:Chompy",
+        "Fanon:Code: Red",
+        "Fanon:Creator (Dash's ver.)",
+        "Fanon:D-Cannon"
+      ],
+      "parent_categories": [
+        "Category:Fanon",
+        "Category:Fanon Entities",
+        "Category:Bosses"
+      ],
+      "subcategories": [
+        "Category:Fanon Polygon Bosses",
+        "Category:Fanon Celestials"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Fanon Gamemodes": {
+      "member_count": 3,
+      "representative_members": [
+        "Template:TacoNav",
+        "Template:FexxisNav",
+        "Template:11sD-Nav"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Fanon": {
+      "member_count": 1087,
+      "representative_members": [
+        "Template:TacoNav",
+        "Template:TacoNav",
+        "Fanon:Achievements (Extended Tale of Diep)",
+        "Fanon:Angular Booster",
+        "Fanon:Arsonist",
+        "Fanon:Aura",
+        "Fanon:Automaton",
+        "Fanon:Axolotl",
+        "Fanon:Back Shield",
+        "Fanon:Biohazard"
+      ],
+      "parent_categories": [
+        "Category:Diep.io Wiki"
+      ],
+      "subcategories": [
+        "Category:Accoladed Fanon Articles",
+        "Category:Collaborative Fanon",
+        "Category:Fanon Tier 1 Tanks",
+        "Category:Fanon Tanks",
+        "Category:Fanon Tier 2 Tanks",
+        "Category:Fanon Tier 3 Tanks",
+        "Category:Fanon Tier 4 Tanks",
+        "Category:Fanon Bosses",
+        "Category:Fanon Tale of Diep",
+        "Category:Public Fanon",
+        "Category:Fanon Extended Tale of Diep",
+        "Category:Fanon Polygon Bosses",
+        "Category:Fanon Game Mechanics",
+        "Category:Fanon Other Conceptions",
+        "Category:Fanon Game Modes",
+        "Category:Fanon Tier 5 Tanks",
+        "Category:Fanon Joke Conceptions",
+        "Category:Fanon Polygons",
+        "Category:Fanon Enemies",
+        "Category:Fanon Tier 6 Tanks",
+        "Category:Fanon Stories",
+        "Category:Fanon Narratives",
+        "Category:Fanon Entities",
+        "Category:Fanon Tier 7 Tanks",
+        "Category:Fanon Tier 8 Tanks",
+        "Category:Fanon Tale of Arras",
+        "Category:Fanon Celestials"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Fanon Tale of Diep": {
+      "member_count": 11,
+      "representative_members": [
+        "Template:TacoNav",
+        "Fanon:Fallen Factory (Graviatar)",
+        "Fanon:Fallen Hybrid (Graviatar)",
+        "Fanon:Dreadnought (Graviatar)",
+        "Category:Fanon Extended Tale of Diep",
+        "Template:Fanon",
+        "Template:AUNav",
+        "Template:\ud83c\udd71\ufe0fanon",
+        "Template:FexxisNav",
+        "Category:Fanon Tale of Arras"
+      ],
+      "parent_categories": [
+        "Category:Fanon",
+        "Category:Fanon Narratives",
+        "Category:Fanon Stories"
+      ],
+      "subcategories": [
+        "Category:Fanon Extended Tale of Diep",
+        "Category:Fanon Tale of Arras"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Public Fanon": {
+      "member_count": 12,
+      "representative_members": [
+        "Template:Public",
+        "Template:Public",
+        "Template:Fanon",
+        "Template:\ud83c\udd71\ufe0fanon",
+        "Fanon:Battlefield",
+        "Fanon:Fan-Made Achievements",
+        "Fanon:Mini Elite Pistol",
+        "Fanon:Polygons (Tale of Arras)",
+        "Fanon:Polygons (Agent decagon)",
+        "Fanon:Sassafras Quotes"
+      ],
+      "parent_categories": [
+        "Category:Fanon"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Public Blogs": {
+      "member_count": 16,
+      "representative_members": [
+        "User blog:Capt679/Booster: Speed Demon",
+        "User blog:TheGoldenPatrik1/The Necromancer",
+        "User blog:Capt679/New Diep Discord",
+        "User blog:Electro7101/Factory vs X (Guide)",
+        "User blog:TheGoldenPatrik1/Use Source Editor Peeps",
+        "User blog:Tungster24/Hi",
+        "User blog:GellyPop/Diep.io Comparisons Part 2: Penta Shot vs. Spread Shot",
+        "User blog:GellyPop/An Epic Failure of Trying Diep.io Tanks To Be More Realistic...",
+        "User blog:GellyPop/Tanks: Pros and Cons",
+        "User blog:GellyPop/Extreme Challenge No. 1"
+      ],
+      "parent_categories": [
+        "Category:Blog posts"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Notice templates": {
+      "member_count": 27,
+      "representative_members": [
+        "Template:User/doc",
+        "Template:Author/doc",
+        "Template:Public/doc",
+        "Template:Moved",
+        "Template:Collab/doc",
+        "Template:Adopted/doc",
+        "Template:Done/doc",
+        "Template:NotDone/doc",
+        "Template:Image/doc",
+        "Template:TalkSandbox/doc"
+      ],
+      "parent_categories": [
+        "Category:Templates"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:InterWiki Link Templates": {
+      "member_count": 7,
+      "representative_members": [
+        "Template:Interlang/doc",
+        "Template:MP-Interlang/doc",
+        "Template:W/doc",
+        "Template:DV/doc",
+        "Template:V/doc",
+        "Template:DP/doc",
+        "Template:DC/doc"
+      ],
+      "parent_categories": [
+        "Category:Link Templates",
+        "Category:Templates"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Adopted": {
+      "member_count": 4,
+      "representative_members": [
+        "Template:Adopted",
+        "Template:Adopted",
+        "Template:Fanon",
+        "Template:\ud83c\udd71\ufe0fanon"
+      ],
+      "parent_categories": [
+        "Category:Article Management"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Polygons": {
+      "member_count": 9,
+      "representative_members": [
+        "Category:Common Polygons",
+        "Template:Polygon",
+        "Template:Polygon",
+        "Template:PolyNav",
+        "Template:Polygon/Crashers",
+        "Category:Event Shapes",
+        "Beta.diep.io",
+        "Category:Polygon Bosses",
+        "Category:Rare Polygons"
+      ],
+      "parent_categories": [
+        "Category:Gameplay"
+      ],
+      "subcategories": [
+        "Category:Polygon Bosses",
+        "Category:Rare Polygons",
+        "Category:Common Polygons",
+        "Category:Event Shapes"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Polygon Bosses": {
+      "member_count": 2,
+      "representative_members": [
+        "Template:TacoPolyBossNav",
+        "Template:BossNav"
+      ],
+      "parent_categories": [
+        "Category:Bosses",
+        "Category:Polygons"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Guarded": {
+      "member_count": 1,
+      "representative_members": [
+        "Template:TacoPolyBossNav"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Boss Tanks": {
+      "member_count": 1,
+      "representative_members": [
+        "Template:TacoPolyBossNav"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:AI Controlled Tanks": {
+      "member_count": 1,
+      "representative_members": [
+        "Template:TacoPolyBossNav"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Fanon Extended Tale of Diep": {
+      "member_count": 186,
+      "representative_members": [
+        "Fanon:Afterburner",
+        "Fanon:Aggregate",
+        "Fanon:Armored Bastion",
+        "Fanon:Auto 4",
+        "Fanon:Auto 6",
+        "Fanon:Blazing Booster",
+        "Fanon:Bomber",
+        "Fanon:Bosses (Extended Tale of Diep)",
+        "Fanon:Bosses (Kacperlupa.polska)",
+        "Fanon:Bullet Hell (Gamemode)"
+      ],
+      "parent_categories": [
+        "Category:Fanon",
+        "Category:Fanon Narratives",
+        "Category:Fanon Stories",
+        "Category:Fanon Tale of Diep"
+      ],
+      "subcategories": [
+        "Category:Fanon Tale of Arras"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Fanon Polygon Bosses": {
+      "member_count": 170,
+      "representative_members": [
+        "Fanon:Aquamarine",
+        "Fanon:Barge of the Polygons (GellyPop)",
+        "Fanon:Black Blizzard",
+        "Fanon:Hendre'ka",
+        "Fanon:PENTAGOD",
+        "Fanon:Armorboat",
+        "Fanon:Battle Carrier",
+        "Fanon:Polygon Bosses (Graviatar)",
+        "Fanon:Cascade Army",
+        "Fanon:Collider"
+      ],
+      "parent_categories": [
+        "Category:Fanon",
+        "Category:Fanon Bosses",
+        "Category:Fanon Entities"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Fanon Game Mechanics": {
+      "member_count": 66,
+      "representative_members": [
+        "Fanon:Arena Effects",
+        "Fanon:Aura",
+        "Fanon:Bosses (Kacperlupa.polska)",
+        "Fanon:Bullet Bending",
+        "Fanon:Corruption",
+        "Fanon:Design Style (GellyPop)",
+        "Fanon:Exploration",
+        "Fanon:Killstreak rewards",
+        "Fanon:Market",
+        "Fanon:Nature"
+      ],
+      "parent_categories": [
+        "Category:Fanon"
+      ],
+      "subcategories": [
+        "Category:Fanon Game Modes"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Fanon Other Conceptions": {
+      "member_count": 17,
+      "representative_members": [
+        "Fanon:Barryl",
+        "Fanon:DCoW Heroes",
+        "Fanon:Polygons (Graviatar)",
+        "Fanon:Tank Builder",
+        "Fanon:The Extended Tale of Diep",
+        "Fanon:Natural Disasters",
+        "Fanon:Hesperian League",
+        "Fanon:Realm of Sassafras",
+        "Fanon:NewDiepCards",
+        "Fanon:Crys"
+      ],
+      "parent_categories": [
+        "Category:Fanon"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Fanon Game Modes": {
+      "member_count": 65,
+      "representative_members": [
+        "Fanon:Boss Frenzy but Frenzier",
+        "Fanon:Bullet Hell (Gamemode)",
+        "Fanon:Corruption",
+        "Fanon:Crasher Warfare",
+        "Fanon:Cyber Mode",
+        "Fanon:Invasion (GellyPop)",
+        "Fanon:Juggernaut Mode (SomeCatchyName)",
+        "Fanon:Lunar Invasion",
+        "Fanon:Fortress Conquest",
+        "Fanon:Sudden Death"
+      ],
+      "parent_categories": [
+        "Category:Fanon",
+        "Category:Fanon Game Mechanics"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Fanon Tier 5 Tanks": {
+      "member_count": 97,
+      "representative_members": [
+        "Fanon:Carabineer",
+        "Fanon:Cloaker",
+        "Fanon:Commander",
+        "Fanon:Fort",
+        "Fanon:Guard (Destroyer75342)",
+        "Fanon:Guardian(Pec110)",
+        "Fanon:Heavy Gunner",
+        "Fanon:Manufacturer",
+        "Fanon:Propeller",
+        "Fanon:Skirmisher (Pec110)"
+      ],
+      "parent_categories": [
+        "Category:Fanon Tanks",
+        "Category:Fanon"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Fanon Joke Conceptions": {
+      "member_count": 72,
+      "representative_members": [
+        "Fanon:Daktor. Lakys",
+        "Fanon:Deletos (GellyPop)",
+        "Fanon:LA-CPS",
+        "Fanon:Rektangle (GellyPop)",
+        "Fanon:All-Blasting (GellyPop)",
+        "Fanon:TankcopTerminator (GellyPop)",
+        "Fanon:Tankcopter (GellyPop)",
+        "Fanon:The \"Almost-Every-Level45-Tank-Combined-Into-One\" Tank",
+        "Fanon:The MasterOv Video Thumbnail Boss Tank",
+        "Fanon:Turret Sock"
+      ],
+      "parent_categories": [
+        "Category:Fanon"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Fanon Polygons": {
+      "member_count": 68,
+      "representative_members": [
+        "Fanon:Deletos (GellyPop)",
+        "Fanon:Polygons (GellyPop)",
+        "Fanon:Polygons (LightingStriker666)",
+        "Fanon:Rektangle (GellyPop)",
+        "Fanon:Cascade Army",
+        "Fanon:Nonagon Phages",
+        "Fanon:Polygons (Graviatar4yurlips)",
+        "Fanon:Polygons (Graviatar)",
+        "Fanon:Nest Defenders",
+        "Fanon:Quasars"
+      ],
+      "parent_categories": [
+        "Category:Fanon Entities",
+        "Category:Fanon"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Fanon Enemies": {
+      "member_count": 28,
+      "representative_members": [
+        "Fanon:Evil Tanks (GellyPop)",
+        "Fanon:LA-CPS",
+        "Fanon:Nonagon Phages",
+        "Fanon:Nest Defenders",
+        "Fanon:Viruses",
+        "Fanon:Quasars",
+        "Template:Fanon/boss",
+        "Fanon:Pinwheel",
+        "Fanon:Legion of the Lord",
+        "Fanon:TEA UFF PENZAPPLE"
+      ],
+      "parent_categories": [
+        "Category:Fanon",
+        "Category:Fanon Entities"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Fanon Tier 6 Tanks": {
+      "member_count": 13,
+      "representative_members": [
+        "Fanon:King (Destroyer75342)",
+        "Fanon:Overfort",
+        "Template:Fanon",
+        "Fanon:Atomic Bomber",
+        "Template:\ud83c\udd71\ufe0fanon",
+        "Fanon:Sceltapede",
+        "Fanon:Sprinter",
+        "Fanon:Telepede",
+        "Fanon:Picture of a Bike",
+        "Fanon:Celestial Upgrades (Tale of Arras)"
+      ],
+      "parent_categories": [
+        "Category:Fanon",
+        "Category:Fanon Tanks"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Fanon Stories": {
+      "member_count": 20,
+      "representative_members": [
+        "Fanon:The Extended Tale of Diep",
+        "Category:Fanon Tale of Diep",
+        "Category:Fanon Extended Tale of Diep",
+        "Fanon:Diep Z",
+        "Fanon:The Tales of Arras",
+        "Fanon:Diep World",
+        "Fanon:Dieplands",
+        "Category:Fanon Tale of Arras",
+        "Fanon:Story of Tale of Arras",
+        "Fanon:The Tales of Arras/The Tale of Sass"
+      ],
+      "parent_categories": [
+        "Category:Fanon",
+        "Category:Fanon Narratives"
+      ],
+      "subcategories": [
+        "Category:Fanon Tale of Diep",
+        "Category:Fanon Extended Tale of Diep",
+        "Category:Fanon Tale of Arras"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Fallen Bosses": {
+      "member_count": 2,
+      "representative_members": [
+        "Template:BossNav",
+        "Fanon:NoobGdPro"
+      ],
+      "parent_categories": [
+        "Category:Bosses"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Bosses": {
+      "member_count": 8,
+      "representative_members": [
+        "Template:BossNav",
+        "Template:BossNav",
+        "Template:BossNav",
+        "Category:Fanon Bosses",
+        "Guardian (8th Anniversary)",
+        "Defender (8th Anniversary)",
+        "Category:Fallen Bosses",
+        "Category:Polygon Bosses"
+      ],
+      "parent_categories": [
+        "Category:Tanks"
+      ],
+      "subcategories": [
+        "Category:Fanon Bosses",
+        "Category:Polygon Bosses",
+        "Category:Fallen Bosses"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Gadget Messages": {
+      "member_count": 5,
+      "representative_members": [
+        "MediaWiki:Gadgets-definition",
+        "MediaWiki:Gadgets-prefstext",
+        "MediaWiki:Gadgets-required-rights",
+        "MediaWiki:Gadgets-default",
+        "MediaWiki:Gadgets-required-skins"
+      ],
+      "parent_categories": [
+        "Category:Gadgets"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Gadgets": {
+      "member_count": 36,
+      "representative_members": [
+        "MediaWiki:Gadgets-definition",
+        "MediaWiki:Gadget-Staff-CSS",
+        "MediaWiki:Gadget-section-Aesthetics",
+        "MediaWiki:Gadgets-prefstext",
+        "Category:Gadget Descriptions",
+        "Category:Gadget Messages",
+        "Category:Gadget-Talk",
+        "MediaWiki:Gadgets-required-rights",
+        "MediaWiki:Gadgets-default",
+        "MediaWiki:Gadgets-required-skins"
+      ],
+      "parent_categories": [
+        "Category:Wiki Management"
+      ],
+      "subcategories": [
+        "Category:Gadget Messages",
+        "Category:Gadget Descriptions",
+        "Category:Gadget-Talk"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Gadget Descriptions": {
+      "member_count": 29,
+      "representative_members": [
+        "MediaWiki:Gadget-Staff-CSS",
+        "MediaWiki:Gadget-section-Aesthetics",
+        "MediaWiki:Gadget-Emberfall",
+        "MediaWiki:Gadget-HeaderStyle",
+        "MediaWiki:Gadget-Themes",
+        "MediaWiki:Gadget-HS Halloween",
+        "MediaWiki:Gadget-HS Thanksgiving",
+        "MediaWiki:Gadget-Halloween",
+        "MediaWiki:Gadget-Thanksgiving",
+        "MediaWiki:Gadget-HS Christmas"
+      ],
+      "parent_categories": [
+        "Category:Gadgets"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Gadget-Talk": {
+      "member_count": 8,
+      "representative_members": [
+        "Category:Gadget-Description-Talk",
+        "Category:Gadget-Message-Talk",
+        "Category:Gadget-Dependency-Talk",
+        "Template:TalkGadget",
+        "Template:TalkGadget",
+        "Template:TalkGadget",
+        "Template:TalkGadget",
+        "Template:TalkGadget"
+      ],
+      "parent_categories": [
+        "Category:Gadgets",
+        "Category:Talk"
+      ],
+      "subcategories": [
+        "Category:Gadget-Message-Talk",
+        "Category:Gadget-Description-Talk",
+        "Category:Gadget-Dependency-Talk"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Gadget-Message-Talk": {
+      "member_count": 1,
+      "representative_members": [
+        "Template:TalkGadget"
+      ],
+      "parent_categories": [
+        "Category:Gadget-Talk"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:MediaWiki-Talk": {
+      "member_count": 5,
+      "representative_members": [
+        "Template:TalkGadget",
+        "Template:TalkGadget",
+        "Template:TalkGadget",
+        "Template:TalkGadget",
+        "Template:TalkMediaWiki"
+      ],
+      "parent_categories": [
+        "Category:Talk"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Gadget-Description-Talk": {
+      "member_count": 1,
+      "representative_members": [
+        "Template:TalkGadget"
+      ],
+      "parent_categories": [
+        "Category:Gadget-Talk"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Gadget-Dependency-Talk": {
+      "member_count": 1,
+      "representative_members": [
+        "Template:TalkGadget"
+      ],
+      "parent_categories": [
+        "Category:Gadget-Talk"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Fanon Narratives": {
+      "member_count": 6,
+      "representative_members": [
+        "Category:Fanon Tale of Diep",
+        "Category:Fanon Extended Tale of Diep",
+        "Category:Fanon Stories",
+        "Fanon:The Tales of Arras",
+        "Fanon:Story of Tale of Arras",
+        "Fanon:The Tales of Arras/The Tale of Sass"
+      ],
+      "parent_categories": [
+        "Category:Fanon"
+      ],
+      "subcategories": [
+        "Category:Fanon Tale of Diep",
+        "Category:Fanon Extended Tale of Diep",
+        "Category:Fanon Stories"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Global User-Groups": {
+      "member_count": 2,
+      "representative_members": [
+        "Template:Groups",
+        "Project:CheckUser"
+      ],
+      "parent_categories": [
+        "Category:User-Groups"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Local User-Groups": {
+      "member_count": 1,
+      "representative_members": [
+        "Template:Groups"
+      ],
+      "parent_categories": [
+        "Category:User-Groups"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Fanon Entities": {
+      "member_count": 21,
+      "representative_members": [
+        "Category:Fanon Polygon Bosses",
+        "Category:Fanon Enemies",
+        "Category:Fanon Polygons",
+        "Category:Fanon Bosses",
+        "Fanon:The Queen Bee",
+        "Fanon:HetaDago (AverageArrasioGuy)",
+        "Fanon:Argiontren",
+        "Fanon:Sentries (Old)",
+        "Fanon:YEETURAMEN",
+        "Fanon:The Undead (Tale of Arras)"
+      ],
+      "parent_categories": [
+        "Category:Fanon"
+      ],
+      "subcategories": [
+        "Category:Fanon Bosses",
+        "Category:Fanon Polygon Bosses",
+        "Category:Fanon Polygons",
+        "Category:Fanon Enemies"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Dependency Templates": {
+      "member_count": 7,
+      "representative_members": [
+        "Template:Fanon/mode",
+        "Template:Fanon/tank",
+        "Template:Fanon/boss",
+        "Template:Fanon/polygon",
+        "Template:Quote/bottom",
+        "Template:Quote/top",
+        "Template:Stat/cell"
+      ],
+      "parent_categories": [
+        "Category:Templates"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Fanon Tier 7 Tanks": {
+      "member_count": 7,
+      "representative_members": [
+        "Template:Fanon",
+        "Fanon:Bat-tank",
+        "Fanon:Supertank",
+        "Template:\ud83c\udd71\ufe0fanon",
+        "Fanon:Dronemaster",
+        "Fanon:Celestial Upgrades (Tale of Arras)",
+        "Fanon:Unaliver"
+      ],
+      "parent_categories": [
+        "Category:Fanon",
+        "Category:Fanon Tanks"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Invisibility": {
+      "member_count": 3,
+      "representative_members": [
+        "Landmine",
+        "Manager",
+        "Stalker"
+      ],
+      "parent_categories": [
+        "Category:Player Tanks"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Rights Logs": {
+      "member_count": 2,
+      "representative_members": [
+        "Project:Rights Log",
+        "Project:DCoW Rights Log"
+      ],
+      "parent_categories": [
+        "Category:Logs"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Best You Can Be": {
+      "member_count": 1,
+      "representative_members": [
+        "Template:BlogNav"
+      ],
+      "parent_categories": [
+        "Category:Staff Blogs",
+        "Category:Blog posts"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Main Page Images": {
+      "member_count": 1,
+      "representative_members": [
+        "Category:Mobile Main Page Images"
+      ],
+      "parent_categories": [
+        "Category:File Management"
+      ],
+      "subcategories": [
+        "Category:Mobile Main Page Images"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Unreviewed Builds Templates": {
+      "member_count": 199,
+      "representative_members": [
+        "Template:Build/Preload",
+        "Template:Builds/bomb",
+        "Template:Builds/Sagira's Insanity",
+        "Template:Builds/Pillbox",
+        "Template:Builds/tank of your choice",
+        "Template:Builds/Drone Swarm!!",
+        "Template:Builds/Bullet of Doom. (OH SNAP!)",
+        "Template:Builds/ram overlord",
+        "Template:Builds/Military's Rocketeer",
+        "Template:Builds/0"
+      ],
+      "parent_categories": [
+        "Category:Article Management"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Template-Talk": {
+      "member_count": 3,
+      "representative_members": [
+        "Category:Live Template-Talk-Pages",
+        "Category:Template-Talk-Pages active this year",
+        "Category:Template-Talk-Pages active this month"
+      ],
+      "parent_categories": [
+        "Category:Talk"
+      ],
+      "subcategories": [
+        "Category:Live Template-Talk-Pages",
+        "Category:Template-Talk-Pages active this year",
+        "Category:Template-Talk-Pages active this month"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Live Template-Talk-Pages": {
+      "member_count": 2,
+      "representative_members": [
+        "Category:Template-Talk-Pages active this year",
+        "Category:Template-Talk-Pages active this month"
+      ],
+      "parent_categories": [
+        "Category:Template-Talk"
+      ],
+      "subcategories": [
+        "Category:Template-Talk-Pages active this year",
+        "Category:Template-Talk-Pages active this month"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:File-Talk": {
+      "member_count": 3,
+      "representative_members": [
+        "Category:Live File-Talk-Pages",
+        "Category:File-Talk-Pages active this month",
+        "Category:File-Talk-Pages active this year"
+      ],
+      "parent_categories": [
+        "Category:Talk"
+      ],
+      "subcategories": [
+        "Category:Live File-Talk-Pages",
+        "Category:File-Talk-Pages active this month",
+        "Category:File-Talk-Pages active this year"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Live File-Talk-Pages": {
+      "member_count": 2,
+      "representative_members": [
+        "Category:File-Talk-Pages active this month",
+        "Category:File-Talk-Pages active this year"
+      ],
+      "parent_categories": [
+        "Category:File-Talk"
+      ],
+      "subcategories": [
+        "Category:File-Talk-Pages active this month",
+        "Category:File-Talk-Pages active this year"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Live Talk-Pages": {
+      "member_count": 3,
+      "representative_members": [
+        "Category:Talk-Pages active this year",
+        "Category:Talk-Pages active this month",
+        "Template:Talk"
+      ],
+      "parent_categories": [
+        "Category:Talk"
+      ],
+      "subcategories": [
+        "Category:Talk-Pages active this month",
+        "Category:Talk-Pages active this year"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Live Category-Talk-Pages": {
+      "member_count": 2,
+      "representative_members": [
+        "Category:Category-Talk-Pages active this month",
+        "Category:Category-Talk-Pages active this year"
+      ],
+      "parent_categories": [
+        "Category:Category-Talk"
+      ],
+      "subcategories": [
+        "Category:Category-Talk-Pages active this month",
+        "Category:Category-Talk-Pages active this year"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Category-Talk": {
+      "member_count": 3,
+      "representative_members": [
+        "Category:Category-Talk-Pages active this month",
+        "Category:Category-Talk-Pages active this year",
+        "Category:Live Category-Talk-Pages"
+      ],
+      "parent_categories": [
+        "Category:Talk"
+      ],
+      "subcategories": [
+        "Category:Live Category-Talk-Pages",
+        "Category:Category-Talk-Pages active this month",
+        "Category:Category-Talk-Pages active this year"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Tale of Diep-Talk": {
+      "member_count": 3,
+      "representative_members": [
+        "Category:Live Tale of Diep-Talk-Pages",
+        "Category:Tale of Diep-Talk-Pages active this year",
+        "Category:Tale of Diep-Talk-Pages active this month"
+      ],
+      "parent_categories": [
+        "Category:Talk"
+      ],
+      "subcategories": [
+        "Category:Live Tale of Diep-Talk-Pages",
+        "Category:Tale of Diep-Talk-Pages active this year",
+        "Category:Tale of Diep-Talk-Pages active this month"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Live Tale of Diep-Talk-Pages": {
+      "member_count": 2,
+      "representative_members": [
+        "Category:Tale of Diep-Talk-Pages active this year",
+        "Category:Tale of Diep-Talk-Pages active this month"
+      ],
+      "parent_categories": [
+        "Category:Tale of Diep-Talk"
+      ],
+      "subcategories": [
+        "Category:Tale of Diep-Talk-Pages active this year",
+        "Category:Tale of Diep-Talk-Pages active this month"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Live Blog-Talk-Pages": {
+      "member_count": 2,
+      "representative_members": [
+        "Category:Blog-Talk-Pages active this year",
+        "Category:Blog-Talk-Pages active this month"
+      ],
+      "parent_categories": [
+        "Category:Blog-Talk"
+      ],
+      "subcategories": [
+        "Category:Blog-Talk-Pages active this year",
+        "Category:Blog-Talk-Pages active this month"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Blog-Talk": {
+      "member_count": 3,
+      "representative_members": [
+        "Category:Blog-Talk-Pages active this year",
+        "Category:Blog-Talk-Pages active this month",
+        "Category:Live Blog-Talk-Pages"
+      ],
+      "parent_categories": [
+        "Category:Talk"
+      ],
+      "subcategories": [
+        "Category:Live Blog-Talk-Pages",
+        "Category:Blog-Talk-Pages active this year",
+        "Category:Blog-Talk-Pages active this month"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Community Pages": {
+      "member_count": 3,
+      "representative_members": [
+        "Template:Polls",
+        "Template:Community",
+        "User:Banarama/Non-Traditional Play Styles"
+      ],
+      "parent_categories": [
+        "Category:Community",
+        "Category:Article Management"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Live Canon-Talk-Pages": {
+      "member_count": 2,
+      "representative_members": [
+        "Category:Canon-Talk-Pages active this month",
+        "Category:Canon-Talk-Pages active this year"
+      ],
+      "parent_categories": [
+        "Category:Canon-Talk"
+      ],
+      "subcategories": [
+        "Category:Canon-Talk-Pages active this month",
+        "Category:Canon-Talk-Pages active this year"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Canon-Talk": {
+      "member_count": 3,
+      "representative_members": [
+        "Category:Canon-Talk-Pages active this month",
+        "Category:Live Canon-Talk-Pages",
+        "Category:Canon-Talk-Pages active this year"
+      ],
+      "parent_categories": [
+        "Category:Talk"
+      ],
+      "subcategories": [
+        "Category:Live Canon-Talk-Pages",
+        "Category:Canon-Talk-Pages active this month",
+        "Category:Canon-Talk-Pages active this year"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:General Information": {
+      "member_count": 6,
+      "representative_members": [
+        "Bosses",
+        "Polygons",
+        "Game Modes",
+        "Template:TankNav/test",
+        "Template:Gameplay",
+        "Template:TankNav"
+      ],
+      "parent_categories": [
+        "Category:Gameplay"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Arras Polygons": {
+      "member_count": 2,
+      "representative_members": [
+        "Template:ArrasPolyNav",
+        "Template:Polygon"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Arras.io": {
+      "member_count": 26,
+      "representative_members": [
+        "Template:ArrasPolyNav",
+        "Template:Polygon",
+        "Template:Boss",
+        "Template:Infobox/double",
+        "Template:Infobox/double",
+        "Template:Infobox/double",
+        "Template:Infobox/double",
+        "Template:Infobox/double",
+        "Template:Infobox/double",
+        "Template:Infobox/double"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Rare Polygons": {
+      "member_count": 1,
+      "representative_members": [
+        "Template:Polygon"
+      ],
+      "parent_categories": [
+        "Category:Polygons"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Common Polygons": {
+      "member_count": 2,
+      "representative_members": [
+        "Template:Polygon",
+        "Template:Polygon/Crashers"
+      ],
+      "parent_categories": [
+        "Category:Polygons"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Archived Blogs": {
+      "member_count": 15,
+      "representative_members": [
+        "Template:ArcBlog",
+        "User:101cooler/Air craft Carrier",
+        "User:101cooler/The OmegaFallenOverlord",
+        "User:101cooler/The Flash (upgrades to Air Craft carrier.)",
+        "User:10cooler/The Phys Trapper",
+        "User:101cooler/BREAKING NEWS from the 101times",
+        "User:101cooler/The Crafter",
+        "User:101cooler/Tank Idea 2",
+        "User:101cooler/Tanky idea",
+        "User:Diep2do/boss tank idea contest"
+      ],
+      "parent_categories": [
+        "Category:Article Management"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Mobile": {
+      "member_count": 2,
+      "representative_members": [
+        "Diep.io Mobile",
+        "Mobile Changelog"
+      ],
+      "parent_categories": [
+        "Category:Gameplay"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Arras Bosses": {
+      "member_count": 2,
+      "representative_members": [
+        "Template:Boss",
+        "Template:ArrasBossNav"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Arras Tanks": {
+      "member_count": 22,
+      "representative_members": [
+        "Template:Boss",
+        "Template:Infobox/double",
+        "Template:Infobox/double",
+        "Template:Infobox/double",
+        "Template:Infobox/double",
+        "Template:Infobox/double",
+        "Template:Infobox/double",
+        "Template:Infobox/double",
+        "Template:Infobox/double",
+        "Template:ArrasTank"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Archived-Talk": {
+      "member_count": 4,
+      "representative_members": [
+        "Category:Archived-Administration-Talk",
+        "Category:Archived User-Talk",
+        "Template:Archive",
+        "Template:ArchiveStaff"
+      ],
+      "parent_categories": [],
+      "subcategories": [
+        "Category:Archived User-Talk",
+        "Category:Archived-Administration-Talk"
+      ],
+      "is_itself_a_page": false
+    },
+    "Category:Fanon-Talk": {
+      "member_count": 3,
+      "representative_members": [
+        "Category:Live Fanon-Talk-Pages",
+        "Category:Fanon-Talk-Pages active this year",
+        "Category:Fanon-Talk-Pages active this month"
+      ],
+      "parent_categories": [
+        "Category:Talk"
+      ],
+      "subcategories": [
+        "Category:Live Fanon-Talk-Pages",
+        "Category:Fanon-Talk-Pages active this year",
+        "Category:Fanon-Talk-Pages active this month"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Live Fanon-Talk-Pages": {
+      "member_count": 2,
+      "representative_members": [
+        "Category:Fanon-Talk-Pages active this year",
+        "Category:Fanon-Talk-Pages active this month"
+      ],
+      "parent_categories": [
+        "Category:Talk",
+        "Category:Fanon-Talk"
+      ],
+      "subcategories": [
+        "Category:Fanon-Talk-Pages active this year",
+        "Category:Fanon-Talk-Pages active this month"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Fanon-Talk-Pages active this year": {
+      "member_count": 1,
+      "representative_members": [
+        "Category:Fanon-Talk-Pages active this month"
+      ],
+      "parent_categories": [
+        "Category:Talk",
+        "Category:Fanon-Talk",
+        "Category:Live Fanon-Talk-Pages"
+      ],
+      "subcategories": [
+        "Category:Fanon-Talk-Pages active this month"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Arras Player Tanks": {
+      "member_count": 21,
+      "representative_members": [
+        "Template:Infobox/double",
+        "Template:Infobox/double",
+        "Template:Infobox/double",
+        "Template:Infobox/double",
+        "Template:Infobox/double",
+        "Template:Infobox/double",
+        "Template:Infobox/double",
+        "Template:Infobox/double",
+        "Template:ArrasTank",
+        "Template:ArrasTank"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Arras Tier 2 Tanks": {
+      "member_count": 5,
+      "representative_members": [
+        "Template:Infobox/double",
+        "Template:Infobox/double",
+        "Template:ArrasTank",
+        "Template:InfoboxNGP",
+        "Template:Infobox"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Arras Tier 3 Tanks": {
+      "member_count": 5,
+      "representative_members": [
+        "Template:Infobox/double",
+        "Template:Infobox/double",
+        "Template:ArrasTank",
+        "Template:InfoboxNGP",
+        "Template:Infobox"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Arras Tier 4 Tanks": {
+      "member_count": 5,
+      "representative_members": [
+        "Template:Infobox/double",
+        "Template:Infobox/double",
+        "Template:ArrasTank",
+        "Template:InfoboxNGP",
+        "Template:Infobox"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Tier 2 Tanks": {
+      "member_count": 2,
+      "representative_members": [
+        "Template:TankNav/test",
+        "Template:TankNav"
+      ],
+      "parent_categories": [
+        "Category:Player Tanks"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Tier 3 Tanks": {
+      "member_count": 3,
+      "representative_members": [
+        "Template:TankNav/test",
+        "Trapper",
+        "Template:TankNav"
+      ],
+      "parent_categories": [
+        "Category:Player Tanks"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Tier 4 Tanks": {
+      "member_count": 3,
+      "representative_members": [
+        "Template:TankNav/test",
+        "Firework",
+        "Template:TankNav"
+      ],
+      "parent_categories": [
+        "Category:Player Tanks",
+        "Category:Diep.io"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Special Tanks": {
+      "member_count": 2,
+      "representative_members": [
+        "Template:TankNav/test",
+        "Template:TankNav"
+      ],
+      "parent_categories": [
+        "Category:Tanks"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category: Fanon Tier 4 Tanks": {
+      "member_count": 1,
+      "representative_members": [
+        "Fanon:Earth Godzilla Tank"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category: Fanon Tier 5 Tanks": {
+      "member_count": 1,
+      "representative_members": [
+        "Fanon:Earth Godzilla Tank"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category: Fanon Tier 6 Tanks": {
+      "member_count": 1,
+      "representative_members": [
+        "Fanon:Earth Godzilla Tank"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category: Fanon Tier 7 Tanks": {
+      "member_count": 1,
+      "representative_members": [
+        "Fanon:Earth Godzilla Tank"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Arras Beta Content": {
+      "member_count": 1,
+      "representative_members": [
+        "Template:Beta"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Pages with Restricted Templates": {
+      "member_count": 1,
+      "representative_members": [
+        "Template:ATWNM"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Arras Weapons": {
+      "member_count": 1,
+      "representative_members": [
+        "Template:ArrasGameplay"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Arras Gameplay": {
+      "member_count": 5,
+      "representative_members": [
+        "Template:ArrasGameplay",
+        "Template:ArrasGameplay",
+        "Template:ArrasGameplay",
+        "Template:ArrasGameplay",
+        "Template:ArrasGameplay"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Arras Ammunition": {
+      "member_count": 3,
+      "representative_members": [
+        "Template:ArrasGameplay",
+        "Template:ArrasAmmunitionNav",
+        "Template:ArmsRaceAmmunitionNav"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Arras Mechanics": {
+      "member_count": 1,
+      "representative_members": [
+        "Template:ArrasGameplay"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Arras Features": {
+      "member_count": 1,
+      "representative_members": [
+        "Template:ArrasGameplay"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Arras General Information": {
+      "member_count": 1,
+      "representative_members": [
+        "Template:ArrasGameplay"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Fanon Tier 8 Tanks": {
+      "member_count": 2,
+      "representative_members": [
+        "Fanon:Deathray",
+        "Fanon:AAAAAAAAAAAAAAA"
+      ],
+      "parent_categories": [
+        "Category:Fanon",
+        "Category:Fanon Tanks"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Fanon Images": {
+      "member_count": 4,
+      "representative_members": [
+        "Fanon:King Pentagon",
+        "Fanon:The Dieprooms",
+        "Category:Unused Fanon Renders",
+        "Fanon:The True Arrasrooms"
+      ],
+      "parent_categories": [
+        "Category:File Management"
+      ],
+      "subcategories": [
+        "Category:Unused Fanon Renders"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Stubs": {
+      "member_count": 12,
+      "representative_members": [
+        "Template:Stub",
+        "Fanon:The Wakab",
+        "Fanon:Das Fuzo\u2019s Fortress",
+        "Fanon:Big Gamer",
+        "Fanon:Gnik",
+        "Fanon:Galactoid",
+        "Fanon:Tarpor",
+        "Fanon:Drogan",
+        "Fanon:Galactic Adventure",
+        "Fanon:KILLER BIRB"
+      ],
+      "parent_categories": [
+        "Category:Wiki Management"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Fanon Joke Concepts": {
+      "member_count": 2,
+      "representative_members": [
+        "Fanon:EGG (AU)",
+        "Fanon:Everything Tank"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:LLarson.io": {
+      "member_count": 1,
+      "representative_members": [
+        "Fanon:LLarson.io"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Creepypasta": {
+      "member_count": 3,
+      "representative_members": [
+        "Blog:Theawsomedieplover/N O T A N K T I E R",
+        "Fanon:ErrorCRITICAL",
+        "Fanon:\u1e26\u0334\u0332\u032e\u031e\u031c\u0352\u030e\u0300\u031a\u0345a\u0337\u0321\u0354\u032f\u0348\u0357\u0346\u0301\u0301\u0342\u034a\u030e\u0313\u0315\u035dr\u0337\u031c\u032e\u0355\u0324\u0354\u0320\u032b\u033b\u032d\u0305c\u0335\u034d\u032d\u0348\u033a\u034b\u034b\u0313\u0352\u0105\u0334\u033a\u0353\u0330\u031d\u0330\u035a\u0301\u0300\u031ad\u0338\u0329\u035a\u0326\u0349\u0317\u0351\u0313\u035c\u00ec\u0336\u033a\u033b\u032f\u0347\u032b\u033b\u031f\u033d\u0310\u035b\u0301\u0302\u0303\u034c\u030c\u0303\u0345u\u0337\u0353\u0313\u0301\u033dm\u0334\u033c\u0355\u0354\u035a\u034a\u0313\u0308\u0301 (DefenderByte)"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Fanon Tier 1.5 Tanks": {
+      "member_count": 1,
+      "representative_members": [
+        "Fanon:Back Shield (Hikidy123)"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Fanon Tale of Arras": {
+      "member_count": 44,
+      "representative_members": [
+        "Fanon:The Tales of Arras",
+        "Fanon:Craze",
+        "Fanon:Story of Tale of Arras",
+        "Fanon:Coiners",
+        "Fanon:Alderin (Tale of Arras)",
+        "Fanon:Achievements (Tale of Arras)",
+        "Fanon:Hemispheres (Tale of Arras)",
+        "Fanon:The Undead (Tale of Arras)",
+        "Fanon:Dimensions (Tale of Arras)",
+        "Fanon:The Overworld (Tale of Arras)"
+      ],
+      "parent_categories": [
+        "Category:Fanon Extended Tale of Diep",
+        "Category:Fanon Tale of Diep",
+        "Category:Fanon Stories",
+        "Category:Fanon"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Annihilator Builds": {
+      "member_count": 1,
+      "representative_members": [
+        "Fanon:Hulk Tank"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Hybrid Builds": {
+      "member_count": 1,
+      "representative_members": [
+        "Fanon:Hulk Tank"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Tier 5 Tanks": {
+      "member_count": 2,
+      "representative_members": [
+        "Fanon:C U R S E D",
+        "Fanon:NoobGdPro"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Fanon Achievements": {
+      "member_count": 5,
+      "representative_members": [
+        "Fanon:Fan-Made Achievements",
+        "Fanon:Sharp and Flat",
+        "Fanon:Achievements (Tale of Arras)",
+        "Fanon:Achievements (Pounder)",
+        "Fanon:Achievements (Mark.klele29)"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category: Builds Templates": {
+      "member_count": 1,
+      "representative_members": [
+        "Template:Builds/Whitty Bomb"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Fanon tanks": {
+      "member_count": 4,
+      "representative_members": [
+        "User:Mark.klele29/Blazer",
+        "Fanon:Barrage",
+        "Fanon:Frankenstein",
+        "Fanon:Puckle Gun"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Fanon teir 4 tanks": {
+      "member_count": 1,
+      "representative_members": [
+        "User:Mark.klele29/Blazer"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Article stubs": {
+      "member_count": 1,
+      "representative_members": [
+        "User:Mark.klele29/Blazer"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Templates with secret messages": {
+      "member_count": 1,
+      "representative_members": [
+        "Template:FexxisNav"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Fanon Celestials": {
+      "member_count": 32,
+      "representative_members": [
+        "Fanon:Celeste",
+        "Fanon:As\u00fdnetos",
+        "Fanon:Siegerist",
+        "Fanon:Deltaria",
+        "Fanon:Prometheus",
+        "Fanon:Wepwawet",
+        "Fanon:Atlantis",
+        "Fanon:Hermes",
+        "Fanon:Clickist",
+        "Fanon:Callum"
+      ],
+      "parent_categories": [
+        "Category:Fanon",
+        "Category:Fanon Bosses"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Archived Administration": {
+      "member_count": 1,
+      "representative_members": [
+        "Template:ProjectArchived"
+      ],
+      "parent_categories": [
+        "Category:History",
+        "Category:Administration"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Fanon Characters": {
+      "member_count": 3,
+      "representative_members": [
+        "Fanon:Alderin (Tale of Arras)",
+        "Fanon:Tiny Boy (Tale of Arras)",
+        "Fanon:NoobGdPro"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Tank Builds": {
+      "member_count": 1,
+      "representative_members": [
+        "User:Eclipse227/Trap Guard Strats"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Vtuber_Expansion(Basically_Shitposting)": {
+      "member_count": 2,
+      "representative_members": [
+        "Fanon:Celestial Star (Tal of Aras)",
+        "Fanon:Merry (Tal of Aras)"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Needs Images": {
+      "member_count": 4,
+      "representative_members": [
+        "User:Strider76/Nest Janitor",
+        "Template:Image",
+        "Template:Image",
+        "User:Nobellion/Code"
+      ],
+      "parent_categories": [
+        "Category:Article Management"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Arras Images": {
+      "member_count": 1,
+      "representative_members": [
+        "Category:Dreadnought Panels"
+      ],
+      "parent_categories": [
+        "Category:File Management",
+        "Category:Images"
+      ],
+      "subcategories": [
+        "Category:Dreadnought Panels"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Dreadnought Panels": {
+      "member_count": 1,
+      "representative_members": [
+        "Category:Old Dreadnought Panels"
+      ],
+      "parent_categories": [
+        "Category:Arras Images",
+        "Category:Images"
+      ],
+      "subcategories": [
+        "Category:Old Dreadnought Panels"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Image Review": {
+      "member_count": 1,
+      "representative_members": [
+        "Category:Unidentified Files"
+      ],
+      "parent_categories": [
+        "Category:File Management"
+      ],
+      "subcategories": [
+        "Category:Unidentified Files"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Fanon Fallen Bosses": {
+      "member_count": 1,
+      "representative_members": [
+        "Template:WikiEnneaNav"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Fanon Mechanics": {
+      "member_count": 1,
+      "representative_members": [
+        "Template:WikiEnneaNav"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Disambiguations": {
+      "member_count": 3,
+      "representative_members": [
+        "Tornado (disambiguation)",
+        "Flamethrower",
+        "Template:Disambig"
+      ],
+      "parent_categories": [
+        "Category:Article Management"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Fanon Effects": {
+      "member_count": 1,
+      "representative_members": [
+        "Fanon:Weakness(Effect)"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Joke Conceptions": {
+      "member_count": 1,
+      "representative_members": [
+        "Fanon:Get out"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Fanon tier 0 tanks": {
+      "member_count": 1,
+      "representative_members": [
+        "Fanon:Bolla"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Fanon_Bosses": {
+      "member_count": 1,
+      "representative_members": [
+        "Fanon:Polpot"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Arras Game Modes": {
+      "member_count": 1,
+      "representative_members": [
+        "Draft:Arras:Classic"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Arras Daily Tanks": {
+      "member_count": 1,
+      "representative_members": [
+        "Template:Daily"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Arras Tier 1 Tanks": {
+      "member_count": 3,
+      "representative_members": [
+        "Template:ArrasTank",
+        "Template:InfoboxNGP",
+        "Template:Infobox"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Arras Tier 5 Tanks": {
+      "member_count": 1,
+      "representative_members": [
+        "Template:ArrasTank"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Arras Unreleased Content": {
+      "member_count": 1,
+      "representative_members": [
+        "Template:Unreleased"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Event Shapes": {
+      "member_count": 1,
+      "representative_members": [
+        "Birthday Shape"
+      ],
+      "parent_categories": [
+        "Category:Polygons"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Brendan": {
+      "member_count": 1,
+      "representative_members": [
+        "User:BrendanSeun5"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:11sD Tile's Pages": {
+      "member_count": 1,
+      "representative_members": [
+        "Fanon:Smasher Extended Branch"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Armadillo line": {
+      "member_count": 2,
+      "representative_members": [
+        "Fanon:Armadillo",
+        "Fanon:Overmadillo"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Armadillo linw": {
+      "member_count": 1,
+      "representative_members": [
+        "Fanon:Overmadillo"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Game Modes": {
+      "member_count": 2,
+      "representative_members": [
+        "Beta.diep.io",
+        "Template:GameNav"
+      ],
+      "parent_categories": [
+        "Category:Gameplay"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Site Policies": {
+      "member_count": 1,
+      "representative_members": [
+        "Template:Policies"
+      ],
+      "parent_categories": [
+        "Category:Administration"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Conjecture": {
+      "member_count": 2,
+      "representative_members": [
+        "Template:Conjecture",
+        "Template:Conjecture"
+      ],
+      "parent_categories": [
+        "Category:Article Management"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Cleanup": {
+      "member_count": 2,
+      "representative_members": [
+        "Template:Cleanup",
+        "Template:Cleanup"
+      ],
+      "parent_categories": [
+        "Category:Article Management"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Weapons": {
+      "member_count": 1,
+      "representative_members": [
+        "Template:Gameplay"
+      ],
+      "parent_categories": [
+        "Category:Weapons & Ammunition",
+        "Category:Gameplay"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Ammunition": {
+      "member_count": 1,
+      "representative_members": [
+        "Template:Gameplay"
+      ],
+      "parent_categories": [
+        "Category:Weapons & Ammunition",
+        "Category:Gameplay"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Features": {
+      "member_count": 1,
+      "representative_members": [
+        "Template:Gameplay"
+      ],
+      "parent_categories": [
+        "Category:Gameplay"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Green Polygons Sightings": {
+      "member_count": 3,
+      "representative_members": [
+        "Category:Green Pentagons Sightings",
+        "Category:Green Squares Sightings",
+        "Category:Green Triangles Sightings"
+      ],
+      "parent_categories": [
+        "Category:File Management",
+        "Category:Images"
+      ],
+      "subcategories": [
+        "Category:Green Pentagons Sightings",
+        "Category:Green Squares Sightings",
+        "Category:Green Triangles Sightings"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Candidates for deletion": {
+      "member_count": 2,
+      "representative_members": [
+        "Template:Sentenced",
+        "Template:Delete"
+      ],
+      "parent_categories": [
+        "Category:Article Management"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Sentenced": {
+      "member_count": 1,
+      "representative_members": [
+        "Template:Sentenced"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Talk-Pages needing edit protection removed": {
+      "member_count": 2,
+      "representative_members": [
+        "Template:Talk",
+        "Template:TalkLog"
+      ],
+      "parent_categories": [
+        "Category:Talk"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Talk-Pages needing move protection": {
+      "member_count": 2,
+      "representative_members": [
+        "Template:Talk",
+        "Template:TalkLog"
+      ],
+      "parent_categories": [
+        "Category:Talk"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:{{": {
+      "member_count": 3,
+      "representative_members": [
+        "Template:Talk",
+        "Template:Talk",
+        "Template:Talk"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Talk-Pages active this month": {
+      "member_count": 1,
+      "representative_members": [
+        "Template:Talk"
+      ],
+      "parent_categories": [
+        "Category:Live Talk-Pages",
+        "Category:Talk"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Talk-Pages active this year": {
+      "member_count": 1,
+      "representative_members": [
+        "Template:Talk"
+      ],
+      "parent_categories": [
+        "Category:Live Talk-Pages",
+        "Category:Talk"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Live {{": {
+      "member_count": 1,
+      "representative_members": [
+        "Template:Talk"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Community": {
+      "member_count": 3,
+      "representative_members": [
+        "Category:Administration",
+        "Category:Blog posts",
+        "Category:Community Pages"
+      ],
+      "parent_categories": [
+        "Category:Diep.io Wiki"
+      ],
+      "subcategories": [
+        "Category:Blog posts",
+        "Category:Administration",
+        "Category:Community Pages"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Gunner Tanks": {
+      "member_count": 3,
+      "representative_members": [
+        "Gunner Trapper",
+        "Auto Gunner",
+        "Gunner"
+      ],
+      "parent_categories": [
+        "Category:Tanks"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Tanks with Multiple Types of Attack": {
+      "member_count": 1,
+      "representative_members": [
+        "Overtrapper"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Weapons & Ammunition": {
+      "member_count": 2,
+      "representative_members": [
+        "Category:Ammunition",
+        "Category:Weapons"
+      ],
+      "parent_categories": [
+        "Category:Mechanics",
+        "Category:Gameplay"
+      ],
+      "subcategories": [
+        "Category:Weapons",
+        "Category:Ammunition"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Event": {
+      "member_count": 1,
+      "representative_members": [
+        "Template:TankNav"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Review": {
+      "member_count": 1,
+      "representative_members": [
+        "Template:Interlang"
+      ],
+      "parent_categories": [
+        "Category:Language Cleanup"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Language Cleanup": {
+      "member_count": 3,
+      "representative_members": [
+        "Template:Interlang",
+        "Category:Review",
+        "Category:Checked"
+      ],
+      "parent_categories": [
+        "Category:Article Management"
+      ],
+      "subcategories": [
+        "Category:Review",
+        "Category:Checked"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Organization templates": {
+      "member_count": 1,
+      "representative_members": [
+        "Template:Header"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Archived-Administration-Talk": {
+      "member_count": 1,
+      "representative_members": [
+        "Template:ArchiveStaff"
+      ],
+      "parent_categories": [
+        "Category:Talk",
+        "Category:Administration-Talk",
+        "Category:Archived-Talk"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Wordmark Submission": {
+      "member_count": 1,
+      "representative_members": [
+        "Category:Wordmark Finalist"
+      ],
+      "parent_categories": [],
+      "subcategories": [
+        "Category:Wordmark Finalist"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Pages with too many images": {
+      "member_count": 1,
+      "representative_members": [
+        "User:Nobellion/Code"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Pages With No Links": {
+      "member_count": 1,
+      "representative_members": [
+        "User:Nobellion/Code"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Trans": {
+      "member_count": 1,
+      "representative_members": [
+        "User:Nobellion/Code"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:TrialPage": {
+      "member_count": 1,
+      "representative_members": [
+        "User:Nobellion/Code"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Image Replacement": {
+      "member_count": 2,
+      "representative_members": [
+        "Template:Quality",
+        "Template:Quality"
+      ],
+      "parent_categories": [
+        "Category:Article Management"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Log-Talk": {
+      "member_count": 1,
+      "representative_members": [
+        "Template:TalkLog"
+      ],
+      "parent_categories": [
+        "Category:Talk"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Voting templates": {
+      "member_count": 2,
+      "representative_members": [
+        "Template:Oppose",
+        "Template:Support/doc"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:{{{tank|Unknown Tank}}} Builds": {
+      "member_count": 1,
+      "representative_members": [
+        "Template:Build"
+      ],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": false
+    },
+    "Category:Builds Templates": {
+      "member_count": 3,
+      "representative_members": [
+        "Template:Build",
+        "Template:Build",
+        "Template:BuildsManual"
+      ],
+      "parent_categories": [
+        "Category:Templates"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Help-Talk": {
+      "member_count": 1,
+      "representative_members": [
+        "Template:TalkHelp"
+      ],
+      "parent_categories": [
+        "Category:Talk"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Videos": {
+      "member_count": 2,
+      "representative_members": [
+        "Category:Bug Videos",
+        "Category:Approved Videos"
+      ],
+      "parent_categories": [
+        "Category:File Management"
+      ],
+      "subcategories": [
+        "Category:Approved Videos",
+        "Category:Bug Videos"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:Approved Videos": {
+      "member_count": 1,
+      "representative_members": [
+        "Category:Bug Videos"
+      ],
+      "parent_categories": [
+        "Category:Videos"
+      ],
+      "subcategories": [
+        "Category:Bug Videos"
+      ],
+      "is_itself_a_page": true
+    },
+    "Category:References Needed": {
+      "member_count": 1,
+      "representative_members": [
+        "Template:Ref"
+      ],
+      "parent_categories": [
+        "Category:Article Management"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Browse": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Hidden categories": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Article Management"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Edit Wars": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Article Management"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Editor of the Month Image": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:File Management",
+        "Category:Images"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Pages with broken file links": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Article Management"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:WDS templates": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Redirect"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Rules": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Redirect"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Chat Images": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:File Management"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:General wiki templates": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Redirect"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Gadgets-Talk": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Redirect"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Gadget Talk": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Redirect"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Era Icon Images": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:File Management"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Limbo": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Article Management"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Blog Images": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:File Management"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Main Page": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Redirect"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Mobile Main Page Images": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Main Page Images",
+        "Category:File Management"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Template-Talk-Pages active this year": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Live Template-Talk-Pages",
+        "Category:Template-Talk"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Template-Talk-Pages active this month": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Live Template-Talk-Pages",
+        "Category:Template-Talk"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:File-Talk-Pages active this month": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Live File-Talk-Pages",
+        "Category:File-Talk"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:File-Talk-Pages active this year": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Live File-Talk-Pages",
+        "Category:File-Talk"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Category-Talk-Pages active this month": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Live Category-Talk-Pages",
+        "Category:Category-Talk"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Category-Talk-Pages active this year": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Live Category-Talk-Pages",
+        "Category:Category-Talk"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Concept-Talk": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Redirect"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Live Concept-Talk-Pages": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Redirect"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Concept-Talk-Pages active this month": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Redirect"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Concept-Talk-Pages active this year": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Redirect"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Tale of Diep-Talk-Pages active this year": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Live Tale of Diep-Talk-Pages",
+        "Category:Tale of Diep-Talk"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Tale of Diep-Talk-Pages active this month": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Live Tale of Diep-Talk-Pages",
+        "Category:Tale of Diep-Talk"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Blog-Talk-Pages active this year": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Live Blog-Talk-Pages",
+        "Category:Blog-Talk"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Blog-Talk-Pages active this month": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Live Blog-Talk-Pages",
+        "Category:Blog-Talk"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Canon-Talk-Pages active this month": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Live Canon-Talk-Pages",
+        "Category:Canon-Talk"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Canon-Talk-Pages active this year": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Live Canon-Talk-Pages",
+        "Category:Canon-Talk"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Diep2 Tier 2 Tanks": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Redirect"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Diep2 Tanks": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Redirect"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Diep2 Tier 4 Tanks": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Redirect"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Diep2 Tier 3 Tanks": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Redirect"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Diiep.io": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Diiep Ammunition": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Redirect"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Diiep Tier 4 Tanks": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Redirect"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Diiep Tier 3 Tanks": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Redirect"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Diiep Tier 2 Tanks": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Redirect"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Diiep Player Tanks": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Redirect"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Diiep Tanks": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Redirect"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Diiep Removed Content": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Redirect"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Temporary Redirect": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Article Management"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Fanon-Talk-Pages active this month": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Talk",
+        "Category:Fanon-Talk",
+        "Category:Live Fanon-Talk-Pages",
+        "Category:Fanon-Talk-Pages active this year"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Animated Images": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:File Management"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Game Mechanics": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Redirect"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Public": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Redirect"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Diep2 Ammunition": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Redirect"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Diep2 Player Tanks": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Redirect"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Diep2 Polygons": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Redirect"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Diep2 Removed Content": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Redirect"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Fanon Conceptions": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Redirect"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Fanon Boss Tanks": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Redirect"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Fanon OP Conceptions": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Redirect"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Collaboration": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Redirect"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Arras Beta Contents": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Redirect"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Arras Mockup content": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Arras Woomy Tiers": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Unofficial Features": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Diep.io"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Arras Private Server Template": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Pages using duplicate arguments in template calls": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Article Management"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Old Dreadnought Panels": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Dreadnought Panels"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Unidentified Files": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:File Management",
+        "Category:Image Review"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Unused Fanon Renders": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Fanon Images"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Galleries": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Article Management"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Arras Old Dreadnought Tanks": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Dreadnoughts Tanks": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Sentries in amplified superb siege": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Game modes": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Redirect"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Formatting templates": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Redirect"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Infobox templates": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Redirect"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Vandalism": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Wiki Management",
+        "Category:Article Management"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Green Pentagons Sightings": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Green Polygons Sightings"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Green Squares Sightings": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Green Polygons Sightings"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Green Triangles Sightings": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Green Polygons Sightings"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Navbox templates": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Redirect"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Gameplay Mechanics": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Redirect"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Shape Bosses": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Redirect"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Checked": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Language Cleanup"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Internal Images": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:File Management"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Stub": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Redirect"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Weekly Updates": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Redirect"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Template Image": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Redirect"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Achievements": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:File Management"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Refuse Image": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:File Management"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Wordmark Finalist": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Wordmark Submission"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Mobile Main Page Image": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Redirect"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Wikia Chat logs": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Redirect"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Infobox Image": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Redirect"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Mos": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Bug Videos": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Videos",
+        "Category:Approved Videos"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    },
+    "Category:Public Blog": {
+      "member_count": 0,
+      "representative_members": [],
+      "parent_categories": [
+        "Category:Redirect"
+      ],
+      "subcategories": [],
+      "is_itself_a_page": true
+    }
+  }
+}

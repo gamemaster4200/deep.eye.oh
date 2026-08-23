@@ -1,0 +1,19 @@
+{
+  "config_version": 1,
+  "description": "Test-only populated signals fixture; never the real shipped config.",
+  "canonical_candidate_categories": ["Category:Tanks"],
+  "fanon_categories": ["Category:Fan Ideas"],
+  "community_strategy_categories": ["Category:Strategy"],
+  "other_games_categories": ["Category:Other Games"],
+  "fanon_template_names": ["Fanon"],
+  "domain_category_signals": {
+    "tanks": ["Category:Tanks"],
+    "bosses": ["Category:Bosses"]
+  },
+  "domain_template_signals": {
+    "tanks": ["Infobox tank"]
+  },
+  "evidence": [
+    {"signal_type": "category", "bucket_or_domain": "canonical_candidate", "value": "Category:Tanks", "note": "test fixture seed", "added_at": "2026-08-21T00:00:00Z"}
+  ]
+}

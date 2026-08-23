@@ -1,0 +1,17 @@
+{
+  "format_version": 1,
+  "pageid": 301,
+  "title": "Category:Tanks",
+  "namespace_id": 14,
+  "namespace_name": "Category",
+  "canonical_url": "https://example.fandom.com/wiki/Category:Tanks",
+  "is_redirect": false,
+  "redirect_target_title": null,
+  "redirect_target_pageid": null,
+  "categories": ["Category:Game Content"],
+  "revision": {"revid": 5005, "parentid": null, "timestamp": "2025-01-01T00:00:00Z", "contentmodel": "wikitext", "contentformat": "text/x-wiki"},
+  "wikitext": "All tanks in the game.",
+  "content_sha256": "test-fixture-hash-301",
+  "retrieved_at": "2026-01-01T00:01:20Z",
+  "source_query": {"endpoint": "https://example.fandom.com/api.php", "params_digest": "fixture"}
+}

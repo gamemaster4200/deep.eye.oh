@@ -1,0 +1,13 @@
+{
+  "batchcomplete": true,
+  "query": {
+    "pages": [
+      {
+        "pageid": 999,
+        "ns": 0,
+        "title": "Deleted Page",
+        "missing": true
+      }
+    ]
+  }
+}

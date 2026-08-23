@@ -1,0 +1,17 @@
+{
+  "format_version": 1,
+  "pageid": 203,
+  "title": "Overlord Redirect",
+  "namespace_id": 0,
+  "namespace_name": "(Main)",
+  "canonical_url": "https://example.fandom.com/wiki/Overlord_Redirect",
+  "is_redirect": true,
+  "redirect_target_title": "Overlord",
+  "redirect_target_pageid": 204,
+  "categories": [],
+  "revision": {"revid": 5003, "parentid": 5000, "timestamp": "2025-09-01T00:00:00Z", "contentmodel": "wikitext", "contentformat": "text/x-wiki"},
+  "wikitext": "#REDIRECT [[Overlord]]",
+  "content_sha256": "test-fixture-hash-203",
+  "retrieved_at": "2026-01-01T00:01:10Z",
+  "source_query": {"endpoint": "https://example.fandom.com/api.php", "params_digest": "fixture"}
+}

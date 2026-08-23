@@ -1,0 +1,11 @@
+{{Infobox tank
+|name=Basic
+|hp=100
+|speed=1
+}}
+
+== Design ==
+The Basic tank has a single cannon.
+
+== Strategy ==
+Aim carefully.

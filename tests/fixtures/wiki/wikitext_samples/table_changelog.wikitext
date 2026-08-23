@@ -1,0 +1,8 @@
+== Changelog ==
+{| class="wikitable"
+! Date !! Version !! Change
+|-
+| 2020-01-01 || 1.0 || Added
+|-
+| 2021-06-15 || 2.0 || Reworked
+|}
