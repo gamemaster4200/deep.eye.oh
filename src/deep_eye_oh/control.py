@@ -63,9 +63,12 @@ Cleanup coverage, precisely:
     os._exit(); power loss -- same class as SIGKILL. No further
     mitigation is attempted for these.
 
-Known v0 limitation: mouse coordinates are not demonstrated to be
-DPI-scaling-equivalent to capture (deep_eye_oh.capture) pixel coordinates.
-See win32_input.py's module docstring.
+Mouse coordinates are DPI-scaling-equivalent to capture (deep_eye_oh.capture)
+pixel coordinates: importing win32_input declares this process per-monitor
+DPI-aware (see win32_input.py's module docstring and ensure_dpi_awareness(),
+GitHub issue #2), which is what this equivalence depends on. Check
+win32_input.DPI_AWARENESS_STATUS if you need to confirm the declaration
+actually took effect on a given machine/Windows version.
 
 Replay + input events: deliberately out of scope here. Capture and control
 are two separate, non-integrated capabilities in this slice -- there is no

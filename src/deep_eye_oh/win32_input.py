@@ -13,19 +13,97 @@ layout: control semantics track physical key *position*
 Mouse movement is absolute, normalized against the full Windows virtual
 desktop (not just the primary monitor), so it works correctly across
 multi-monitor layouts including a monitor placed left of/above the primary
-(negative virtual-desktop origin). This does not implement or test DPI
-awareness: coordinates here are only guaranteed to agree with
-PIL.ImageGrab-based capture coordinates (deep_eye_oh.capture) on a display
-at 100% scaling, or if the process is explicitly made DPI-aware (it
-currently is not) -- a known v0 limitation.
+(negative virtual-desktop origin).
+
+DPI awareness (GitHub issue #2): importing this module declares this
+process PROCESS_PER_MONITOR_DPI_AWARE, best-effort, exactly once (see
+ensure_dpi_awareness() below). Every Win32 geometry/input API used
+anywhere in this project (GetSystemMetrics(SM_C*VIRTUALSCREEN,...) here,
+and GetCursorPos/WindowFromPoint/ClientToScreen in window_focus.py) reads
+coordinates in a space that depends on the CALLING PROCESS's own
+DPI-awareness state, not the target window's -- a DPI-unaware process
+(this project's old, undeclared default) gets those APIs pre-scaled by
+Windows' DPI virtualization to a non-physical "logical pixel" space that
+PIL.ImageGrab-based capture (deep_eye_oh.capture) does NOT use (verified:
+ImageGrab returns true physical-pixel dimensions regardless of the
+process's own declared awareness). Declaring per-monitor awareness here
+makes every one of those APIs report/consume true physical pixels,
+process-wide, matching capture -- closing that mismatch for every caller,
+not just this module.
 """
 
 from __future__ import annotations
 
 import ctypes
+import logging
 from ctypes import wintypes
 
+logger = logging.getLogger(__name__)
+
 _user32 = ctypes.WinDLL("user32", use_last_error=True)
+
+# --- Process DPI awareness (GitHub issue #2) ----------------------------
+
+_PROCESS_PER_MONITOR_DPI_AWARE = 2
+_DPI_AWARENESS_LABELS = {0: "unaware", 1: "system-aware", 2: "per-monitor-aware"}
+
+
+def ensure_dpi_awareness() -> str:
+    """Best-effort, idempotent, process-wide declaration of per-monitor DPI
+    awareness. See module docstring for why every caller of this module
+    needs this declared before making any Win32 geometry/input call.
+
+    Never raises. On any failure -- shcore.dll unavailable (Windows <
+    8.1), or awareness already declared for this process (by an earlier
+    call in this same process, an application manifest, or an embedding
+    host) and therefore access-denied on a second attempt -- the process
+    is left in whatever DPI-awareness state it already had. For a process
+    that has never declared awareness, that state is exactly today's
+    pre-existing (unaware) default: calling this never regresses anything
+    relative to the status quo, only best-effort improves it.
+
+    Safe to call more than once (called automatically at import time,
+    below): only the first call in a process can actually change
+    anything; later calls just re-observe and re-report the (unchanged)
+    result via GetProcessDpiAwareness.
+
+    Returns a short human-readable status string (the resulting awareness
+    level, queried back from Windows rather than inferred from which
+    code path ran) for logging/diagnostics.
+    """
+    try:
+        ctypes.windll.shcore.SetProcessDpiAwareness(_PROCESS_PER_MONITOR_DPI_AWARE)
+    except OSError:
+        # shcore.dll unavailable (Windows < 8.1), or awareness was already
+        # declared for this process and this call is now access-denied.
+        # Either way, fall back to the legacy, system-DPI-only API so a
+        # pre-8.1 process at least gets *some* awareness -- harmless if
+        # awareness is already set to something as good or better.
+        try:
+            ctypes.windll.user32.SetProcessDPIAware()
+        except Exception as exc:  # noqa: BLE001 -- never raise, see docstring
+            logger.warning("legacy SetProcessDPIAware() call failed: %r", exc)
+
+    try:
+        awareness = ctypes.c_int()
+        ctypes.windll.shcore.GetProcessDpiAwareness(0, ctypes.byref(awareness))
+        level = awareness.value
+    except Exception as exc:  # noqa: BLE001 -- diagnostics only, never raise
+        logger.warning("GetProcessDpiAwareness() unavailable: %r", exc)
+        return "unknown (GetProcessDpiAwareness unavailable, Windows < 8.1?)"
+
+    label = _DPI_AWARENESS_LABELS.get(level, f"unknown({level})")
+    if level != _PROCESS_PER_MONITOR_DPI_AWARE:
+        logger.warning(
+            "process DPI awareness is %r, not per-monitor -- mouse/capture "
+            "coordinates may disagree on non-100%% scaling displays "
+            "(see GitHub issue #2)",
+            label,
+        )
+    return label
+
+
+DPI_AWARENESS_STATUS = ensure_dpi_awareness()
 
 # --- ctypes SendInput ABI ---------------------------------------------
 
