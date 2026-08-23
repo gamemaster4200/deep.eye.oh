@@ -15,11 +15,21 @@ Purposes:
 2. Ground truth for the separate vision project.
 3. Later, oracle-assisted protocol research.
 
-The canonical screen-only agent must not silently consume Browser Oracle state.
+The canonical screen-only agent (deep.eye.oh's vision -> GameState ->
+Policy pipeline) must not silently consume Browser Oracle state. A
+separate, explicit consumer is a different matter: deep.eye.oh's
+browser-informed-farming-v0 slice deliberately reads Oracle snapshots
+(via this repo's background bridge) and drives the game through its own,
+ordinary Controller (keyboard/mouse) -- a sanctioned, explicit
+exception-consumer, not the canonical agent silently reaching into this
+extension.
 
-CURRENT MILESTONE IS STRICTLY READ-ONLY.
+CURRENT MILESTONE IS STRICTLY READ-ONLY -- scoped to this repo
+(deep.eye.oh.ext) itself. The extension/Oracle only observes the Canvas
+and reports snapshots outward; it never simulates input, in this repo,
+under any circumstance.
 
-Do not implement or invoke:
+Do not implement or invoke, anywhere in this repo:
 - automatic movement
 - aiming
 - shooting
@@ -28,6 +38,12 @@ Do not implement or invoke:
 - gameplay keyboard/mouse control
 - WebSocket packet injection
 - WebSocket.send patching
+
+deep.eye.oh (the separate, sibling project) is not bound by this rule --
+it may aim/shoot/move via its own Controller, informed by the snapshots
+this repo provides. If that ever changes, update this file explicitly
+rather than leaving the next agent to guess from a stale-sounding blanket
+statement.
 
 Vendored Cazka/diepAPI:
 - MIT licensed
