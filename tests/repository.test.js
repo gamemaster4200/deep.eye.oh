@@ -20,7 +20,11 @@ assert.equal(
   false,
   'the pinned vendor must not be a manifest-loaded runtime script',
 );
-assert.equal(Object.hasOwn(manifest, 'background'), false);
+// browser-informed-farming-v0: a background service worker is now expected
+// (the bridge that forwards Oracle snapshots to the local agent process),
+// but it must be exactly the reviewed bridge file -- nothing else.
+assert.equal(manifest.background.service_worker, 'background/bridge.js');
+assert.equal(Object.keys(manifest.background).length, 1, 'the background block must declare only service_worker');
 assert.equal(JSON.stringify(manifest).includes('<all_urls>'), false);
 
 const popupSource = read('extension/popup/popup.js');
@@ -44,8 +48,6 @@ assert.match(popupHtml, /id="diag-top-topology"/);
 const oracleSource = read('extension/src/oracle.js');
 for (const requiredToken of [
   'MAX_TRACKED_SUBPATHS',
-  'squareColorSubpathCountHistogram',
-  'squareColorTopologyHistogram',
   'topologySignature',
   'polygonGeometry',
   'selectMeaningfulSubpath',
@@ -58,6 +60,14 @@ for (const requiredToken of [
   'noMeaningfulSubpath',
   'ambiguousSubpaths',
   'areaPerimeterMismatch',
+  // browser-informed-farming-v0: Triangle/Pentagon generalization -- one
+  // shared classification pipeline keyed by color+corner-count, not three
+  // copy-pasted per-shape detectors.
+  'SHAPE_CLASSES',
+  'VERTEX_COUNT_TO_CLASS',
+  'colorMatchesClass',
+  'recordClassDiagnostics',
+  'RADIUS_RATIO_TOLERANCE',
 ]) {
   assert.ok(oracleSource.includes(requiredToken), `oracle.js is missing the subdivided-contour detector slice: ${requiredToken}`);
 }
@@ -66,6 +76,32 @@ assert.equal(
   false,
   'the old fixed-4/5-vertex special case must be replaced by the general collinear-collapse pipeline',
 );
+// squareColorSubpathCountHistogram/squareColorTopologyHistogram are no
+// longer literal source tokens (built generically per class -- see
+// SHAPE_CLASSES/recordClassDiagnostics above), but must still exist at
+// runtime under those exact names for popup.js's backward-compatible
+// reads; tests/oracle.test.js's diagnostics tests are the source of truth
+// for that runtime behavior.
+
+const bridgeSource = read('extension/background/bridge.js');
+assert.match(bridgeSource, /new WebSocket\(/, 'the bridge must use a plain WebSocket client, not a hand-rolled protocol');
+assert.match(bridgeSource, /chrome\.scripting\.executeScript\(\{/);
+assert.match(bridgeSource, /world:\s*'MAIN'/);
+assert.match(bridgeSource, /deepEyeOracle\.snapshot\(\)/);
+assert.match(bridgeSource, /__deepEyeBridgeInternals/);
+// The bridge must never send an inbound command INTO the page or the game
+// -- it only forwards oracle.js's own read-only snapshot() output outward.
+// Same read-only boundary as oracle.js/popup.js (see scripts/validate.ps1),
+// just without the blanket WebSocket ban, since this file's whole job is a
+// legitimate, reviewed, one-directional WebSocket telemetry export.
+for (const forbiddenPattern of [
+  /\bspawn\s*\(/, /\baimAt\s*\(/, /\blookAt\s*\(/, /\bshoot\s*\(/,
+  /\bkeyDown\s*\(/, /\bkeyUp\s*\(/, /\bkeyPress\s*\(/, /\bmouse(?:Press)?\s*\(/,
+  /\buseGamepad\s*\(/, /\bupgrade_(?:stat|tank)\s*\(/, /\bset_convar\s*\(/,
+  /\binput\.execute\s*\(/, /\.send\(['"]/, /WebSocket\.prototype/,
+]) {
+  assert.doesNotMatch(bridgeSource, forbiddenPattern, `read-only boundary violation in bridge.js: ${forbiddenPattern}`);
+}
 
 const refreshSource = read('scripts/dev-refresh.ps1');
 assert.match(refreshSource, /\[switch\]\$UpdateVendor/);
@@ -107,6 +143,7 @@ const ownedTextFiles = [
   'dev-refresh.cmd',
   'extension/manifest.json',
   'extension/src/oracle.js',
+  'extension/background/bridge.js',
   'extension/popup/popup.css',
   'extension/popup/popup.html',
   'extension/popup/popup.js',
@@ -114,10 +151,11 @@ const ownedTextFiles = [
   'scripts/update-vendor.ps1',
   'scripts/validate.ps1',
   'tests/oracle.test.js',
+  'tests/bridge.test.js',
 ];
 const mojibakePattern = /\uFFFD|\u00C3.|\u00C2.|\u00E2(?:\u20AC|\u2122)|\u0432\u0402/u;
 for (const relativePath of ownedTextFiles) {
   assert.doesNotMatch(read(relativePath), mojibakePattern, `mojibake found in ${relativePath}`);
 }
 
-console.log('Repository tests passed: manifest, MAIN-world bridge, pinned refresh, process safety, and docs.');
+console.log('Repository tests passed: manifest, MAIN-world bridge, background bridge boundary, pinned refresh, process safety, and docs.');

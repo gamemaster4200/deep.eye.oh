@@ -85,7 +85,7 @@ function plain(value) {
     ['diagnostics', 'isReady', 'shapes', 'snapshot', 'version'],
     'the public API must expose only observation operations, diagnostics, and version metadata',
   );
-  assert.equal(oracle.version, '0.4.0');
+  assert.equal(oracle.version, '0.5.0');
   assert.equal(oracle.isReady(), true, 'hooking all four Canvas2D methods must report ready');
 }
 
@@ -182,7 +182,11 @@ function plain(value) {
   const ctx = new ctxCtor({ fillStyle: '#ffe869' });
   drawQuad(ctx, [[0, 0], [10, 0], [10, 10], [0, 10], [-10, 20]], [IDENTITY]);
   assert.equal(oracle.shapes().length, 0, 'a 5th vertex far from the start must not be treated as closing');
-  assert.equal(oracle.diagnostics().rejectionReasons.wrongVertexCount, 1);
+  // 5 corners is now a valid Pentagon candidate count (see the
+  // triangle/pentagon generalization below), so this irregular 5-corner
+  // shape is rejected by the regular-polygon geometry check (its sides are
+  // far from equal), not by corner count.
+  assert.equal(oracle.diagnostics().rejectionReasons.sideRatio, 1);
 }
 
 // ---------------------------------------------------------------------------
@@ -442,7 +446,11 @@ function plain(value) {
 
 {
   // A rejected candidate must increment the exact rejection reason, and a
-  // sample with enough detail to diagnose it must be captured.
+  // sample with enough detail to diagnose it must be captured. This
+  // particular triangle-shaped candidate is geometrically a valid
+  // Triangle (3 corners, regular enough), so it is rejected for being
+  // painted in the Square color rather than the Triangle color -- a
+  // colorMismatch, not a corner-count problem.
   const { oracle, ctxCtor } = installOracle();
   const ctx = new ctxCtor({ fillStyle: '#ffe869' });
   ctx._transforms = [IDENTITY];
@@ -453,11 +461,11 @@ function plain(value) {
   ctx.fill();
 
   const diag = oracle.diagnostics();
-  assert.equal(diag.rejectionReasons.wrongVertexCount, 1);
+  assert.equal(diag.rejectionReasons.colorMismatch, 1);
   assert.equal(diag.squareColor.rejected, 1);
   assert.equal(diag.squareColor.fillsSeen, 1);
   assert.equal(diag.rejectedSquareColorSamples.length, 1);
-  assert.equal(diag.rejectedSquareColorSamples[0].reason, 'wrongVertexCount');
+  assert.equal(diag.rejectedSquareColorSamples[0].reason, 'colorMismatch');
   assert.equal(diag.rejectedSquareColorSamples[0].vertexCount, 3);
   assert.equal(diag.rejectedSquareColorSamples[0].moveToCalls, 1);
   assert.equal(diag.rejectedSquareColorSamples[0].lineToCalls, 2);
@@ -595,8 +603,10 @@ function plain(value) {
   // coordinates. Acceptance is now driven by the unique MEANINGFUL subpath
   // (the 3-point triangle-shaped subpath0, which has real area), not by
   // subpath position -- subpath1 (a lone point) has no area and is not a
-  // candidate at all. subpath0 is correctly selected but rejected for
-  // having 3 (not 4) corners after simplification.
+  // candidate at all. subpath0 is correctly selected as a 3-corner
+  // Triangle candidate, but this particular right triangle's hypotenuse is
+  // far longer than its legs, so it fails the regular-polygon side-ratio
+  // check (irrespective of its Square fillStyle).
   const { oracle, ctxCtor } = installOracle();
   const ctx = new ctxCtor({ fillStyle: '#ffe869' });
   ctx._transforms = [IDENTITY];
@@ -607,7 +617,7 @@ function plain(value) {
   ctx.moveTo(5, 5);
   ctx.fill();
 
-  assert.equal(oracle.shapes().length, 0, 'a 3-corner meaningful subpath must still be rejected as wrongVertexCount');
+  assert.equal(oracle.shapes().length, 0, 'a 3-corner meaningful subpath with an irregular shape must still be rejected');
   const diag = plain(oracle.diagnostics());
   const sample = diag.rejectedSquareColorSamples[diag.rejectedSquareColorSamples.length - 1];
   assert.equal(sample.subpathCount, 2, 'two moveTo calls must be reported as two subpaths');
@@ -618,7 +628,7 @@ function plain(value) {
   assert.equal(sample.subpaths[1].vertexCount, 1);
   assert.deepEqual(sample.subpaths[1].vertices, [{ x: 5, y: 5 }]);
   assert.equal(sample.subpaths[1].lineToCount, 0);
-  assert.equal(sample.reason, 'wrongVertexCount');
+  assert.equal(sample.reason, 'sideRatio');
   assert.equal(sample.meaningfulCandidateCount, 1, 'the lone-point subpath must not count as a meaningful candidate');
   assert.equal(sample.selectedSubpathIndex, 0, 'the meaningful (area-bearing) subpath0 must be selected, not subpath1');
   assert.equal(sample.vertexCount, 3);
@@ -927,16 +937,21 @@ function plain(value) {
 }
 
 {
-  // A genuine (non-collinear) pentagon must not be simplified into a
-  // square merely because the tolerance is loose.
+  // A genuine (non-collinear), reasonably regular pentagon must not be
+  // simplified into a square merely because the tolerance is loose -- all
+  // 5 corners must survive collapseCollinear. Since Pentagon is now a
+  // supported class, this shape is correctly recognized as a Pentagon
+  // candidate (5 corners, regular geometry) and rejected only because it
+  // is painted in the Square color, not the Pentagon color.
   const { oracle, ctxCtor } = installOracle();
   const ctx = new ctxCtor({ fillStyle: '#ffe869' });
   drawQuad(ctx, [[0, 0], [10, 0], [13, 8], [5, 13], [-3, 8]], [IDENTITY]);
 
-  assert.equal(oracle.shapes().length, 0, 'a genuine pentagon must not reduce to a quad');
+  assert.equal(oracle.shapes().length, 0, 'a genuine pentagon painted Square-yellow must not be accepted as a Square');
   const diag = oracle.diagnostics();
-  assert.equal(diag.rejectedSquareColorSamples[0].reason, 'wrongVertexCount');
+  assert.equal(diag.rejectedSquareColorSamples[0].reason, 'colorMismatch');
   assert.equal(diag.rejectedSquareColorSamples[0].simplifiedVertexCount, 5, 'no pentagon vertex may be dropped as if collinear');
+  assert.equal(diag.rejectedSquareColorSamples[0].candidateClass, 'pentagon');
 }
 
 {
@@ -979,6 +994,187 @@ function plain(value) {
   assert.equal(diag.rejectedSquareColorSamples[0].meaningfulCandidateCount, 0);
 }
 
+// ---------------------------------------------------------------------------
+// K. Triangle/Pentagon generalization (browser-informed-farming-v0): the
+// same classification pipeline exercised above for Square must extract
+// neutral Triangles and Pentagons too, in the same cx/cy coordinate space,
+// and must not accept a shape whose corner count doesn't match any known
+// class or whose color doesn't match its corner count's class.
+// ---------------------------------------------------------------------------
+
+// A regular N-gon centered at (cx, cy) with circumradius r, first vertex
+// pointing straight up -- exact regular-polygon math, so side/radius ratio
+// checks pass with headroom regardless of the generous shared tolerances.
+function regularPolygon(cx, cy, r, n) {
+  const points = [];
+  for (let k = 0; k < n; k += 1) {
+    const angle = (-Math.PI / 2) + (k * ((2 * Math.PI) / n));
+    points.push([cx + (r * Math.cos(angle)), cy + (r * Math.sin(angle))]);
+  }
+  return points;
+}
+
+// cx/cy is the AABB center (see buildRecord in oracle.js), which for an
+// asymmetric-bbox shape like an upward-pointing regular polygon does NOT
+// coincide with its circumcenter -- computed from the same point list
+// fed to the canvas, rather than assumed, to avoid hand-computed drift.
+function bboxCenterOf(points) {
+  const xs = points.map(([x]) => x);
+  const ys = points.map(([, y]) => y);
+  return {
+    cx: (Math.min(...xs) + Math.max(...xs)) / 2,
+    cy: (Math.min(...ys) + Math.max(...ys)) / 2,
+  };
+}
+
+{
+  // Triangle extraction: a regular equilateral triangle painted the
+  // Triangle color must be recognized, with the same record shape as a
+  // Square (kind/class/vertices/cx/cy/bbox/halfSize/radius/color/timestamp).
+  const { oracle, ctxCtor } = installOracle();
+  const ctx = new ctxCtor({ fillStyle: '#fc7677' });
+  const points = regularPolygon(20, 20, 10, 3);
+  drawQuad(ctx, points, [IDENTITY]);
+  const expectedCenter = bboxCenterOf(points);
+
+  const found = oracle.shapes();
+  assert.equal(found.length, 1, 'a regular Triangle-colored triangle must be recognized');
+  const [shape] = plain(found);
+  assert.equal(shape.kind, 'neutral_triangle');
+  assert.equal(shape.class, 'triangle');
+  assert.equal(shape.vertices.length, 3);
+  assert.equal(shape.color, '#fc7677');
+  assert.ok(Math.abs(shape.cx - expectedCenter.cx) < 0.01, 'cx must be in the same coordinate space as Square records');
+  assert.ok(Math.abs(shape.cy - expectedCenter.cy) < 0.01);
+  // radius is centroid-based (see buildRecord), which for a symmetric
+  // regular polygon equals its true circumcenter exactly, unlike cx/cy.
+  assert.ok(Math.abs(shape.radius - 10) < 0.01, 'radius must reflect the true circumradius for a regular shape');
+}
+
+{
+  // Pentagon extraction: a regular pentagon painted the Pentagon color
+  // must be recognized, in the same coordinate space as Square/Triangle.
+  const { oracle, ctxCtor } = installOracle();
+  const ctx = new ctxCtor({ fillStyle: '#768dfc' });
+  const points = regularPolygon(50, 50, 10, 5);
+  drawQuad(ctx, points, [IDENTITY]);
+  const expectedCenter = bboxCenterOf(points);
+
+  const found = oracle.shapes();
+  assert.equal(found.length, 1, 'a regular Pentagon-colored pentagon must be recognized');
+  const [shape] = plain(found);
+  assert.equal(shape.kind, 'neutral_pentagon');
+  assert.equal(shape.class, 'pentagon');
+  assert.equal(shape.vertices.length, 5);
+  assert.equal(shape.color, '#768dfc');
+  assert.ok(Math.abs(shape.cx - expectedCenter.cx) < 0.01);
+  assert.ok(Math.abs(shape.cy - expectedCenter.cy) < 0.01);
+  assert.ok(Math.abs(shape.radius - 10) < 0.01);
+}
+
+{
+  // All three classes observed together (as a live frame would) must all
+  // surface in one shapes() call, each correctly classified, in the same
+  // coordinate system -- this is the "common coordinate system across
+  // square/triangle/pentagon" requirement.
+  const { oracle, ctxCtor } = installOracle();
+  const square = new ctxCtor({ fillStyle: '#ffe869' });
+  drawQuad(square, [[0, 0], [10, 0], [10, 10], [0, 10]], [IDENTITY]);
+  const triangle = new ctxCtor({ fillStyle: '#fc7677' });
+  drawQuad(triangle, regularPolygon(20, 20, 10, 3), [IDENTITY]);
+  const pentagon = new ctxCtor({ fillStyle: '#768dfc' });
+  drawQuad(pentagon, regularPolygon(50, 50, 10, 5), [IDENTITY]);
+
+  const byClass = Object.fromEntries(plain(oracle.shapes()).map((shape) => [shape.class, shape]));
+  assert.deepEqual(Object.keys(byClass).sort(), ['pentagon', 'square', 'triangle']);
+  assert.equal(byClass.square.cx, 5);
+  assert.ok(Math.abs(byClass.triangle.cx - 20) < 0.01);
+  assert.ok(Math.abs(byClass.pentagon.cx - 50) < 0.01);
+}
+
+{
+  // False positive: a hexagon (6 corners) is not a supported class
+  // regardless of its color or how regular it is.
+  const { oracle, ctxCtor } = installOracle();
+  const ctx = new ctxCtor({ fillStyle: '#fc7677' });
+  drawQuad(ctx, regularPolygon(0, 0, 10, 6), [IDENTITY]);
+  assert.equal(oracle.shapes().length, 0, 'a hexagon must not be accepted as any known class');
+  assert.equal(oracle.diagnostics().rejectionReasons.wrongVertexCount, 1);
+}
+
+{
+  // False positive: a genuinely regular triangle painted in the Square's
+  // color must not be accepted as a Triangle (or anything else) -- corner
+  // count alone is not sufficient, color must agree with it too.
+  const { oracle, ctxCtor } = installOracle();
+  const ctx = new ctxCtor({ fillStyle: '#ffe869' });
+  drawQuad(ctx, regularPolygon(20, 20, 10, 3), [IDENTITY]);
+  assert.equal(oracle.shapes().length, 0);
+  const diag = oracle.diagnostics();
+  assert.equal(diag.rejectionReasons.colorMismatch, 1);
+  assert.equal(diag.triangleColor.fillsSeen, 0, 'a Square-colored fill must not count toward triangleColor stats');
+}
+
+{
+  // Diagnostics generalization: triangleColor/pentagonColor must track
+  // fillsSeen/accepted/rejected independently of squareColor and of each
+  // other, mirroring the original Square-only fields.
+  const { oracle, ctxCtor } = installOracle();
+  const triangle = new ctxCtor({ fillStyle: '#fc7677' });
+  drawQuad(triangle, regularPolygon(20, 20, 10, 3), [IDENTITY]);
+  const badPentagon = new ctxCtor({ fillStyle: '#768dfc' });
+  drawQuad(badPentagon, [[0, 0], [10, 0], [10, 10], [0, 10], [-10, 20]], [IDENTITY]); // irregular
+
+  const diag = oracle.diagnostics();
+  assert.equal(diag.triangleColor.fillsSeen, 1);
+  assert.equal(diag.triangleColor.accepted, 1);
+  assert.equal(diag.triangleColor.rejected, 0);
+  assert.equal(diag.pentagonColor.fillsSeen, 1);
+  assert.equal(diag.pentagonColor.accepted, 0);
+  assert.equal(diag.pentagonColor.rejected, 1);
+  assert.equal(diag.squareColor.fillsSeen, 0);
+  assert.doesNotThrow(() => JSON.stringify(diag));
+}
+
+{
+  // snapshot().canvas: best-effort canvas positioning metadata (used by
+  // downstream screen/mouse coordinate calibration), sourced from the
+  // most recently observed canvas element of any fill(), any color.
+  const { oracle, ctxCtor } = installOracle();
+  const canvas = {
+    width: 1600,
+    height: 900,
+    clientWidth: 800,
+    clientHeight: 450,
+    getBoundingClientRect: () => ({
+      left: 10, top: 20, width: 800, height: 450,
+    }),
+  };
+  const ctx = new ctxCtor({ fillStyle: '#ffe869', canvas });
+  drawQuad(ctx, [[0, 0], [10, 0], [10, 10], [0, 10]], [IDENTITY]);
+
+  const snapshot = plain(oracle.snapshot());
+  assert.deepEqual(snapshot.canvas, {
+    width: 1600,
+    height: 900,
+    clientWidth: 800,
+    clientHeight: 450,
+    rect: {
+      left: 10, top: 20, width: 800, height: 450,
+    },
+    devicePixelRatio: 2,
+  });
+  assert.doesNotThrow(() => JSON.stringify(snapshot));
+}
+
+{
+  // snapshot().canvas must be absent (not a guessed/zeroed placeholder)
+  // when no canvas with a working getBoundingClientRect has been observed.
+  const { oracle } = installOracle();
+  const snapshot = oracle.snapshot();
+  assert.equal(Object.hasOwn(snapshot, 'canvas'), false);
+}
+
 console.log(
-  'Oracle tests passed: polygon recognition, closing-vertex normalization, per-call transform, geometry, color filtering, JSON safety, detachment, cache lifetime, diagnostics, multi-subpath topology, and subdivided-contour square reconstruction.',
+  'Oracle tests passed: polygon recognition, closing-vertex normalization, per-call transform, geometry, color filtering, JSON safety, detachment, cache lifetime, diagnostics, multi-subpath topology, subdivided-contour square reconstruction, and Triangle/Pentagon generalization.',
 );
