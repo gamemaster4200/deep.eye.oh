@@ -71,6 +71,29 @@ def is_foreground(target: TargetWindow) -> bool:
     return True
 
 
+def client_rect_on_screen(target: TargetWindow) -> tuple[int, int, int, int] | None:
+    """The target window's client-area rectangle in physical screen pixels
+    (left, top, width, height), or None on any failure -- fail-closed, like
+    every other query in this module. Used by browser-informed-farming-v0's
+    coordinate transform (browser_game_state.py) to map Oracle canvas
+    pixels onto physical screen points, via the same win32gui coordinate
+    space win32_input.send_mouse_move ultimately targets (see that
+    module's docstring on the unvalidated-DPI-equivalence caveat this
+    still shares)."""
+    try:
+        if not win32gui.IsWindow(target.hwnd):
+            return None
+        left, top, right, bottom = win32gui.GetClientRect(target.hwnd)
+        screen_left, screen_top = win32gui.ClientToScreen(target.hwnd, (left, top))
+        width = right - left
+        height = bottom - top
+        if width <= 0 or height <= 0:
+            return None
+    except Exception:
+        return None
+    return (screen_left, screen_top, width, height)
+
+
 def point_is_over_target(target: TargetWindow, x: int, y: int) -> bool:
     """Does the given physical pixel point resolve to the armed top-level
     window? WindowFromPoint can return a child control, so this walks up

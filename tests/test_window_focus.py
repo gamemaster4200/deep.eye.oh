@@ -99,6 +99,40 @@ def test_cursor_is_over_target_uses_get_cursor_pos(monkeypatch):
     assert called["args"] == (target, 42, 43)
 
 
+def test_client_rect_on_screen_success(monkeypatch):
+    target = make_target()
+    monkeypatch.setattr(wf.win32gui, "IsWindow", lambda h: True)
+    monkeypatch.setattr(wf.win32gui, "GetClientRect", lambda h: (0, 0, 800, 600))
+    monkeypatch.setattr(wf.win32gui, "ClientToScreen", lambda h, pt: (100, 50))
+    assert wf.client_rect_on_screen(target) == (100, 50, 800, 600)
+
+
+def test_client_rect_on_screen_none_when_window_gone(monkeypatch):
+    target = make_target()
+    monkeypatch.setattr(wf.win32gui, "IsWindow", lambda h: False)
+    assert wf.client_rect_on_screen(target) is None
+
+
+def test_client_rect_on_screen_none_on_exception(monkeypatch):
+    target = make_target()
+    monkeypatch.setattr(wf.win32gui, "IsWindow", lambda h: True)
+
+    def _raise(h):
+        raise OSError("boom")
+
+    monkeypatch.setattr(wf.win32gui, "GetClientRect", _raise)
+    assert wf.client_rect_on_screen(target) is None
+
+
+def test_client_rect_on_screen_none_when_degenerate(monkeypatch):
+    target = make_target()
+    monkeypatch.setattr(wf.win32gui, "IsWindow", lambda h: True)
+    # A minimized window can report a zero-size client rect.
+    monkeypatch.setattr(wf.win32gui, "GetClientRect", lambda h: (0, 0, 0, 0))
+    monkeypatch.setattr(wf.win32gui, "ClientToScreen", lambda h, pt: (0, 0))
+    assert wf.client_rect_on_screen(target) is None
+
+
 def test_target_still_exists(monkeypatch):
     target = make_target()
     monkeypatch.setattr(wf.win32gui, "IsWindow", lambda h: True)

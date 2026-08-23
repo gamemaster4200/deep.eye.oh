@@ -176,6 +176,18 @@ def _cmd_control_smoke_test(args: argparse.Namespace) -> None:
     run_menu()
 
 
+def _cmd_browser_farm(args: argparse.Namespace) -> None:
+    from deep_eye_oh.browser_farming import run_farming_loop
+
+    run_farming_loop(port=args.port, panic_key=args.panic_key)
+
+
+def _cmd_browser_calibrate(args: argparse.Namespace) -> None:
+    from deep_eye_oh.browser_farming import run_calibration_check
+
+    run_calibration_check(port=args.port, panic_key=args.panic_key, duration_s=args.duration)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="deep_eye_oh", description="capture/replay v0 CLI")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -221,6 +233,23 @@ def build_parser() -> argparse.ArgumentParser:
         "control-smoke-test", help="interactive manual Windows control smoke-test menu"
     )
     p_control_smoke.set_defaults(func=_cmd_control_smoke_test)
+
+    p_browser_farm = sub.add_parser(
+        "browser-farm",
+        help="browser-informed-farming-v0: autonomous farming loop driven by the Browser Oracle bridge",
+    )
+    p_browser_farm.add_argument("--port", type=int, default=8765, help="local WebSocket bridge port")
+    p_browser_farm.add_argument("--panic-key", type=str, default="pause")
+    p_browser_farm.set_defaults(func=_cmd_browser_farm)
+
+    p_browser_calibrate = sub.add_parser(
+        "browser-calibrate",
+        help="browser-informed-farming-v0: move-only calibration/debug mode for the coordinate transform",
+    )
+    p_browser_calibrate.add_argument("--port", type=int, default=8765)
+    p_browser_calibrate.add_argument("--panic-key", type=str, default="pause")
+    p_browser_calibrate.add_argument("--duration", type=float, default=30.0, help="seconds")
+    p_browser_calibrate.set_defaults(func=_cmd_browser_calibrate)
 
     return parser
 
