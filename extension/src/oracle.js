@@ -63,9 +63,11 @@
   // kept in detail. Live evidence shows real square-color fills use exactly
   // 2 subpaths; this is generous headroom above that, bounding memory for
   // pathological many-subpath fills. Detail for older subpaths is evicted
-  // (oldest first) once this cap is exceeded, but the most recent subpath
-  // -- the one classifyFill() below evaluates -- is never evicted by this,
-  // since eviction only ever removes from the front of the list.
+  // (oldest first) once this cap is exceeded. classifyFill() below selects
+  // whichever tracked subpath is MEANINGFUL (real area), not necessarily
+  // the most recent one; on real data (<= 2 subpaths per fill, well under
+  // this cap) eviction never happens at all, so this is a documented,
+  // untriggered-in-practice bound, not a live behavior.
   const MAX_TRACKED_SUBPATHS = 6;
 
   // There is no reliable, crash-safe frame boundary available (see README:
@@ -118,14 +120,14 @@
     cacheError: 0,
     other: 0,
   };
+  // vertexHistogram/squareColorVertexHistogram are keyed by the SELECTED
+  // meaningful subpath's vertex count (see selectMeaningfulSubpath below) --
+  // 0 when no subpath qualified as meaningful. The two histograms below are
+  // additionally diagnostic-only: they see every subpath of every #ffe869
+  // fill, to answer "what does the real renderer draw in one fill() call"
+  // without guessing from aggregate counts.
   const vertexHistogram = {};
   const squareColorVertexHistogram = {};
-  // Diagnostic-only, added alongside the single-subpath vertexHistogram
-  // above (which still reflects only the LAST subpath, matching
-  // classifyFill()'s acceptance-relevant view -- see the note on
-  // classifyFill below). These two see every subpath of every #ffe869 fill,
-  // to answer "what does the real renderer draw in one fill() call" without
-  // guessing from aggregate counts.
   const squareColorSubpathCountHistogram = {};
   const squareColorTopologyHistogram = {};
   const cacheCounters = { acceptedTotal: 0, prunedTotal: 0 };
@@ -254,15 +256,15 @@
   // never prevent or alter the real draw call, even if it throws).
   //
   // A single beginPath()/fill() may contain multiple moveTo-started
-  // subpaths; every one is now tracked (bounded by MAX_TRACKED_SUBPATHS),
-  // not just the most recent. Live evidence showed the official client's
-  // #ffe869 fills are consistently two subpaths (a real, multi-vertex first
-  // subpath followed by a trailing one-point second subpath), which the
-  // prior single-subpath model silently discarded down to that trailing
-  // point on every occurrence. classifyFill() below still bases ACCEPTANCE
-  // only on the last subpath -- identical to the prior model's behavior --
-  // this slice only adds visibility into every subpath's real topology, it
-  // does not change what gets accepted as a Square.
+  // subpaths; every one is tracked (bounded by MAX_TRACKED_SUBPATHS), not
+  // just the most recent. Live evidence showed the official client's
+  // #ffe869 fills are consistently two subpaths (a real, multi-vertex
+  // polygon subpath plus a trailing visually-inert one-point subpath).
+  // classifyFill() below selects whichever subpath is the unique
+  // MEANINGFUL one (real area, not just recency or position -- see
+  // selectMeaningfulSubpath) and reconstructs the real square from it; see
+  // that function and the "Classification" section below for the full
+  // pipeline.
 
   function freshPathState() {
     return {
@@ -316,8 +318,8 @@
     };
 
     // Evict the oldest tracked subpath detail (not the newest) once the cap
-    // is hit, so the most recently started subpath -- what classifyFill()
-    // below actually evaluates -- is always present.
+    // is hit -- see the MAX_TRACKED_SUBPATHS note above on why this bound
+    // is untriggered on real data.
     if (state.subpaths.length >= MAX_TRACKED_SUBPATHS) {
       state.subpaths.shift();
     }
