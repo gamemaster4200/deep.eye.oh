@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://deep.eye.oh/knowledge/schema/v0/entity.schema.json",
+  "title": "EntityV0",
+  "description": "Common envelope shared by every knowledge-schema-v0 entity, regardless of type. type/payload form a discriminated union: tank_v0 payloads are validated against tank.schema.json, shape_v0 payloads against shape.schema.json, and unknown_entity payloads against the UnknownEntityPayload $def below. Tank and Shape intentionally share only this envelope, not a common payload shape -- see tank.schema.json/shape.schema.json for why. Upgrade/variant relationships between entities are NOT embedded here; they live as external relation.schema.json edges referencing an entity's id.",
+  "$defs": {
+    "UnknownEntityPayload": {
+      "type": "object",
+      "description": "Escape hatch for source pages that are clearly knowledge entities but whose source structure does not fit an approved typed family (tank_v0, shape_v0) -- e.g. Dominator's multiple per-variant infoboxes and non-numeric hedged tier ('Supposedly 6'), which would violate tank_v0's single-infobox/integer-tier assumptions. Identity and provenance are already carried by the common envelope; this payload only adds a place for why the page didn't fit, plus raw/sparse evidence, without pretending to understand structure this schema slice does not model.",
+      "properties": {
+        "reason": {
+          "type": ["string", "null"],
+          "description": "Free-text note on why this page could not be modeled as an approved typed family, when known (e.g. 'multiple per-tank-variant infoboxes on one page' or 'non-numeric tier field')."
+        },
+        "raw_evidence": {
+          "type": "object",
+          "description": "Sparse bag of raw field name/value pairs observed on the source page, preserved verbatim without interpretation.",
+          "additionalProperties": {"type": "string"}
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "v0",
+      "description": "Schema version this entity document was written against."
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable identifier for this entity, unique within the knowledge corpus. Format/allocation is out of scope for this schema slice."
+    },
+    "type": {
+      "enum": ["tank_v0", "shape_v0", "unknown_entity"],
+      "description": "Discriminates which schema payload must apply -- see properties.payload."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Primary display name, e.g. as it appears as the source wiki page title."
+    },
+    "aliases": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "default": [],
+      "description": "Alternate names/spellings this entity is also known by (e.g. redirect page titles). Optional; most entities have none."
+    },
+    "entity_status": {
+      "enum": ["active", "removed", "unknown"],
+      "description": "Whether this entity currently exists in the live game, was removed, or status could not be determined from the source. Reuses the same active/removed/unknown vocabulary as relation.schema.json's status for consistency."
+    },
+    "source_domain": {
+      "enum": ["canonical_candidate", "fanon", "community", "unknown"],
+      "description": "Heuristic, evidence-backed classification of the source page's domain. 'canonical_candidate' is deliberately not named 'canonical' -- it is never equated with verified canonical truth, only a candidate supported by classification signals."
+    },
+    "provenance": {
+      "$ref": "provenance.schema.json"
+    },
+    "payload": {
+      "description": "Typed payload, narrowed by the type/payload discriminated union below according to the 'type' field."
+    }
+  },
+  "required": ["schema_version", "id", "type", "name", "entity_status", "source_domain", "provenance", "payload"],
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {"type": {"const": "tank_v0"}},
+        "required": ["type"]
+      },
+      "then": {
+        "properties": {"payload": {"$ref": "tank.schema.json"}}
+      }
+    },
+    {
+      "if": {
+        "properties": {"type": {"const": "shape_v0"}},
+        "required": ["type"]
+      },
+      "then": {
+        "properties": {"payload": {"$ref": "shape.schema.json"}}
+      }
+    },
+    {
+      "if": {
+        "properties": {"type": {"const": "unknown_entity"}},
+        "required": ["type"]
+      },
+      "then": {
+        "properties": {"payload": {"$ref": "#/$defs/UnknownEntityPayload"}}
+      }
+    }
+  ]
+}

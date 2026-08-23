@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://deep.eye.oh/knowledge/schema/v0/tank.schema.json",
+  "title": "TankPayloadV0",
+  "description": "Typed payload for entity.type == 'tank_v0', grounded in raw wikitext sampled from ~26 diep.io tank pages (see docs/handoffs and the knowledge-schema-v0 evidence report). Upgrade relations are intentionally NOT modeled here -- they live as external relation_type=upgrades_to edges (see relation.schema.json) referencing this entity's id. Pages whose source structure violates normal single-tank assumptions (e.g. Dominator's multiple per-variant infoboxes and non-numeric tier) should be represented as unknown_entity instead of forced into this schema.",
+  "$defs": {
+    "QualitativeStat": {
+      "type": "object",
+      "description": "diep.io wiki BaseStats template fields are qualitative glyph ratings (e.g. ▲▲, ▼, —, N/A), NOT numeric gameplay statistics -- real numeric values only appear as free prose in the Technical section and are out of scope for this schema slice.",
+      "properties": {
+        "raw_value": {
+          "type": "string",
+          "description": "The literal template field value as extracted from wikitext, e.g. '▲▲', '—', 'N/A'."
+        },
+        "normalized_rating": {
+          "type": ["integer", "null"],
+          "description": "A small signed integer magnitude derived from the glyph count when it can be safely normalized (e.g. ▲▲ -> 2, ▼ -> -1, — -> 0); null when the raw_value cannot be safely normalized (e.g. 'N/A', free text, or an unrecognized glyph). Normalization logic itself is not implemented in this schema slice -- this field is a reserved, nullable slot."
+        }
+      },
+      "required": ["raw_value"],
+      "additionalProperties": false
+    },
+    "HiddenStat": {
+      "type": "object",
+      "description": "One HiddenStat1..4/HiddenStat1..4Val slot pair. Labels are free text observed to vary per tank (e.g. Recoil, Bullet Accuracy, Field of View, Drone Count, Invisibility, Projectile Size, Damage Reduction) -- not a fixed vocabulary.",
+      "properties": {
+        "label": {"type": "string", "minLength": 1},
+        "value": {"$ref": "#/$defs/QualitativeStat"}
+      },
+      "required": ["label", "value"],
+      "additionalProperties": false
+    },
+    "BaseStatsBlock": {
+      "type": "object",
+      "description": "One {{BaseStats}} template occurrence. Hybrid-lineage tanks (e.g. sampled Gunner Trapper, Auto 5, Streamliner, Battleship) carry more than one of these on a single source page, distinguished by the wikitext PrevClass field.",
+      "properties": {
+        "source_class": {
+          "type": ["string", "null"],
+          "description": "Corresponds to the wikitext BaseStats template's PrevClass field, distinguishing which upgrade lineage this stat block applies to. Null when the tank has only one BaseStats block (the common case)."
+        },
+        "stats": {
+          "type": "object",
+          "description": "Fixed diep.io stat vocabulary observed across all sampled tanks. Every key is optional -- e.g. the sampled Spike page's BaseStats block omits bullet_speed/bullet_penetration/bullet_damage/reload entirely, since Spike has no barrel.",
+          "properties": {
+            "health_regen": {"$ref": "#/$defs/QualitativeStat"},
+            "max_health": {"$ref": "#/$defs/QualitativeStat"},
+            "body_damage": {"$ref": "#/$defs/QualitativeStat"},
+            "bullet_speed": {"$ref": "#/$defs/QualitativeStat"},
+            "bullet_penetration": {"$ref": "#/$defs/QualitativeStat"},
+            "bullet_damage": {"$ref": "#/$defs/QualitativeStat"},
+            "reload": {"$ref": "#/$defs/QualitativeStat"},
+            "movement_speed": {"$ref": "#/$defs/QualitativeStat"}
+          },
+          "additionalProperties": false
+        },
+        "hidden_stats": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/HiddenStat"},
+          "default": []
+        }
+      },
+      "required": ["stats"],
+      "additionalProperties": false
+    },
+    "TemporalSlots": {
+      "type": "object",
+      "description": "Reserved nullable versioning slots. Not populated or inferred in this schema slice -- see docs/handoffs and the evidence report's note that Changelog-anchor links are real but extracting structured dates from prose is out of scope for v0.",
+      "properties": {
+        "valid_from": {"type": ["string", "null"]},
+        "valid_to": {"type": ["string", "null"]},
+        "added_in": {"type": ["string", "null"]},
+        "removed_in": {"type": ["string", "null"]},
+        "reworked_in": {"type": ["string", "null"]}
+      },
+      "additionalProperties": false
+    }
+  },
+  "type": "object",
+  "properties": {
+    "tier": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "description": "The wikitext infobox 'tier' field, as a small integer (observed 1-4 across sampled tanks). Pages with a non-numeric or hedged tier (e.g. Dominator's 'Supposedly 6') should not be modeled as tank_v0 at all."
+    },
+    "source_tank_id": {
+      "type": ["integer", "null"],
+      "description": "The wikitext infobox 'id' field (a small integer identifying the tank within the wiki's own tank-id scheme, distinct from the MediaWiki pageid already carried in provenance)."
+    },
+    "barrel_info": {
+      "type": ["string", "null"],
+      "description": "Raw text of the wikitext infobox 'barrel' field (e.g. '[[Cannons]] (1)', '[[Spawners]] (2) [[Drones]] (8)'), preserved verbatim. Structured weapon/barrel parsing is out of scope for this schema slice."
+    },
+    "stat_blocks": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/BaseStatsBlock"},
+      "minItems": 1,
+      "description": "One or more BaseStats blocks. Most tanks have exactly one; hybrid-lineage tanks have more than one (see BaseStatsBlock.source_class)."
+    },
+    "temporal": {"$ref": "#/$defs/TemporalSlots"},
+    "raw_infobox_evidence": {
+      "type": "object",
+      "description": "Sparse bag of additional raw infobox field name/value pairs not otherwise modeled by this schema, preserved verbatim (e.g. the sampled Tank page's 'categories'/'key'/'releasedate' fields, which do not recur consistently enough across sampled pages to warrant a first-class field).",
+      "additionalProperties": {"type": "string"}
+    }
+  },
+  "required": ["stat_blocks"],
+  "additionalProperties": false
+}
