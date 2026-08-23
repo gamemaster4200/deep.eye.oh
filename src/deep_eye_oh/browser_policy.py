@@ -9,7 +9,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from deep_eye_oh.browser_game_state import BrowserGameState, BrowserShape
+from deep_eye_oh.browser_game_state import BrowserGameState, BrowserShape, CanvasInfo
 
 # Lower cost wins. A small per-class weight lets a farther-but-more-valuable
 # shape occasionally beat a nearer, low-value one, without building a real
@@ -45,13 +45,37 @@ def _target_cost(shape: BrowserShape, origin: tuple[float, float]) -> float:
     return distance * CLASS_VALUE_WEIGHT.get(shape.shape_class, 1.0)
 
 
+def _is_within_canvas(shape: BrowserShape, canvas: CanvasInfo) -> bool:
+    """Is this shape's reported center actually on the visible canvas?
+
+    Canvas2D draw calls are not clipped to canvas bounds before oracle.js
+    observes their transformed vertices -- a real, correctly-detected
+    shape that is mostly off-screen can legitimately have a bbox center
+    outside [0, width] x [0, height]. That is expected Oracle behavior,
+    not a detector bug (see deep.eye.oh.ext), so filtering it out belongs
+    here, at the farming policy's consumer boundary: such a shape is not
+    a safe autonomous aim/movement target, because the resulting screen
+    point can fall outside the armed browser window and trip Controller's
+    cursor-over-target safety check mid-action.
+    """
+    return 0 <= shape.cx <= canvas.width and 0 <= shape.cy <= canvas.height
+
+
 def select_target(state: BrowserGameState, origin: tuple[float, float]) -> BrowserShape | None:
-    """Picks the lowest-cost visible shape, or None if there are none.
-    `origin` is the reference point (self position) in the same
-    coordinate space as shape.cx/cy."""
-    if not state.shapes:
+    """Picks the lowest-cost shape that is actually within the visible
+    canvas, or None if there are none. `origin` is the reference point
+    (self position) in the same coordinate space as shape.cx/cy. Shapes
+    are bounds-filtered against `state.canvas` first (see
+    _is_within_canvas) when canvas info is available; without it, bounds
+    cannot be judged, so no filtering is applied (the farming loop never
+    calls this without canvas info in practice -- see browser_farming.py's
+    `usable` check)."""
+    candidates = state.shapes
+    if state.canvas is not None:
+        candidates = tuple(shape for shape in candidates if _is_within_canvas(shape, state.canvas))
+    if not candidates:
         return None
-    return min(state.shapes, key=lambda shape: _target_cost(shape, origin))
+    return min(candidates, key=lambda shape: _target_cost(shape, origin))
 
 
 def _movement_keys(dx: float, dy: float, *, deadzone: float) -> frozenset:
