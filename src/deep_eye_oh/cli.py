@@ -6,6 +6,7 @@
     python -m deep_eye_oh.cli replay-timing --in replays\r1
     python -m deep_eye_oh.cli capture-inspect --left 0 --top 0 --width 800 --height 600 --save live.png
     python -m deep_eye_oh.cli control-smoke-test
+    python -m deep_eye_oh.cli coordinate-gate --in geometry.json
 """
 
 from __future__ import annotations
@@ -176,6 +177,16 @@ def _cmd_control_smoke_test(args: argparse.Namespace) -> None:
     run_menu()
 
 
+def _cmd_coordinate_gate(args: argparse.Namespace) -> None:
+    from deep_eye_oh.coordinate_gate import CoordinateGateError, run
+
+    try:
+        run(args.in_, countdown_s=args.countdown)
+    except CoordinateGateError as exc:
+        print(f"[gate] refused: {exc}")
+        raise SystemExit(1) from None
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="deep_eye_oh", description="capture/replay v0 CLI")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -221,6 +232,20 @@ def build_parser() -> argparse.ArgumentParser:
         "control-smoke-test", help="interactive manual Windows control smoke-test menu"
     )
     p_control_smoke.set_defaults(func=_cmd_control_smoke_test)
+
+    p_coordinate_gate = sub.add_parser(
+        "coordinate-gate",
+        help="live, non-clicking verification that an Oracle canvas point maps to the correct cursor position",
+    )
+    p_coordinate_gate.add_argument(
+        "--in", dest="in_", type=str, required=True,
+        help="path to a JSON geometry payload from the browser probe, or '-' for stdin",
+    )
+    p_coordinate_gate.add_argument(
+        "--countdown", type=float, default=5.0,
+        help="seconds to switch to the target window before arming (default 5)",
+    )
+    p_coordinate_gate.set_defaults(func=_cmd_coordinate_gate)
 
     return parser
 

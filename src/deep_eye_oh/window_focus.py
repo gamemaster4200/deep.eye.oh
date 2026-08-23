@@ -71,6 +71,28 @@ def is_foreground(target: TargetWindow) -> bool:
     return True
 
 
+def client_area_origin_on_screen(target: TargetWindow) -> tuple[int, int]:
+    """Physical-pixel screen coordinates of `target`'s client-area origin
+    (ClientToScreen(hwnd, (0, 0))) -- physical pixels only if the calling
+    process is per-monitor-DPI-aware (see win32_input.ensure_dpi_awareness,
+    GitHub issue #2); otherwise a Windows-virtualized, non-physical space.
+
+    For a browser window this is the top-level WINDOW's client-area
+    origin, which on modern (Aura) Chrome includes the tab strip/toolbars
+    -- not just the page viewport. Callers wanting the page viewport's
+    origin must additionally account for the browser chrome offset (see
+    deep_eye_oh.browser_coords.BrowserGeometry.chrome_offset_top_css /
+    chrome_offset_left_right_css).
+
+    Unlike the boolean checks in this module, this is a geometry lookup,
+    not a safety check -- it propagates whatever win32gui.ClientToScreen
+    raises (e.g. pywintypes.error) if `target`'s hwnd is no longer valid.
+    Callers wanting fail-closed behavior should check
+    target_still_exists()/is_foreground() first, same as elsewhere.
+    """
+    return win32gui.ClientToScreen(target.hwnd, (0, 0))
+
+
 def point_is_over_target(target: TargetWindow, x: int, y: int) -> bool:
     """Does the given physical pixel point resolve to the armed top-level
     window? WindowFromPoint can return a child control, so this walks up

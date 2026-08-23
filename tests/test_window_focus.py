@@ -3,6 +3,8 @@ no real window/cursor state is ever touched."""
 
 import time
 
+import pytest
+
 from deep_eye_oh import window_focus as wf
 
 
@@ -177,3 +179,27 @@ def test_focus_watcher_fails_closed_on_own_exception(monkeypatch):
     watcher.stop(timeout=2)
     assert "focus_watcher_died" in trips
     assert watcher.is_alive() is False
+
+
+def test_client_area_origin_on_screen_delegates_to_win32gui(monkeypatch):
+    target = make_target()
+    calls = []
+
+    def _client_to_screen(hwnd, point):
+        calls.append((hwnd, point))
+        return (123, 456)
+
+    monkeypatch.setattr(wf.win32gui, "ClientToScreen", _client_to_screen)
+    assert wf.client_area_origin_on_screen(target) == (123, 456)
+    assert calls == [(target.hwnd, (0, 0))]
+
+
+def test_client_area_origin_on_screen_propagates_errors(monkeypatch):
+    target = make_target()
+
+    def _raise(hwnd, point):
+        raise OSError("invalid window handle")
+
+    monkeypatch.setattr(wf.win32gui, "ClientToScreen", _raise)
+    with pytest.raises(OSError):
+        wf.client_area_origin_on_screen(target)
