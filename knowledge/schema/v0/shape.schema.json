@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://deep.eye.oh/knowledge/schema/v0/shape.schema.json",
+  "title": "ShapePayloadV0",
+  "description": "Typed payload for entity.type == 'shape_v0', grounded in raw wikitext sampled from the diep.io Pentagon/Alpha Pentagon/Square/Triangle pages. Structurally much simpler than tank_v0: shapes use a {{Polygon}} template with mostly-numeric fields, no upgrade chain, and no BaseStats. Shape and Tank intentionally share only the common entity envelope (entity.schema.json), not this payload. Variant relations (e.g. Pentagon -> Alpha Pentagon) are external relation_type=variant_of edges (see relation.schema.json), not embedded here.",
+  "type": "object",
+  "properties": {
+    "rarity": {
+      "type": ["string", "null"],
+      "description": "Raw text of the wikitext infobox 'rarity' field, e.g. 'Very Common', 'Uncommon', 'Rare in [[Pentagon Nest]], Cannot be found outside the [[Pentagon Nest]].'. Kept as free text -- rarity descriptions were observed to include qualifiers and links, not just a clean enum value."
+    },
+    "hp": {
+      "type": ["number", "null"],
+      "description": "The wikitext infobox 'hp' field. Observed as a genuine number on every sampled shape (Square 10, Triangle 30, Pentagon 100, Alpha Pentagon 3000)."
+    },
+    "xp": {
+      "type": ["number", "null"],
+      "description": "The wikitext infobox 'xp' field. Observed as a genuine number on every sampled shape (Square 10, Triangle 25, Pentagon 130, Alpha Pentagon 3000)."
+    },
+    "attacks": {
+      "type": ["string", "null"],
+      "description": "Raw text of the wikitext infobox 'attacks' field, when present and non-empty. Most sampled shapes left this field blank."
+    },
+    "raw_infobox_evidence": {
+      "type": "object",
+      "description": "Sparse bag of additional raw infobox field name/value pairs not otherwise modeled by this schema, preserved verbatim.",
+      "additionalProperties": {"type": "string"}
+    }
+  },
+  "additionalProperties": false
+}

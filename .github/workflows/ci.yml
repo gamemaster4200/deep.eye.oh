@@ -23,7 +23,7 @@ jobs:
       - name: Install project (with dev extras)
         # WITH_EXTENSION=0: use mwparserfromhell's pure-Python tokenizer so
         # this doesn't depend on MSVC build tools being present on the runner.
-        run: pip install -e ".[dev,wiki]"
+        run: pip install -e ".[dev,wiki,knowledge]"
         env:
           WITH_EXTENSION: "0"
 

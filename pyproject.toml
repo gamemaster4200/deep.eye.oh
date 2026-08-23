@@ -17,6 +17,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest"]
 wiki = ["mwparserfromhell>=0.6", "py7zr>=0.20"]
+knowledge = ["jsonschema>=4.18"]
 
 [project.scripts]
 deep-eye-oh = "deep_eye_oh.cli:main"
