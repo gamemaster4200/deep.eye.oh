@@ -1,6 +1,8 @@
 ﻿.codex-result.txt
 .chrome-profile/
 .chrome-dev-profile/
+coverage/
+test-results/
 tmp/
 temp/
 captures/
@@ -15,3 +17,4 @@ logs/
 node_modules/
 .env
 .env.*
+.codex-review-result.txt

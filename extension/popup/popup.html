@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Browser Oracle</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main>
+      <h1>Browser Oracle</h1>
+      <dl aria-live="polite">
+        <div><dt>diep.io detected</dt><dd id="diep-detected">Checking</dd></div>
+        <div><dt>Browser Oracle ready</dt><dd id="oracle-ready">Checking</dd></div>
+        <div><dt>neutral squares</dt><dd id="square-count">—</dd></div>
+      </dl>
+      <div class="buttons">
+        <button id="copy-snapshot" type="button">Copy Snapshot</button>
+        <button id="copy-shapes" type="button">Copy Shapes</button>
+        <button id="refresh-tab" type="button">Refresh diep.io tab</button>
+        <button id="reload-extension" type="button">Reload Extension</button>
+      </div>
+      <p id="message" role="status"></p>
+      <section class="diagnostics" aria-live="polite">
+        <h2>Diagnostics</h2>
+        <dl>
+          <div><dt>#ffe869 fills seen</dt><dd id="diag-fills-seen">—</dd></div>
+          <div><dt>accepted</dt><dd id="diag-accepted">—</dd></div>
+          <div><dt>rejected</dt><dd id="diag-rejected">—</dd></div>
+          <div><dt>currently cached</dt><dd id="diag-cached">—</dd></div>
+        </dl>
+        <p id="diag-top-reasons">Top rejection reasons: —</p>
+        <p id="diag-top-topology">Top subpath topology: —</p>
+        <div class="buttons">
+          <button id="copy-diagnostics" type="button">Copy Diagnostics</button>
+        </div>
+      </section>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>
