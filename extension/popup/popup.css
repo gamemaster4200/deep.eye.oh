@@ -1,0 +1,99 @@
+:root {
+  color-scheme: dark;
+  font: 13px/1.4 system-ui, sans-serif;
+}
+
+body {
+  background: #171a21;
+  color: #f1f4f8;
+  margin: 0;
+  min-width: 290px;
+}
+
+main {
+  padding: 14px;
+}
+
+h1 {
+  font-size: 16px;
+  margin: 0 0 10px;
+}
+
+dl {
+  margin: 0 0 12px;
+}
+
+dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 3px 0;
+}
+
+dt {
+  color: #b9c1cc;
+}
+
+dd {
+  margin: 0;
+}
+
+.yes {
+  color: #78dd9b;
+}
+
+.no {
+  color: #ff8989;
+}
+
+.buttons {
+  display: grid;
+  gap: 7px;
+  grid-template-columns: 1fr 1fr;
+}
+
+button {
+  background: #2b72d6;
+  border: 0;
+  border-radius: 4px;
+  color: white;
+  cursor: pointer;
+  min-height: 32px;
+  padding: 6px 8px;
+}
+
+button:hover {
+  background: #3983eb;
+}
+
+button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+#message {
+  color: #b9c1cc;
+  margin: 9px 0 0;
+  min-height: 18px;
+}
+
+.diagnostics {
+  border-top: 1px solid #2a2f3a;
+  margin-top: 12px;
+  padding-top: 10px;
+}
+
+.diagnostics h2 {
+  font-size: 12px;
+  color: #b9c1cc;
+  margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+#diag-top-reasons,
+#diag-top-topology {
+  color: #b9c1cc;
+  font-size: 12px;
+  margin: 4px 0 8px;
+}
