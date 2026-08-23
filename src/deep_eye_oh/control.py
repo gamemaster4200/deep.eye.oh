@@ -251,6 +251,17 @@ class Controller:
         with self._lock:
             return bool(self._held_buttons)
 
+    @property
+    def trip_reason(self) -> str | None:
+        """Read-only: why `armed` last became False (e.g. "emergency_stop",
+        "focus_lost_async", "cursor_not_over_target"), or None if it has
+        never tripped since the last successful arm(). Diagnostics only --
+        callers must still treat `armed` as the authoritative safety state;
+        this exists so a caller can explain a trip without reaching into
+        `_trip_reason` directly."""
+        with self._lock:
+            return self._trip_reason
+
     # ---- trip machinery -------------------------------------------------
 
     def _trip_if_epoch(self, epoch: int, reason: str) -> None:

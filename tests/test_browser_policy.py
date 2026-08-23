@@ -1,6 +1,6 @@
 """Tests for browser_policy.py: target selection and Action production."""
 
-from deep_eye_oh.browser_game_state import BrowserGameState, BrowserShape
+from deep_eye_oh.browser_game_state import BrowserGameState, BrowserShape, CanvasInfo
 from deep_eye_oh.browser_policy import NOOP, BrowserPolicy, select_target
 
 
@@ -8,11 +8,13 @@ def _shape(shape_class, cx, cy, radius=10.0):
     return BrowserShape(shape_class=shape_class, cx=cx, cy=cy, radius=radius, timestamp_ms=0.0)
 
 
-def _state(*shapes):
-    return BrowserGameState(shapes=tuple(shapes), canvas=None, polled_at_ms=0.0, performance_now_ms=None, received_at=0.0)
+def _state(*shapes, canvas=None):
+    return BrowserGameState(shapes=tuple(shapes), canvas=canvas, polled_at_ms=0.0, performance_now_ms=None, received_at=0.0)
 
 
 ORIGIN = (0.0, 0.0)
+
+CANVAS = CanvasInfo(width=1600, height=900, rect_left=0, rect_top=0, rect_width=1600, rect_height=900, device_pixel_ratio=1)
 
 
 def test_select_target_none_when_no_shapes():
@@ -37,6 +39,70 @@ def test_select_target_class_weight_can_prefer_farther_higher_value_shape():
     close_pentagon = _shape("pentagon", 30, 0)  # cost = 30 * 1.6 = 48
     farther_square = _shape("square", 55, 0)  # cost = 55 * 1.0 = 55
     assert select_target(_state(close_pentagon, farther_square), ORIGIN) is close_pentagon
+
+
+# ---------------------------------------------------------------------------
+# select_target: canvas-bounds filtering (regression for the live bug where
+# select_target picked shapes reported with a center outside the visible
+# canvas -- e.g. square @ (376,-195) -- producing a mouse destination
+# outside the armed browser window and tripping Controller's cursor-over-
+# target safety gate mid-shot).
+# ---------------------------------------------------------------------------
+
+
+def test_select_target_rejects_negative_cx():
+    offscreen = _shape("square", -5, 100)
+    assert select_target(_state(offscreen, canvas=CANVAS), ORIGIN) is None
+
+
+def test_select_target_rejects_negative_cy():
+    offscreen = _shape("square", 100, -195)
+    assert select_target(_state(offscreen, canvas=CANVAS), ORIGIN) is None
+
+
+def test_select_target_rejects_cx_beyond_canvas_width():
+    offscreen = _shape("square", CANVAS.width + 1, 100)
+    assert select_target(_state(offscreen, canvas=CANVAS), ORIGIN) is None
+
+
+def test_select_target_rejects_cy_beyond_canvas_height():
+    offscreen = _shape("square", 100, CANVAS.height + 1)
+    assert select_target(_state(offscreen, canvas=CANVAS), ORIGIN) is None
+
+
+def test_select_target_accepts_boundary_points():
+    # 0 <= cx <= width / 0 <= cy <= height is inclusive at the edges.
+    corner = _shape("square", 0, 0)
+    assert select_target(_state(corner, canvas=CANVAS), ORIGIN) is corner
+    opposite_corner = _shape("square", CANVAS.width, CANVAS.height)
+    assert select_target(_state(opposite_corner, canvas=CANVAS), ORIGIN) is opposite_corner
+
+
+def test_select_target_still_picks_nearest_in_bounds_target_ignoring_offscreen_ones():
+    offscreen_but_closer = _shape("square", 1209, -132)  # from the live bug report
+    onscreen_farther = _shape("square", 700, 400)
+    state = _state(offscreen_but_closer, onscreen_farther, canvas=CANVAS)
+    assert select_target(state, ORIGIN) is onscreen_farther
+
+
+def test_select_target_none_when_every_shape_is_offscreen():
+    a = _shape("square", 376, -195)  # from the live bug report
+    b = _shape("square", 1209, -132)  # from the live bug report
+    assert select_target(_state(a, b, canvas=CANVAS), ORIGIN) is None
+
+
+def test_select_target_no_bounds_filtering_without_canvas_info():
+    # Without canvas info, bounds cannot be judged; existing (canvas=None)
+    # callers/tests must keep working unfiltered.
+    far_out = _shape("square", -1000, -1000)
+    assert select_target(_state(far_out, canvas=None), ORIGIN) is far_out
+
+
+def test_decide_noop_when_only_offscreen_shapes_visible():
+    policy = BrowserPolicy()
+    offscreen = _shape("square", -5, 100)
+    action = policy.decide(_state(offscreen, canvas=CANVAS), ORIGIN)
+    assert action is NOOP
 
 
 # ---------------------------------------------------------------------------

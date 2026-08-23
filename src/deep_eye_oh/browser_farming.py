@@ -22,6 +22,7 @@ from deep_eye_oh.browser_bridge import DEFAULT_PORT, BrowserBridgeServer
 from deep_eye_oh.browser_game_state import BrowserGameState, ScreenTransform, compute_screen_transform
 from deep_eye_oh.browser_policy import BrowserAction, BrowserPolicy, select_target
 from deep_eye_oh.control import Controller, ControlNotSafeError
+from deep_eye_oh.window_focus import TargetWindow
 
 logger = logging.getLogger(__name__)
 
@@ -56,12 +57,28 @@ def _release_all(controller: Controller) -> _HeldInputs:
 
 
 def _apply_action(
-    controller: Controller, action: BrowserAction, held: _HeldInputs, transform: ScreenTransform
+    controller: Controller,
+    action: BrowserAction,
+    held: _HeldInputs,
+    transform: ScreenTransform,
+    target: TargetWindow,
 ) -> _HeldInputs:
     if not action.has_target:
         return _release_all(controller)
 
     screen_x, screen_y = transform.apply(action.aim_x, action.aim_y)
+
+    # Belt-and-suspenders: BrowserPolicy.select_target() already filters
+    # out shapes whose Oracle-space center is outside the canvas (see
+    # browser_policy.py), but the transform is a separate calculation and
+    # the window can move/resize between reading telemetry and sending
+    # input. Never begin or continue aiming/shooting/moving toward a
+    # screen point outside the armed window -- treat it exactly like an
+    # unusable tick (release everything) rather than risk the cursor
+    # drifting out from under a held button.
+    if not window_focus.point_is_over_target(target, screen_x, screen_y):
+        return _release_all(controller)
+
     controller.move_mouse(screen_x, screen_y)
 
     if action.shoot and not held.shooting:
@@ -77,6 +94,13 @@ def _apply_action(
     return _HeldInputs(move_keys=action.move_keys, shooting=action.shoot)
 
 
+def _controller_status(controller: Controller) -> str:
+    if controller.armed:
+        return "armed"
+    reason = controller.trip_reason
+    return f"disarmed reason={reason}" if reason is not None else "disarmed"
+
+
 def _format_status(
     state: BrowserGameState | None,
     age: float | None,
@@ -84,9 +108,9 @@ def _format_status(
     controller: Controller,
 ) -> str:
     if state is None or age is None:
-        return "telemetry: none received yet | controller: " + ("armed" if controller.armed else "disarmed")
+        return f"telemetry: none received yet | controller: {_controller_status(controller)}"
     if age > STALE_AFTER_S:
-        return f"telemetry: STALE (age={age:.2f}s) | controller: " + ("armed" if controller.armed else "disarmed")
+        return f"telemetry: STALE (age={age:.2f}s) | controller: {_controller_status(controller)}"
 
     counts: dict[str, int] = {}
     for shape in state.shapes:
@@ -102,7 +126,7 @@ def _format_status(
 
     return (
         f"telemetry: alive age={age:.2f}s | shapes: {counts_str} | "
-        f"target: {target_str} | controller: " + ("armed" if controller.armed else "disarmed")
+        f"target: {target_str} | controller: {_controller_status(controller)}"
     )
 
 
@@ -134,6 +158,18 @@ def run_farming_loop(
         tick = 0
         while max_ticks is None or tick < max_ticks:
             tick += 1
+
+            # An async trip (FocusWatcher/EmergencyStop, on their own
+            # background threads) can disarm Controller between ticks
+            # without this loop ever calling a gated method again -- the
+            # "no usable telemetry" branch below only ever calls the
+            # gate-exempt release_all(), which never raises. Without this
+            # explicit check the loop would otherwise keep running
+            # (printing "disarmed" every Nth tick) instead of stopping.
+            if not controller.armed:
+                print(f"Controller is no longer armed ({_controller_status(controller)}); stopping farming loop.")
+                break
+
             now = time.monotonic()
             state = bridge.latest()
             age = bridge.age_s(now)
@@ -150,7 +186,7 @@ def run_farming_loop(
             try:
                 if usable:
                     action = policy.decide(state, origin)
-                    held = _apply_action(controller, action, held, transform)
+                    held = _apply_action(controller, action, held, transform, target)
                 else:
                     held = _release_all(controller)
             except ControlNotSafeError as exc:
@@ -185,6 +221,10 @@ def run_calibration_check(
         print(f"Armed on {target.title_at_arm!r}. Calibration check for {duration_s:.0f}s (panic key to stop).")
         deadline = time.monotonic() + duration_s
         while time.monotonic() < deadline:
+            if not controller.armed:
+                print(f"Controller is no longer armed ({_controller_status(controller)}); stopping calibration check.")
+                break
+
             state = bridge.latest()
             age = bridge.age_s()
             if state is None or age is None or age > STALE_AFTER_S or state.canvas is None:
