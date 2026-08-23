@@ -64,3 +64,19 @@ emergency-stop/debug-tooling v0 (Windows keyboard/mouse control gated by
 an armed-window focus check, mouse cursor-target check, and an
 independent emergency stop, plus replay/capture inspection CLI tooling).
 No game-specific perception or policy logic exists yet.
+
+## browser-informed-farming-v0 (this branch): a deliberate, isolated exception
+
+This branch (`feat/browser-informed-farming-v0`) is a separate,
+non-replacing path explicitly authorized to read data the browser client
+already has -- the `deep.eye.oh.ext` Browser Oracle's `snapshot()`
+(Canvas2D-observed neutral shape geometry), forwarded over a local
+WebSocket bridge into a `BrowserGameState`. This is a narrow, explicit
+exception to "no DOM/hidden data" above, not a repeal of it: it does not
+touch process memory, the network *protocol*, or any state the Oracle
+itself doesn't already read from the page's own Canvas2D render calls.
+The canonical screen-only pipeline (`Observation -> StateEstimator ->
+GameState -> Policy`) is untouched by this branch. All autonomous input
+still goes exclusively through the existing `Controller` (`control.py`)
+and its focus/emergency-stop safety gates -- this branch changes only
+what feeds the policy, never how input is sent.
