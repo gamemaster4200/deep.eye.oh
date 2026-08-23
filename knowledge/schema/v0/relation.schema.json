@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://deep.eye.oh/knowledge/schema/v0/relation.schema.json",
+  "title": "RelationEdgeV0",
+  "description": "A single directed relation edge between two knowledge entities, identified by their entity ids. Upgrade relations are canonicalized to a single 'upgrades_to' direction (from the earlier tank to the later one); reverse ancestry is derived from the graph rather than stored as a separate 'upgrades_from' edge type. Referential integrity of from_id/to_id against an actual entity set is deliberately NOT checked here -- JSON Schema validates document shape, not cross-document graph consistency, and this schema does not pretend otherwise.",
+  "type": "object",
+  "properties": {
+    "from_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Entity id this edge originates from (e.g. the earlier tank in an upgrades_to edge, or the base shape in a variant_of edge)."
+    },
+    "to_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Entity id this edge points to (e.g. the later tank in an upgrades_to edge, or the variant shape in a variant_of edge)."
+    },
+    "relation_type": {
+      "enum": ["upgrades_to", "variant_of"],
+      "description": "upgrades_to: tank progression edge, canonical direction only (no upgrades_from). variant_of: a shape/polygon variant relation (e.g. Pentagon -> Alpha Pentagon), structurally distinct from tank progression."
+    },
+    "status": {
+      "enum": ["active", "removed", "unknown"],
+      "description": "Mirrors the source wiki's own qualifiers, e.g. an upgrade path documented as a 'removed upgrade option' (observed on the sampled Twin/Smasher pages)."
+    },
+    "provenance": {
+      "$ref": "provenance.schema.json"
+    }
+  },
+  "required": ["from_id", "to_id", "relation_type", "status", "provenance"],
+  "additionalProperties": false
+}

@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://deep.eye.oh/knowledge/schema/v0/provenance.schema.json",
+  "title": "ProvenanceV0",
+  "description": "Minimum source identity for a normalized knowledge fact, tracing it back to the wiki inventory snapshot it was derived from. Deliberately does not require character offsets or table cell coordinates (tools/wiki's inventory pipeline does not currently produce them). revision_id is present but optional so revision metadata can be attached later without a schema version bump.",
+  "type": "object",
+  "properties": {
+    "snapshot_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The knowledge/raw/fandom/<snapshot_id>/ acquisition snapshot this fact was derived from."
+    },
+    "pageid": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "MediaWiki page id of the source page."
+    },
+    "content_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "sha256 of the source page's wikitext content at acquisition time."
+    },
+    "revision_id": {
+      "type": ["integer", "null"],
+      "description": "Optional MediaWiki revision id, when available. Not required in v0 (tools/wiki/inventory.py's pages.jsonl does not currently retain it), but reserved so it can be populated later without changing this schema's required fields."
+    },
+    "template_occurrence_index": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "0-based index of the specific template invocation on the source page this fact came from, when the fact was derived from a template field."
+    },
+    "table_index": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "0-based index of the specific table on the source page this fact came from, when the fact was derived from a table."
+    },
+    "section": {
+      "type": "string",
+      "description": "Nearest enclosing section heading text on the source page, when relevant."
+    }
+  },
+  "required": ["snapshot_id", "pageid", "content_sha256"],
+  "additionalProperties": false
+}
