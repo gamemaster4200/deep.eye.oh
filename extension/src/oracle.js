@@ -5,18 +5,40 @@
     return;
   }
 
-  const VERSION = '0.4.0';
+  const VERSION = '0.5.0';
 
-  // diep.io's official client fills neutral Squares with this color. Chrome
-  // may read the fillStyle setter back as either the hex form or its
-  // computed rgb() equivalent, so both are accepted.
-  const NEUTRAL_SQUARE_HEX = '#ffe869';
-  const NEUTRAL_SQUARE_RGB = Object.freeze({ r: 255, g: 232, b: 105 });
+  // diep.io's official client fills each neutral shape class with a fixed
+  // color (matches the vendored Cazka/diepAPI EntityColor map, and -- for
+  // Square -- independently confirmed by live Canvas2D capture; see
+  // README). Each class also has a fixed corner count once its render
+  // contour is simplified (see collapseCollinear below): 3 for Triangle, 4
+  // for Square, 5 for Pentagon. A fill is classified by BOTH signals
+  // together -- see classifyFill -- never by color or corner count alone,
+  // so a shape drawn in the wrong color for its corner count (or vice
+  // versa) is correctly rejected rather than guessed at.
+  const SHAPE_CLASSES = {
+    square: { hex: '#ffe869', rgb: { r: 255, g: 232, b: 105 }, vertexCount: 4, kind: 'neutral_square' },
+    triangle: { hex: '#fc7677', rgb: { r: 252, g: 118, b: 119 }, vertexCount: 3, kind: 'neutral_triangle' },
+    pentagon: { hex: '#768dfc', rgb: { r: 118, g: 141, b: 252 }, vertexCount: 5, kind: 'neutral_pentagon' },
+  };
+  const CLASS_NAMES = Object.freeze(Object.keys(SHAPE_CLASSES));
+  const VERTEX_COUNT_TO_CLASS = Object.freeze(
+    Object.fromEntries(CLASS_NAMES.map((name) => [SHAPE_CLASSES[name].vertexCount, name])),
+  );
 
   // Generous, dataset-independent tolerances for rendering/anti-aliasing
-  // jitter. Not tuned against any vision holdout.
+  // jitter. Not tuned against any vision holdout. Shared across all three
+  // shape classes -- there is no live evidence yet that Triangle/Pentagon
+  // need different tolerances than the ones established for Square.
   const SIDE_LENGTH_RATIO_TOLERANCE = 1.35;
-  const DIAGONAL_RATIO_TOLERANCE = 1.35;
+  // Replaces the old, quad-specific "diagonal ratio" check (a quadrilateral
+  // has exactly 2 diagonals; a triangle has none and a pentagon has 5,
+  // neither of which generalizes). A regular N-gon's vertices are all
+  // equidistant from its centroid, so "max/min vertex-to-centroid distance"
+  // is the generalization that applies uniformly to N=3/4/5. For a perfect
+  // square this is exactly proportional to the old diagonal check (all
+  // vertices lie on one circle), so real square acceptance is unaffected.
+  const RADIUS_RATIO_TOLERANCE = 1.35;
   const MIN_SIDE_LENGTH_PX = 0.5;
 
   // Shared "same physical location" / "same physical line" tolerance, used
@@ -33,21 +55,21 @@
   const GEOMETRY_EPSILON_PX = 0.75;
 
   // A subpath with a computed |signedArea| at or below this is treated as
-  // inert (no meaningfully filled region), not a degenerate-but-real quad.
-  // Tied to the same MIN_SIDE_LENGTH_PX noise floor used for individual
-  // side lengths elsewhere in this file (0.5px), squared: a shape that
-  // would fail MIN_SIDE_LENGTH_PX on every side has an area at or below
-  // this scale purely from positional noise, before any real geometry.
+  // inert (no meaningfully filled region), not a degenerate-but-real
+  // polygon. Tied to the same MIN_SIDE_LENGTH_PX noise floor used for
+  // individual side lengths elsewhere in this file (0.5px), squared: a
+  // shape that would fail MIN_SIDE_LENGTH_PX on every side has an area at
+  // or below this scale purely from positional noise, before any real
+  // geometry.
   const MIN_MEANINGFUL_AREA_PX2 = MIN_SIDE_LENGTH_PX * MIN_SIDE_LENGTH_PX;
 
-  // For an ideal square, sqrt(area) and perimeter/4 are the same quantity
-  // exactly, regardless of absolute size or rotation. This is a secondary,
-  // scale-invariant self-consistency check on top of the side/diagonal
-  // checks below -- not a replacement for them, and not calibrated against
-  // any specific observed pixel measurement (which would vary with zoom/
-  // canvas size across sessions); only against how far the two independent
-  // ways of inferring "the side length" of a true square are allowed to
-  // disagree before something other than corner-recovery noise is suspected.
+  // For a regular N-gon of side length s: area = (n * s^2) / (4 * tan(pi/n))
+  // and perimeter = n * s. Two independent estimates of s -- one from the
+  // observed area, one from the observed perimeter -- should agree for a
+  // true regular polygon; this tolerance bounds how far they may disagree.
+  // For n=4, tan(pi/4)=1, so this reduces exactly to the original
+  // Square-only identity (sqrt(area) vs perimeter/4): real Square
+  // acceptance is numerically unaffected by this generalization.
   const AREA_PERIMETER_RATIO_TOLERANCE = 1.2;
 
   // How many vertices of a single subpath are kept in coordinate detail.
@@ -72,13 +94,14 @@
 
   // There is no reliable, crash-safe frame boundary available (see README:
   // hooking requestAnimationFrame is the upstream diepAPI crash path this
-  // project deliberately avoids). Instead, each detected square is cached
-  // with a timestamp and shapes()/snapshot() only return entries seen within
-  // this rolling window. This is a heuristic "recent observation" cache, not
-  // a synchronized frame model: it can include a square from slightly more
-  // than one frame ago, and it can briefly miss one if the game skips a
-  // render. 250ms tolerates multi-frame stalls at typical frame rates while
-  // still dropping squares that stopped being drawn (e.g. left the screen).
+  // project deliberately avoids). Instead, each detected shape is cached
+  // with a timestamp and shapes()/snapshot() only return entries seen
+  // within this rolling window. This is a heuristic "recent observation"
+  // cache, not a synchronized frame model: it can include a shape from
+  // slightly more than one frame ago, and it can briefly miss one if the
+  // game skips a render. 250ms tolerates multi-frame stalls at typical
+  // frame rates while still dropping shapes that stopped being drawn (e.g.
+  // left the screen).
   const CACHE_WINDOW_MS = 250;
 
   const HISTOGRAM_BUCKET_CAP = 16;
@@ -86,24 +109,18 @@
   const REJECTED_SAMPLE_CAP = 30;
 
   const pathState = new WeakMap();
-  const squareCache = new Map();
+  const shapeCache = new Map();
   let hooksInstalled = false;
   let startTime = 0;
+  // The canvas element most recently observed in any fill() call, of any
+  // color/shape. Used only to report canvas positioning metadata
+  // (snapshot().canvas, see below) for downstream screen/mouse coordinate
+  // calibration -- best-effort, diagnostic-only, never used to drive shape
+  // acceptance.
+  let lastCanvasElement = null;
 
   const callCounters = {
     beginPath: 0, moveTo: 0, lineTo: 0, rect: 0, closePath: 0, fill: 0,
-  };
-  const squareColorCounters = {
-    fillsSeen: 0,
-    accepted: 0,
-    rejected: 0,
-    // Subpath-selection stage (see selectMeaningfulSubpath below).
-    meaningfulSinglePolygon: 0,
-    noMeaningfulPolygon: 0,
-    ambiguousMeaningfulPolygons: 0,
-    // Collinear-simplification stage (see collapseCollinear below).
-    simplifiedToQuad: 0,
-    simplificationFailed: 0,
   };
   const rejectionReasonCounters = {
     noMeaningfulSubpath: 0,
@@ -111,7 +128,7 @@
     wrongVertexCount: 0,
     degenerate: 0,
     sideRatio: 0,
-    diagonalRatio: 0,
+    radiusRatio: 0,
     areaPerimeterMismatch: 0,
     colorMismatch: 0,
     unsupportedRectPath: 0,
@@ -120,19 +137,39 @@
     cacheError: 0,
     other: 0,
   };
-  // vertexHistogram/squareColorVertexHistogram are keyed by the SELECTED
-  // meaningful subpath's vertex count (see selectMeaningfulSubpath below) --
-  // 0 when no subpath qualified as meaningful. The two histograms below are
-  // additionally diagnostic-only: they see every subpath of every #ffe869
-  // fill, to answer "what does the real renderer draw in one fill() call"
-  // without guessing from aggregate counts.
+  // vertexHistogram is keyed by the SELECTED meaningful subpath's vertex
+  // count (see selectMeaningfulSubpath below) -- 0 when no subpath
+  // qualified as meaningful. Sees every fill() of any color.
   const vertexHistogram = {};
-  const squareColorVertexHistogram = {};
-  const squareColorSubpathCountHistogram = {};
-  const squareColorTopologyHistogram = {};
   const cacheCounters = { acceptedTotal: 0, prunedTotal: 0 };
   const acceptedSamples = [];
-  const rejectedSquareColorSamples = [];
+  // Per-class diagnostics (fillsSeen/accepted/rejected counters and the
+  // three histograms), scoped to fills whose fillStyle matches that class's
+  // color -- exactly the semantics the original Square-only
+  // squareColor/squareColor*Histogram fields had. One shared factory
+  // (makeClassStats) builds all three so the bookkeeping logic in
+  // recordDiagnostics is written once, not copy-pasted per class (see
+  // README: "accurately generalize rather than build three copy-pasted
+  // detectors").
+  function makeClassStats() {
+    return {
+      counters: {
+        fillsSeen: 0,
+        accepted: 0,
+        rejected: 0,
+        meaningfulSinglePolygon: 0,
+        noMeaningfulPolygon: 0,
+        ambiguousMeaningfulPolygons: 0,
+        simplifiedToExpectedCount: 0,
+        simplificationFailed: 0,
+      },
+      vertexHistogram: {},
+      subpathCountHistogram: {},
+      topologyHistogram: {},
+      rejectedSamples: [],
+    };
+  }
+  const classStats = new Map(CLASS_NAMES.map((name) => [name, makeClassStats()]));
 
   function safeRead(object, property) {
     try {
@@ -212,12 +249,22 @@
     };
   }
 
+  function centroid(vertices) {
+    let sx = 0;
+    let sy = 0;
+    for (const vertex of vertices) {
+      sx += vertex.x;
+      sy += vertex.y;
+    }
+    return { x: sx / vertices.length, y: sy / vertices.length };
+  }
+
   // Generic polygon geometry for diagnostics, valid for any vertex count
-  // (unlike evaluateGeometry below, which is quad-specific and drives
-  // acceptance). Implicitly closes back to vertices[0], matching how
-  // Canvas2D's fill() renders an unclosed subpath, regardless of whether
-  // closePath() was actually called. Returns undefined for fewer than 2
-  // points, where no meaningful shape exists yet (e.g. a lone moveTo point).
+  // (unlike evaluateGeometry below, which drives acceptance). Implicitly
+  // closes back to vertices[0], matching how Canvas2D's fill() renders an
+  // unclosed subpath, regardless of whether closePath() was actually
+  // called. Returns undefined for fewer than 2 points, where no meaningful
+  // shape exists yet (e.g. a lone moveTo point).
   function polygonGeometry(vertices) {
     if (!Array.isArray(vertices) || vertices.length < 2) {
       return undefined;
@@ -259,12 +306,9 @@
   // subpaths; every one is tracked (bounded by MAX_TRACKED_SUBPATHS), not
   // just the most recent. Live evidence showed the official client's
   // #ffe869 fills are consistently two subpaths (a real, multi-vertex
-  // polygon subpath plus a trailing visually-inert one-point subpath).
-  // classifyFill() below selects whichever subpath is the unique
-  // MEANINGFUL one (real area, not just recency or position -- see
-  // selectMeaningfulSubpath) and reconstructs the real square from it; see
-  // that function and the "Classification" section below for the full
-  // pipeline.
+  // polygon subpath plus a trailing visually-inert one-point subpath); the
+  // same render structure is assumed (not yet independently live-verified)
+  // for Triangle/Pentagon -- see README.
 
   function freshPathState() {
     return {
@@ -355,9 +399,9 @@
   function onRect(ctx) {
     // Diagnostic-only: rect() does not invoke moveTo/lineTo, so it is
     // otherwise invisible to this observer. Support for classifying
-    // rect()-built paths as squares is deliberately not implemented yet
-    // (see README); this hook only makes their presence visible instead of
-    // silently mis-detecting or silently missing them.
+    // rect()-built paths is deliberately not implemented (see README);
+    // this hook only makes their presence visible instead of silently
+    // mis-detecting or silently missing them.
     callCounters.rect += 1;
     getPathState(ctx).rectCalls += 1;
   }
@@ -380,21 +424,21 @@
 
   // --- Classification --------------------------------------------------
   //
-  // Live evidence (see README) established that a real #ffe869 fill is two
-  // subpaths: one actual polygon contour -- a square, subdivided with extra
-  // collinear points along its four edges -- plus one visually-inert
-  // single-point subpath (a moveTo call to the center with no lineTo calls, filling no
-  // area). The pipeline below reconstructs the real square from that
-  // contour rather than inferring "square-likeness" from aggregate stats:
+  // Live evidence (see README) established that a real #ffe869 (Square)
+  // fill is two subpaths: one actual polygon contour -- subdivided with
+  // extra collinear points along its straight edges -- plus one visually-
+  // inert single-point subpath. The pipeline below reconstructs the real
+  // shape from that contour rather than inferring "shape-likeness" from
+  // aggregate stats, and is shared by all three neutral shape classes:
   //
   //   all tracked subpaths
   //     -> find the unique non-degenerate ("meaningful") polygon subpath
   //     -> merge duplicate/closing points, collapse collinear edge
   //        subdivisions down to the real corners
-  //     -> require exactly 4 corners
-  //     -> run existing side/diagonal square geometry checks on them
+  //     -> require exactly 3, 4, or 5 corners (the only supported classes)
+  //     -> run the regular-polygon geometry check on them
   //     -> cross-check with the area/perimeter self-consistency invariant
-  //     -> require the neutral-square color
+  //     -> require the corner count's corresponding neutral-shape color
   //
   // Which subpath is "the" polygon is never hard-coded by position (e.g.
   // "subpaths[0]"): it is whichever single subpath is non-degenerate. If
@@ -418,8 +462,8 @@
   // Merges consecutive points that coincide within GEOMETRY_EPSILON_PX,
   // treating the list as a closed cycle -- this single pass handles both
   // an explicit closing vertex (last point duplicating the first) and any
-  // accidental duplicate lineTo, generalized beyond the old fixed 4-vs-5
-  // vertex special case to any number of subdivision points.
+  // accidental duplicate lineTo, generalized beyond a fixed vertex-count
+  // special case to any number of subdivision points.
   function dedupeConsecutive(vertices) {
     const result = [];
     for (const vertex of vertices) {
@@ -494,43 +538,50 @@
     return candidates;
   }
 
+  // Regular-N-gon geometry check, generalized over vertex count: (1) no
+  // side may be degenerately short: (2) side lengths must be roughly equal
+  // (works for any N); (3) vertex-to-centroid distances ("radii") must be
+  // roughly equal -- the generalization of the old Square-only diagonal
+  // check (see RADIUS_RATIO_TOLERANCE above).
   function evaluateGeometry(vertices) {
-    const [p0, p1, p2, p3] = vertices;
-    const sides = [distance(p0, p1), distance(p1, p2), distance(p2, p3), distance(p3, p0)];
-    const diagonals = [distance(p0, p2), distance(p1, p3)];
+    const geometry = polygonGeometry(vertices);
+    const sides = geometry.sides;
+    const center = centroid(vertices);
+    const radii = vertices.map((vertex) => distance(vertex, center));
     const maxSide = Math.max(...sides);
     const minSide = Math.min(...sides);
-    const maxDiagonal = Math.max(...diagonals);
-    const minDiagonal = Math.min(...diagonals);
+    const maxRadius = Math.max(...radii);
+    const minRadius = Math.min(...radii);
 
     let reason;
     if (sides.some((side) => !(side >= MIN_SIDE_LENGTH_PX))) {
       reason = 'degenerate';
     } else if (maxSide / minSide > SIDE_LENGTH_RATIO_TOLERANCE) {
       reason = 'sideRatio';
-    } else if (!(minDiagonal > 0) || maxDiagonal / minDiagonal > DIAGONAL_RATIO_TOLERANCE) {
-      reason = 'diagonalRatio';
+    } else if (!(minRadius > 0) || maxRadius / minRadius > RADIUS_RATIO_TOLERANCE) {
+      reason = 'radiusRatio';
     }
 
     return {
       ok: reason === undefined,
       reason,
       sides,
-      diagonals,
+      radii,
       sideRatio: minSide > 0 ? maxSide / minSide : undefined,
-      diagonalRatio: minDiagonal > 0 ? maxDiagonal / minDiagonal : undefined,
+      radiusRatio: minRadius > 0 ? maxRadius / minRadius : undefined,
     };
   }
 
-  // Secondary, scale-invariant sanity check on the final 4 corners (see
-  // AREA_PERIMETER_RATIO_TOLERANCE above). Never called before evaluateGeometry
-  // and never used as the sole basis for acceptance.
-  function evaluateAreaPerimeterConsistency(vertices) {
+  // Secondary, scale-invariant sanity check on the final corners (see
+  // AREA_PERIMETER_RATIO_TOLERANCE above). Never called before
+  // evaluateGeometry and never used as the sole basis for acceptance.
+  function evaluateAreaPerimeterConsistency(vertices, vertexCount) {
     const geometry = polygonGeometry(vertices);
     const area = Math.abs(geometry.signedArea);
     const perimeter = geometry.perimeter;
-    const inferredSideFromArea = Math.sqrt(area);
-    const inferredSideFromPerimeter = perimeter / 4;
+    const tanTerm = Math.tan(Math.PI / vertexCount);
+    const inferredSideFromArea = Math.sqrt((4 * area * tanTerm) / vertexCount);
+    const inferredSideFromPerimeter = perimeter / vertexCount;
     const maxSide = Math.max(inferredSideFromArea, inferredSideFromPerimeter);
     const minSide = Math.min(inferredSideFromArea, inferredSideFromPerimeter);
     return {
@@ -565,19 +616,21 @@
     return undefined;
   }
 
-  function isNeutralSquareColor(fillStyle) {
+  function colorMatchesClass(fillStyle, className) {
     const parsed = parseColor(fillStyle);
+    const expected = SHAPE_CLASSES[className].rgb;
     return (
       parsed !== undefined
-      && parsed.r === NEUTRAL_SQUARE_RGB.r
-      && parsed.g === NEUTRAL_SQUARE_RGB.g
-      && parsed.b === NEUTRAL_SQUARE_RGB.b
+      && parsed.r === expected.r
+      && parsed.g === expected.g
+      && parsed.b === expected.b
     );
   }
 
-  // The single source of truth for "is this fill() a neutral Square", used
-  // by both the production accept/reject path and diagnostics(). Never call
-  // this from more than one place with divergent logic.
+  // The single source of truth for "what neutral shape (if any) is this
+  // fill()", used by both the production accept/reject path and
+  // diagnostics(). Never call this from more than one place with divergent
+  // logic, and never maintain three copy-pasted per-class variants of it.
   function classifyFill(ctx) {
     const state = pathState.get(ctx);
     const subpaths = state ? state.subpaths : [];
@@ -643,11 +696,20 @@
     outcome.collinearPointsRemoved = removedCount;
     outcome.simplifiedVertexCount = simplified.length;
 
-    if (simplified.length !== 4) {
+    // Which shape class does this corner count even correspond to? This is
+    // the ONLY thing corner count decides; color is what decides whether
+    // the fill actually IS that class (see below) -- a shape with the
+    // right corner count but the wrong color is a colorMismatch, not a
+    // wrongVertexCount, because "wrong count" and "wrong color for this
+    // count" are different, equally real failure modes worth telling apart
+    // in diagnostics.
+    const expectedClass = VERTEX_COUNT_TO_CLASS[simplified.length];
+    if (expectedClass === undefined) {
       outcome.reason = 'wrongVertexCount';
       return outcome;
     }
     outcome.vertices = simplified;
+    outcome.candidateClass = expectedClass;
 
     let geometry;
     try {
@@ -657,7 +719,7 @@
       return outcome;
     }
     outcome.geometry = geometry;
-    outcome.areaPerimeter = evaluateAreaPerimeterConsistency(simplified);
+    outcome.areaPerimeter = evaluateAreaPerimeterConsistency(simplified, simplified.length);
 
     if (!geometry.ok) {
       outcome.reason = geometry.reason;
@@ -669,30 +731,68 @@
       return outcome;
     }
 
-    if (!isNeutralSquareColor(fillStyle)) {
+    if (!colorMatchesClass(fillStyle, expectedClass)) {
       outcome.reason = 'colorMismatch';
       return outcome;
     }
 
     outcome.accepted = true;
+    outcome.shapeClass = expectedClass;
     outcome.reason = 'accepted';
     return outcome;
   }
 
-  // --- Accepted-square cache ---------------------------------------------
+  // --- Accepted-shape cache ---------------------------------------------
 
-  function buildRecord(vertices, fillStyle, ctx) {
+  function canvasInfo() {
+    const canvas = lastCanvasElement;
+    if (canvas == null) {
+      return undefined;
+    }
+    const width = finiteNumber(safeRead(canvas, 'width'));
+    const height = finiteNumber(safeRead(canvas, 'height'));
+    const rect = safeCall(safeRead(canvas, 'getBoundingClientRect'), canvas).value;
+    const rectLeft = finiteNumber(safeRead(rect, 'left'));
+    const rectTop = finiteNumber(safeRead(rect, 'top'));
+    const rectWidth = finiteNumber(safeRead(rect, 'width'));
+    const rectHeight = finiteNumber(safeRead(rect, 'height'));
+    if (
+      width === undefined || height === undefined
+      || rectLeft === undefined || rectTop === undefined
+      || rectWidth === undefined || rectHeight === undefined
+    ) {
+      return undefined;
+    }
+    const info = {
+      width,
+      height,
+      clientWidth: finiteNumber(safeRead(canvas, 'clientWidth')),
+      clientHeight: finiteNumber(safeRead(canvas, 'clientHeight')),
+      rect: {
+        left: rectLeft, top: rectTop, width: rectWidth, height: rectHeight,
+      },
+      devicePixelRatio: finiteNumber(safeRead(window, 'devicePixelRatio')),
+    };
+    return info;
+  }
+
+  function buildRecord(shapeClass, vertices, fillStyle, ctx) {
     const bbox = computeBBox(vertices);
     const canvas = safeRead(ctx, 'canvas');
+    const center = centroid(vertices);
+    const radius = vertices.reduce((sum, v) => sum + distance(v, center), 0) / vertices.length;
+    const classInfo = SHAPE_CLASSES[shapeClass];
 
     const record = {
-      kind: 'neutral_square',
+      kind: classInfo.kind,
+      class: shapeClass,
       vertices: vertices.map((vertex) => ({ x: vertex.x, y: vertex.y })),
       cx: (bbox.x0 + bbox.x1) / 2,
       cy: (bbox.y0 + bbox.y1) / 2,
       bbox,
       halfSize: 0.5 * Math.max(bbox.x1 - bbox.x0, bbox.y1 - bbox.y0),
-      color: NEUTRAL_SQUARE_HEX,
+      radius,
+      color: classInfo.hex,
       timestamp: now(),
       source: 'canvas2d',
     };
@@ -708,17 +808,17 @@
   }
 
   function pruneCache(currentTime) {
-    for (const [key, record] of squareCache) {
+    for (const [key, record] of shapeCache) {
       if (currentTime - record.timestamp > CACHE_WINDOW_MS) {
-        squareCache.delete(key);
+        shapeCache.delete(key);
         cacheCounters.prunedTotal += 1;
       }
     }
   }
 
-  function recordSquare(record) {
+  function recordShape(record) {
     pruneCache(record.timestamp);
-    squareCache.set(cacheKey(record), record);
+    shapeCache.set(cacheKey(record), record);
   }
 
   // --- Diagnostics ---------------------------------------------------------
@@ -780,6 +880,7 @@
     addValue(sample, 'preSimplificationVertexCount', outcome.preSimplificationVertexCount);
     addValue(sample, 'simplifiedVertexCount', outcome.simplifiedVertexCount);
     addValue(sample, 'collinearPointsRemoved', outcome.collinearPointsRemoved);
+    addValue(sample, 'candidateClass', outcome.candidateClass);
 
     if (Array.isArray(outcome.vertices)) {
       sample.vertices = outcome.vertices.map((vertex) => ({ x: vertex.x, y: vertex.y }));
@@ -789,9 +890,9 @@
     if (outcome.geometry) {
       const geometry = {};
       addValue(geometry, 'sides', outcome.geometry.sides ? outcome.geometry.sides.slice() : undefined);
-      addValue(geometry, 'diagonals', outcome.geometry.diagonals ? outcome.geometry.diagonals.slice() : undefined);
+      addValue(geometry, 'radii', outcome.geometry.radii ? outcome.geometry.radii.slice() : undefined);
       addValue(geometry, 'sideRatio', finiteNumber(outcome.geometry.sideRatio));
-      addValue(geometry, 'diagonalRatio', finiteNumber(outcome.geometry.diagonalRatio));
+      addValue(geometry, 'radiusRatio', finiteNumber(outcome.geometry.radiusRatio));
       sample.geometry = geometry;
     }
 
@@ -819,49 +920,60 @@
     return JSON.parse(JSON.stringify(sample));
   }
 
-  function recordDiagnostics(outcome) {
-    bumpHistogram(vertexHistogram, outcome.vertexCount);
+  // Shared per-class bookkeeping (see makeClassStats above) -- called once
+  // per known class name for every fill(), scoped by whether fillStyle
+  // matches THAT class's color. This is the one place the old Square-only
+  // squareColor* bookkeeping logic lives now; it is not copy-pasted.
+  function recordClassDiagnostics(className, outcome) {
+    if (!colorMatchesClass(outcome.fillStyle, className)) {
+      return;
+    }
+    const stats = classStats.get(className);
+    stats.counters.fillsSeen += 1;
+    bumpHistogram(stats.vertexHistogram, outcome.vertexCount);
+    bumpHistogram(stats.subpathCountHistogram, outcome.subpathCount);
+    bumpHistogramKey(stats.topologyHistogram, topologySignature(outcome.subpaths));
 
-    const isSquareColor = isNeutralSquareColor(outcome.fillStyle);
-    if (isSquareColor) {
-      squareColorCounters.fillsSeen += 1;
-      bumpHistogram(squareColorVertexHistogram, outcome.vertexCount);
-      bumpHistogram(squareColorSubpathCountHistogram, outcome.subpathCount);
-      bumpHistogramKey(squareColorTopologyHistogram, topologySignature(outcome.subpaths));
-
-      if (typeof outcome.meaningfulCandidateCount === 'number') {
-        if (outcome.meaningfulCandidateCount === 0) {
-          squareColorCounters.noMeaningfulPolygon += 1;
-        } else if (outcome.meaningfulCandidateCount > 1) {
-          squareColorCounters.ambiguousMeaningfulPolygons += 1;
-        } else {
-          squareColorCounters.meaningfulSinglePolygon += 1;
-          if (typeof outcome.simplifiedVertexCount === 'number') {
-            if (outcome.simplifiedVertexCount === 4) {
-              squareColorCounters.simplifiedToQuad += 1;
-            } else {
-              squareColorCounters.simplificationFailed += 1;
-            }
+    if (typeof outcome.meaningfulCandidateCount === 'number') {
+      if (outcome.meaningfulCandidateCount === 0) {
+        stats.counters.noMeaningfulPolygon += 1;
+      } else if (outcome.meaningfulCandidateCount > 1) {
+        stats.counters.ambiguousMeaningfulPolygons += 1;
+      } else {
+        stats.counters.meaningfulSinglePolygon += 1;
+        if (typeof outcome.simplifiedVertexCount === 'number') {
+          if (outcome.simplifiedVertexCount === SHAPE_CLASSES[className].vertexCount) {
+            stats.counters.simplifiedToExpectedCount += 1;
+          } else {
+            stats.counters.simplificationFailed += 1;
           }
         }
       }
     }
 
     if (outcome.accepted) {
-      if (isSquareColor) {
-        squareColorCounters.accepted += 1;
-      }
+      stats.counters.accepted += 1;
+      return;
+    }
+
+    stats.counters.rejected += 1;
+    if (stats.rejectedSamples.length < REJECTED_SAMPLE_CAP) {
+      stats.rejectedSamples.push(buildSample(outcome));
+    }
+  }
+
+  function recordDiagnostics(outcome) {
+    bumpHistogram(vertexHistogram, outcome.vertexCount);
+
+    for (const className of CLASS_NAMES) {
+      recordClassDiagnostics(className, outcome);
+    }
+
+    if (outcome.accepted) {
       if (acceptedSamples.length < ACCEPTED_SAMPLE_CAP) {
         acceptedSamples.push(buildSample(outcome));
       }
       return;
-    }
-
-    if (isSquareColor) {
-      squareColorCounters.rejected += 1;
-      if (rejectedSquareColorSamples.length < REJECTED_SAMPLE_CAP) {
-        rejectedSquareColorSamples.push(buildSample(outcome));
-      }
     }
 
     if (Object.hasOwn(rejectionReasonCounters, outcome.reason)) {
@@ -873,6 +985,7 @@
 
   function onFill(ctx) {
     callCounters.fill += 1;
+    lastCanvasElement = safeRead(ctx, 'canvas') ?? lastCanvasElement;
 
     let outcome;
     try {
@@ -894,7 +1007,7 @@
 
     if (outcome.accepted) {
       try {
-        recordSquare(buildRecord(outcome.vertices, outcome.fillStyle, ctx));
+        recordShape(buildRecord(outcome.shapeClass, outcome.vertices, outcome.fillStyle, ctx));
         cacheCounters.acceptedTotal += 1;
       } catch (_error) {
         outcome.accepted = false;
@@ -908,25 +1021,42 @@
   function diagnostics() {
     const currentTime = now();
     pruneCache(currentTime);
-    return {
+
+    const result = {
       version: VERSION,
       ready: hooksInstalled,
       uptimeMs: currentTime - startTime,
       calls: { ...callCounters },
-      squareColor: { ...squareColorCounters },
       rejectionReasons: { ...rejectionReasonCounters },
       vertexHistogram: { ...vertexHistogram },
-      squareColorVertexHistogram: { ...squareColorVertexHistogram },
-      squareColorSubpathCountHistogram: { ...squareColorSubpathCountHistogram },
-      squareColorTopologyHistogram: { ...squareColorTopologyHistogram },
       cache: {
         acceptedTotal: cacheCounters.acceptedTotal,
-        currentlyCached: squareCache.size,
+        currentlyCached: shapeCache.size,
         prunedTotal: cacheCounters.prunedTotal,
       },
       acceptedSamples: acceptedSamples.map(cloneSample),
-      rejectedSquareColorSamples: rejectedSquareColorSamples.map(cloneSample),
+      // Backward-compatible top-level alias for the Square class
+      // specifically (the field names the popup and existing tests read).
+      rejectedSquareColorSamples: classStats.get('square').rejectedSamples.map(cloneSample),
     };
+
+    for (const className of CLASS_NAMES) {
+      const stats = classStats.get(className);
+      const prefix = className === 'square' ? 'square' : className;
+      result[`${prefix}Color`] = { ...stats.counters };
+      // Square keeps its original field name (simplifiedToQuad) for
+      // backward compatibility; the other two classes use the generic
+      // name set in makeClassStats.
+      if (className === 'square') {
+        result.squareColor.simplifiedToQuad = stats.counters.simplifiedToExpectedCount;
+        delete result.squareColor.simplifiedToExpectedCount;
+      }
+      result[`${prefix}ColorVertexHistogram`] = { ...stats.vertexHistogram };
+      result[`${prefix}ColorSubpathCountHistogram`] = { ...stats.subpathCountHistogram };
+      result[`${prefix}ColorTopologyHistogram`] = { ...stats.topologyHistogram };
+    }
+
+    return result;
   }
 
   // --- Hook installation ---------------------------------------------------
@@ -979,16 +1109,21 @@
   function shapes() {
     const currentTime = now();
     pruneCache(currentTime);
-    return Array.from(squareCache.values()).map(cloneRecord);
+    return Array.from(shapeCache.values()).map(cloneRecord);
   }
 
   function snapshot() {
-    return {
+    const info = canvasInfo();
+    const result = {
       metadata: { oracleVersion: VERSION },
       timestamps: { performanceNow: now(), wallClockMs: wallClockNow() },
       browser: { devicePixelRatio: finiteNumber(safeRead(window, 'devicePixelRatio')) },
       shapes: shapes(),
     };
+    if (info !== undefined) {
+      result.canvas = info;
+    }
+    return result;
   }
 
   function isReady() {

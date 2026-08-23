@@ -24,7 +24,7 @@ Because of (2), `diepAPI.user.js` is no longer manifest-loaded at all — it is 
 
 ## Architecture and boundary
 
-The unpacked Manifest V3 extension is restricted to `https://diep.io/*`. Chrome loads one packaged content script, `extension/src/oracle.js`, at `document_start` in the page's `MAIN` JavaScript world. This is manifest-declared MAIN-world execution (`content_scripts[].world = "MAIN"`), not DOM script injection. The popup crosses the extension/page isolation boundary with `chrome.scripting.executeScript({ world: "MAIN" })`; only detached results are returned. Runtime code is packaged locally. There is no background worker, remote executable code, `eval`, dynamic `Function`, or page message bridge.
+The unpacked Manifest V3 extension is restricted to `https://diep.io/*`. Chrome loads one packaged content script, `extension/src/oracle.js`, at `document_start` in the page's `MAIN` JavaScript world. This is manifest-declared MAIN-world execution (`content_scripts[].world = "MAIN"`), not DOM script injection. The popup crosses the extension/page isolation boundary with `chrome.scripting.executeScript({ world: "MAIN" })`; only detached results are returned. Runtime code is packaged locally. There is no remote executable code, `eval`, dynamic `Function`, or page message bridge. Since browser-informed-farming-v0, there IS exactly one background service worker, `extension/background/bridge.js` -- see "Bridge" below for precisely what it is scoped to do (forward Oracle snapshots outward over one local WebSocket; nothing else, and nothing comes back in).
 
 The public API is:
 
@@ -118,10 +118,12 @@ An earlier slice hypothesized `rect()` (e.g. via `ctx.translate()` + `ctx.rotate
 ```js
 {
   kind: "neutral_square",
+  class: "square",                              // "square" | "triangle" | "pentagon"
   vertices: [{x, y}, {x, y}, {x, y}, {x, y}], // canvas pixel space, in transform order
   cx, cy,                                      // (min+max)/2 of the axis-aligned bbox
   bbox: { x0, y0, x1, y1 },
   halfSize,                                    // 0.5 * max(x1-x0, y1-y0)
+  radius,                                       // mean vertex-to-centroid distance
   color,                                        // "#ffe869"
   rawFillStyle,                                 // as read from ctx.fillStyle, if a string
   timestamp,                                    // performance.now() at detection
@@ -132,13 +134,21 @@ An earlier slice hypothesized `rect()` (e.g. via `ctx.translate()` + `ctx.rotate
 
 Coordinates are absolute canvas pixel coordinates, not viewport-center-relative `dx`/`dy`. This layer intentionally does not attempt to match `GameState` semantics beyond the shared `cx`/`cy`/`halfSize` bbox convention already used by shape-perception-v0.
 
+## Triangle and Pentagon (browser-informed-farming-v0)
+
+`shapes()`/`snapshot()` also return neutral Triangles (`kind: "neutral_triangle"`, `class: "triangle"`, 3 `vertices`, color `#fc7677`) and neutral Pentagons (`kind: "neutral_pentagon"`, `class: "pentagon"`, 5 `vertices`, color `#768dfc`) -- the same colors the vendored `Cazka/diepAPI`'s `EntityColor` map records, with Square's independently confirmed live. All three classes are produced by the SAME classification pipeline in `classifyFill()` (color+corner-count together, generalized side/radius-ratio geometry, generalized area/perimeter consistency), not three copy-pasted detectors, and share the same `cx`/`cy` coordinate space, so downstream code can treat `oracle.shapes()` as one flat, mixed-class list. `radius` (mean vertex-to-centroid distance) is provided uniformly across all three classes as a size measure that does not assume Square's bbox-symmetric geometry.
+
+## Bridge: forwarding Oracle snapshots to the agent process
+
+`extension/background/bridge.js` is a Manifest V3 background service worker (the only file in this extension permitted to touch the network or hold a background lifecycle). At a fixed ~10Hz interval it pulls `window.deepEyeOracle.snapshot()` out of the active diep.io tab's MAIN world via `chrome.scripting.executeScript` (bypassing page CSP, since a MAIN-world *page* script speaking to the network would be subject to diep.io's own Content-Security-Policy) and forwards it as one small JSON message, `{type: "oracle_snapshot", tabId, polledAtMs, snapshot}`, over a plain `WebSocket` to `ws://127.0.0.1:8765/` -- a local `deep.eye.oh` agent process (see that repository's `browser_bridge` module) is expected to be listening there. There is no inbound command channel: the bridge never reads anything back off that socket, so nothing on the other end can make the extension (or the game) do anything. This is a thin, purpose-specific export, not a general message broker -- see `tests/bridge.test.js` for what is unit tested (message shape, reconnect backoff, tab selection) versus the live smoke procedure below (the actual `chrome.tabs`/`chrome.scripting`/`WebSocket` glue).
+
 ## Manifest permissions
 
-- `host_permissions: ["https://diep.io/*"]` permits only the declared diep.io content script and popup inspection on that origin.
-- `scripting` lets the popup execute its small status/copy function in the active diep.io tab's MAIN world, where `window.deepEyeOracle` exists.
+- `host_permissions: ["https://diep.io/*"]` permits only the declared diep.io content script, popup inspection, and the background bridge's tab lookup on that origin.
+- `scripting` lets the popup and the background bridge execute their small read-only functions in the active diep.io tab's MAIN world, where `window.deepEyeOracle` exists.
 - `clipboardWrite` lets a user-initiated popup button write the selected JSON result.
 
-No `tabs` permission is needed for active-tab lookup/reload, and there is no `<all_urls>` scope, background worker, or remote script.
+No `tabs` permission is needed for active-tab lookup/reload (host permission on `https://diep.io/*` is sufficient for `chrome.tabs.query` to see matching tabs' `url`/`id`), and there is no `<all_urls>` scope or remote script. `background.service_worker` (`background/bridge.js`) is the one addition in this milestone -- see "Bridge" above for exactly what it does and does not do.
 
 ## First-time installation
 

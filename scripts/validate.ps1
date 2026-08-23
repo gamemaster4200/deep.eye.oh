@@ -82,14 +82,20 @@ try {
     Assert-True ($mainScripts.Count -eq 1) 'Exactly one MAIN-world script is expected.'
     Assert-True ($mainScripts[0] -eq 'src/oracle.js') `
         'The oracle must be the only runtime script; the pinned vendor must not be manifest-loaded.'
-    Assert-True ($null -eq $manifest.background) 'No background service worker is required.'
+    # browser-informed-farming-v0: exactly one background service worker is
+    # now expected -- the reviewed Oracle-snapshot-to-localhost bridge, and
+    # nothing else (no extra background keys, e.g. no persistent page).
+    Assert-True ($null -ne $manifest.background) 'A background service worker is expected (the Oracle bridge).'
+    Assert-True ($manifest.background.service_worker -eq 'background/bridge.js') `
+        'The background service worker must be exactly background/bridge.js.'
+    $backgroundKeys = @($manifest.background.PSObject.Properties.Name)
+    Assert-True ($backgroundKeys.Count -eq 1 -and $backgroundKeys[0] -eq 'service_worker') `
+        'The background block must declare only service_worker.'
 
     if ($null -ne $manifest.action -and $null -ne $manifest.action.default_popup) {
         Assert-ExtensionFile $manifest.action.default_popup
     }
-    if ($null -ne $manifest.background -and $null -ne $manifest.background.service_worker) {
-        Assert-ExtensionFile $manifest.background.service_worker
-    }
+    Assert-ExtensionFile $manifest.background.service_worker
     if ($null -ne $manifest.icons) {
         foreach ($property in $manifest.icons.PSObject.Properties) {
             Assert-ExtensionFile ([string]$property.Value)
@@ -122,12 +128,15 @@ try {
     Assert-True (([string]$lock.sha256).ToLowerInvariant() -eq $actualSha256) `
         "Vendor lock SHA-256 does not match diepAPI.user.js ($actualSha256)."
 
+    # oracle.js and popup.js are page-context/popup-context observation
+    # code and must never touch the network or send game-control primitives
+    # -- WebSocket included, since either would mean this "read-only"
+    # runtime is quietly doing more than observing.
     $runtimeSources = @(
         (Join-Path $extensionRoot 'src\oracle.js'),
         (Join-Path $extensionRoot 'popup\popup.js')
     )
-    $forbiddenRuntimePatterns = @(
-        '\bWebSocket\b',
+    $gameControlPatterns = @(
         '\bspawn\s*\(',
         '\bmoveTo\s*\(',
         '\baimAt\s*\(',
@@ -142,6 +151,7 @@ try {
         '\bset_convar\s*\(',
         '\binput\.execute\s*\('
     )
+    $forbiddenRuntimePatterns = @('\bWebSocket\b') + $gameControlPatterns
     foreach ($runtimeSource in $runtimeSources) {
         $runtimeText = Get-Content -Raw -LiteralPath $runtimeSource
         foreach ($pattern in $forbiddenRuntimePatterns) {
@@ -149,6 +159,22 @@ try {
                 "Read-only boundary violation in $runtimeSource (pattern: $pattern)"
         }
     }
+
+    # background/bridge.js is the one reviewed exception to the WebSocket
+    # ban above (its entire job is exporting Oracle snapshots over one
+    # local WebSocket) but it must still never contain a game-control
+    # primitive, a hand-crafted protocol send, or a WebSocket.prototype
+    # patch -- it forwards oracle.js's own snapshot() output outward only,
+    # never anything inbound into the page or the game.
+    $bridgePath = Join-Path $extensionRoot 'background\bridge.js'
+    Assert-True (Test-Path -LiteralPath $bridgePath -PathType Leaf) 'The Oracle bridge is missing: background/bridge.js.'
+    $bridgeText = Get-Content -Raw -LiteralPath $bridgePath
+    foreach ($pattern in ($gameControlPatterns + @('\.send\(([''"])', 'WebSocket\.prototype'))) {
+        Assert-True ($bridgeText -notmatch $pattern) `
+            "Read-only boundary violation in background/bridge.js (pattern: $pattern)"
+    }
+    Assert-True ($bridgeText -match '\bnew\s+WebSocket\s*\(') `
+        'background/bridge.js must use a plain WebSocket client (not found).'
 
     $extensionJavaScript = @(Get-ChildItem -LiteralPath $extensionRoot -Recurse -File -Filter '*.js')
     foreach ($scriptFile in $extensionJavaScript) {
@@ -189,8 +215,10 @@ try {
             $vendorPath,
             (Join-Path $extensionRoot 'src\oracle.js'),
             (Join-Path $extensionRoot 'popup\popup.js'),
+            $bridgePath,
             (Join-Path $repoRoot 'tests\oracle.test.js'),
-            (Join-Path $repoRoot 'tests\repository.test.js')
+            (Join-Path $repoRoot 'tests\repository.test.js'),
+            (Join-Path $repoRoot 'tests\bridge.test.js')
         )) {
             & $node.Source --check $script
             Assert-True ($LASTEXITCODE -eq 0) "JavaScript syntax check failed: $script"
@@ -199,13 +227,15 @@ try {
         Assert-True ($LASTEXITCODE -eq 0) 'Oracle tests failed.'
         & $node.Source (Join-Path $repoRoot 'tests\repository.test.js')
         Assert-True ($LASTEXITCODE -eq 0) 'Repository tests failed.'
+        & $node.Source (Join-Path $repoRoot 'tests\bridge.test.js')
+        Assert-True ($LASTEXITCODE -eq 0) 'Bridge tests failed.'
     }
 
     Write-Host 'Validation passed:'
     Write-Host '  Manifest: MV3, ordered MAIN world, diep.io-only scope, exact minimal permissions'
     Write-Host "  Vendor: $($vendor.Length) bytes, SHA-256 $actualSha256"
     Write-Host '  Git: no tracked HAR/profile/auth artifacts detected'
-    Write-Host '  Boundary: owned runtime has no control/WebSocket primitives; extension has no eval'
+    Write-Host '  Boundary: owned page/popup runtime has no control/WebSocket primitives; background bridge has no control primitives; extension has no eval'
     Write-Host '  PowerShell: parser checks passed'
     if (-not $SkipTests) {
         Write-Host '  JavaScript: syntax and oracle behavior checks passed'
