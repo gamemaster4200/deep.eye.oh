@@ -96,7 +96,7 @@ function plain(value) {
     ['circles', 'diagnostics', 'isReady', 'shapes', 'snapshot', 'version'],
     'the public API must expose only observation operations, diagnostics, and version metadata',
   );
-  assert.equal(oracle.version, '0.6.0');
+  assert.equal(oracle.version, '0.1.0');
   assert.equal(oracle.isReady(), true, 'hooking all four Canvas2D methods must report ready');
 }
 

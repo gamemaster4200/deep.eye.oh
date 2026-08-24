@@ -5,7 +5,7 @@
     return;
   }
 
-  const VERSION = '0.6.0';
+  const VERSION = '0.1.0';
 
   // diep.io's official client fills each neutral shape class with a fixed
   // color (matches the vendored Cazka/diepAPI EntityColor map, and -- for
