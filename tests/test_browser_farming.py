@@ -1,19 +1,24 @@
 """Tests for browser_farming.py: pure helpers (_canvas_origin,
 _apply_action, _format_status) against a real (fake-backed) armed
-Controller, plus fail-closed single-tick behavior of run_farming_loop
-against a fake bridge -- no real window, no real SendInput, no real
-WebSocket server."""
+Controller, plus fail-closed single-tick behavior and startup-sequencing
+behavior of run_farming_loop against fake browser_runtime/window_focus/
+bridge dependencies -- no real Chrome process, no real window, no real
+SendInput, no real WebSocket server."""
+
+from pathlib import Path
 
 import pytest
 
 from deep_eye_oh import browser_farming as bf
-from deep_eye_oh import control as ctrl_mod
+from deep_eye_oh import browser_runtime, control as ctrl_mod, paths
 from deep_eye_oh import win32_input, window_focus
 from deep_eye_oh.browser_game_state import BrowserGameState, BrowserShape, CanvasInfo, ScreenTransform
 from deep_eye_oh.browser_policy import NOOP, BrowserAction
 from deep_eye_oh.window_focus import TargetWindow
 
 TARGET = TargetWindow(hwnd=1, pid=2, title_at_arm="diep.io - Google Chrome")
+FAKE_CHROME_EXE = Path("C:/fake/chrome-win64/chrome.exe")
+FAKE_EXTENSION_DIR = Path("C:/fake/extension")
 
 
 class FakeWatchdog:
@@ -192,14 +197,16 @@ def test_apply_action_stops_continuing_to_shoot_once_point_leaves_target_window(
 
 
 # ---------------------------------------------------------------------------
-# run_farming_loop: fail-closed single-tick behavior
+# run_farming_loop: startup orchestration (Chrome/extension/bridge
+# resolution, readiness gating, arm-after-readiness ordering, teardown)
 # ---------------------------------------------------------------------------
 
 
 class FakeBridge:
-    def __init__(self, state, age):
+    def __init__(self, state, age, *, connected=True):
         self._state = state
         self._age = age
+        self._connected = connected
         self.started = False
         self.stopped = False
         self.latest_calls = 0
@@ -210,6 +217,9 @@ class FakeBridge:
     def stop(self, timeout=None):
         self.stopped = True
 
+    def has_connected(self):
+        return self._connected
+
     def latest(self):
         self.latest_calls += 1
         return self._state
@@ -218,17 +228,53 @@ class FakeBridge:
         return self._age
 
 
+class FakeChromeProcess:
+    """Stand-in for subprocess.Popen -- run_farming_loop only ever reads
+    .pid and hands the whole object to browser_runtime.terminate_chrome
+    (itself monkeypatched below), so no real .poll()/.wait() semantics are
+    needed here."""
+
+    def __init__(self, pid=4321):
+        self.pid = pid
+
+
+def _patch_startup(
+    monkeypatch,
+    *,
+    connected=True,
+    arm_target=TARGET,
+    arm_error: Exception | None = None,
+):
+    """Patches every dependency run_farming_loop's startup sequence talks
+    to *before* Controller.arm() -- Chrome resolution/launch/teardown, the
+    bundled extension path, and window-arming -- with fast, deterministic
+    fakes. Returns (bridge_factory, terminate_calls) so callers can supply
+    their own FakeBridge per test and assert on teardown calls."""
+    monkeypatch.setattr(browser_runtime, "find_or_download_chrome", lambda: FAKE_CHROME_EXE)
+    monkeypatch.setattr(paths, "resolve_extension_dir", lambda: FAKE_EXTENSION_DIR)
+    monkeypatch.setattr(browser_runtime, "launch_chrome", lambda *a, **k: FakeChromeProcess())
+
+    terminate_calls: list[FakeChromeProcess] = []
+    monkeypatch.setattr(browser_runtime, "terminate_chrome", lambda proc, **k: terminate_calls.append(proc))
+
+    def _arm_process_window(pid, timeout_s=None, **kwargs):
+        if arm_error is not None:
+            raise arm_error
+        return arm_target
+
+    monkeypatch.setattr(window_focus, "arm_process_window", _arm_process_window)
+    return terminate_calls
+
+
 def _run_one_tick(monkeypatch, sent, *, state, age, client_rect=(0, 0, 1600, 900)):
-    monkeypatch.setattr(window_focus, "arm_foreground_window", lambda: TARGET)
+    """Runs the loop through a successful startup (fresh, present
+    telemetry -- readiness only requires latest() is not None, so a stale
+    or canvas-less state still passes startup and is then exercised by the
+    per-tick fail-closed logic) straight into exactly one tick."""
     monkeypatch.setattr(window_focus, "client_rect_on_screen", lambda t: client_rect)
+    _patch_startup(monkeypatch)
     monkeypatch.setattr(bf, "BrowserBridgeServer", lambda port=None: FakeBridge(state, age))
     bf.run_farming_loop(max_ticks=1, tick_interval_s=0.0)
-
-
-def test_run_farming_loop_no_input_when_no_telemetry(monkeypatch):
-    sent = _patch_healthy_environment(monkeypatch)
-    _run_one_tick(monkeypatch, sent, state=None, age=None)
-    assert not any(kind in ("move", "down", "bdown") for kind, *_ in sent)
 
 
 def test_run_farming_loop_no_input_when_telemetry_stale(monkeypatch):
@@ -260,18 +306,6 @@ def test_run_farming_loop_acts_on_fresh_valid_telemetry(monkeypatch):
     assert ("bdown", "left") in sent
 
 
-def test_run_farming_loop_disarms_on_exit(monkeypatch):
-    sent = _patch_healthy_environment(monkeypatch)
-    monkeypatch.setattr(window_focus, "arm_foreground_window", lambda: TARGET)
-    monkeypatch.setattr(window_focus, "client_rect_on_screen", lambda t: (0, 0, 1600, 900))
-    fake_bridge = FakeBridge(None, None)
-    monkeypatch.setattr(bf, "BrowserBridgeServer", lambda port=None: fake_bridge)
-
-    bf.run_farming_loop(max_ticks=1, tick_interval_s=0.0)
-
-    assert fake_bridge.stopped is True
-
-
 def test_run_farming_loop_no_input_when_only_offscreen_shapes_visible(monkeypatch):
     # End-to-end regression for the live bug: an off-canvas shape (e.g.
     # square @ (376,-195)) must never produce a mouse move/shoot, even
@@ -280,6 +314,92 @@ def test_run_farming_loop_no_input_when_only_offscreen_shapes_visible(monkeypatc
     state = _state(_shape("square", 376.0, -195.0), canvas=CANVAS)
     _run_one_tick(monkeypatch, sent, state=state, age=0.01)
     assert not any(kind in ("move", "down", "bdown") for kind, *_ in sent)
+
+
+def test_run_farming_loop_cleans_up_on_normal_exit(monkeypatch):
+    sent = _patch_healthy_environment(monkeypatch)
+    monkeypatch.setattr(window_focus, "client_rect_on_screen", lambda t: (0, 0, 1600, 900))
+    terminate_calls = _patch_startup(monkeypatch)
+    state = _state(_shape("square", 900.0, 450.0), canvas=CANVAS)
+    fake_bridge = FakeBridge(state, 0.01)
+    monkeypatch.setattr(bf, "BrowserBridgeServer", lambda port=None: fake_bridge)
+
+    bf.run_farming_loop(max_ticks=1, tick_interval_s=0.0)
+
+    assert fake_bridge.stopped is True
+    assert len(terminate_calls) == 1, "the spawned Chrome process must be torn down exactly once"
+
+
+# ---------------------------------------------------------------------------
+# run_farming_loop: Controller must stay disarmed until the whole
+# browser/extension/bridge readiness path is proven working
+# ---------------------------------------------------------------------------
+
+
+def test_run_farming_loop_raises_and_never_arms_when_extension_never_connects(monkeypatch):
+    _patch_healthy_environment(monkeypatch)
+    terminate_calls = _patch_startup(monkeypatch, connected=False)
+    fake_bridge = FakeBridge(None, None, connected=False)
+    monkeypatch.setattr(bf, "BrowserBridgeServer", lambda port=None: fake_bridge)
+
+    with pytest.raises(bf.BrowserFarmStartupError, match="never connected"):
+        bf.run_farming_loop(ready_connect_timeout_s=0.05, tick_interval_s=0.0)
+
+    assert fake_bridge.stopped is True, "the bridge must still be stopped on a pre-arm startup failure"
+    assert len(terminate_calls) == 1, "the spawned Chrome process must still be torn down on a pre-arm startup failure"
+
+
+def test_run_farming_loop_raises_and_never_arms_when_no_telemetry_ever_arrives(monkeypatch):
+    _patch_healthy_environment(monkeypatch)
+    terminate_calls = _patch_startup(monkeypatch)
+    fake_bridge = FakeBridge(None, None, connected=True)
+    monkeypatch.setattr(bf, "BrowserBridgeServer", lambda port=None: fake_bridge)
+
+    with pytest.raises(bf.BrowserFarmStartupError, match="no telemetry"):
+        bf.run_farming_loop(ready_connect_timeout_s=1.0, ready_telemetry_timeout_s=0.05, tick_interval_s=0.0)
+
+    assert fake_bridge.stopped is True
+    assert len(terminate_calls) == 1
+
+
+def test_run_farming_loop_never_arms_when_window_arming_fails(monkeypatch):
+    _patch_healthy_environment(monkeypatch)
+    terminate_calls = _patch_startup(monkeypatch, arm_error=RuntimeError("no window appeared"))
+    state = _state(_shape("square", 900.0, 450.0), canvas=CANVAS)
+    fake_bridge = FakeBridge(state, 0.01)
+    monkeypatch.setattr(bf, "BrowserBridgeServer", lambda port=None: fake_bridge)
+
+    with pytest.raises(RuntimeError, match="no window appeared"):
+        bf.run_farming_loop(tick_interval_s=0.0)
+
+    assert fake_bridge.stopped is True
+    assert len(terminate_calls) == 1
+
+
+def test_run_farming_loop_arms_only_after_readiness_succeeds(monkeypatch):
+    # Regression for the arm-after-readiness correction: Controller.arm()
+    # must not be called (and therefore no input can ever be sent) until
+    # both readiness stages have already succeeded.
+    sent = _patch_healthy_environment(monkeypatch)
+    monkeypatch.setattr(window_focus, "client_rect_on_screen", lambda t: (0, 0, 1600, 900))
+    _patch_startup(monkeypatch)
+
+    arm_calls: list[TargetWindow] = []
+    original_arm = ctrl_mod.Controller.arm
+
+    def recording_arm(self, target=None):
+        arm_calls.append(target)
+        original_arm(self, target)
+
+    monkeypatch.setattr(ctrl_mod.Controller, "arm", recording_arm)
+
+    state = _state(_shape("square", 900.0, 450.0), canvas=CANVAS)
+    fake_bridge = FakeBridge(state, 0.01)
+    monkeypatch.setattr(bf, "BrowserBridgeServer", lambda port=None: fake_bridge)
+
+    bf.run_farming_loop(max_ticks=1, tick_interval_s=0.0)
+
+    assert arm_calls == [TARGET], "Controller.arm() must be called exactly once, after readiness succeeded"
 
 
 # ---------------------------------------------------------------------------
@@ -296,21 +416,19 @@ def test_run_farming_loop_stops_promptly_on_async_controller_trip(monkeypatch):
     # instead of stopping. Simulate the trip having already happened
     # (as if a background watchdog fired) and confirm the loop exits
     # BEFORE consuming any of its generous max_ticks budget, i.e. before
-    # ever calling bridge.latest() again.
+    # ever calling bridge.latest() again inside the tick loop (readiness
+    # itself legitimately calls latest() once to confirm telemetry arrived).
     _patch_healthy_environment(monkeypatch)
-    monkeypatch.setattr(window_focus, "arm_foreground_window", lambda: TARGET)
     monkeypatch.setattr(window_focus, "client_rect_on_screen", lambda t: (0, 0, 1600, 900))
+    _patch_startup(monkeypatch)
 
     fake_bridge = FakeBridge(_state(_shape("square", 900.0, 450.0), canvas=CANVAS), 0.01)
     monkeypatch.setattr(bf, "BrowserBridgeServer", lambda port=None: fake_bridge)
 
-    # Trip Controller.arm() into an immediately-disarmed state by making
-    # is_foreground fail only at the final arm() health check -- simplest
-    # deterministic stand-in for "some background watchdog already fired"
-    # without needing arm() to succeed first. Instead, directly simulate
-    # a post-arm async trip (what FocusWatcher._check()/EmergencyStop
-    # actually do under the hood via _trip_if_epoch), which is the exact
-    # scenario this regression targets.
+    # Trip Controller.arm() into an immediately-disarmed state -- directly
+    # simulate a post-arm async trip (what FocusWatcher._check()/
+    # EmergencyStop actually do under the hood via _trip_if_epoch), which
+    # is the exact scenario this regression targets.
     original_arm = ctrl_mod.Controller.arm
 
     def arm_then_trip(self, target=None):
@@ -321,14 +439,18 @@ def test_run_farming_loop_stops_promptly_on_async_controller_trip(monkeypatch):
 
     bf.run_farming_loop(max_ticks=1000, tick_interval_s=0.0)
 
-    assert fake_bridge.latest_calls == 0, "the loop must stop on the armed check before reading telemetry again"
+    assert fake_bridge.latest_calls == 1, (
+        "readiness legitimately reads telemetry once to confirm it arrived, but the loop "
+        "must stop on the armed check before reading telemetry a second time"
+    )
 
 
 def test_run_farming_loop_prints_trip_reason_when_disarmed(monkeypatch, capsys):
     _patch_healthy_environment(monkeypatch)
-    monkeypatch.setattr(window_focus, "arm_foreground_window", lambda: TARGET)
     monkeypatch.setattr(window_focus, "client_rect_on_screen", lambda t: (0, 0, 1600, 900))
-    fake_bridge = FakeBridge(None, None)
+    _patch_startup(monkeypatch)
+
+    fake_bridge = FakeBridge(_state(_shape("square", 900.0, 450.0), canvas=CANVAS), 0.01)
     monkeypatch.setattr(bf, "BrowserBridgeServer", lambda port=None: fake_bridge)
 
     original_arm = ctrl_mod.Controller.arm

@@ -1,0 +1,8 @@
+{
+  "_comment": "Pinned Chrome for Testing build for the managed browser-farm runtime. The sole canonical source of {version, url, sha256} -- read via importlib.resources at runtime (browser_runtime.py), never hardcoded elsewhere. Re-pin by downloading a new Stable win64 build from https://googlechromelabs.github.io/chrome-for-testing/, computing its SHA256 by hand, and updating this file (the Chrome for Testing JSON API itself does not publish a hash).",
+  "channel": "Stable",
+  "platform": "win64",
+  "version": "152.0.7977.54",
+  "url": "https://storage.googleapis.com/chrome-for-testing-public/152.0.7977.54/win64/chrome-win64.zip",
+  "sha256": "91850065e6b80bba0c752e17a150fe1b9e39bba51ed705640c1273f565950dda"
+}

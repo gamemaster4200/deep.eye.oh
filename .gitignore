@@ -20,6 +20,9 @@ dist/
 .DS_Store
 Thumbs.db
 
+# Claude Code session-local scratch (worktrees, agent state)
+.claude/
+
 # Manual capture/replay smoke-test output
 replays/
 

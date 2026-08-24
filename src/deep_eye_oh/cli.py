@@ -14,6 +14,7 @@ import argparse
 import statistics
 from pathlib import Path
 
+from deep_eye_oh import __version__
 from deep_eye_oh.capture import ScreenCapture
 from deep_eye_oh.observation import Viewport
 from deep_eye_oh.replay import ReplayReader, ReplayWriter
@@ -188,8 +189,17 @@ def _cmd_browser_calibrate(args: argparse.Namespace) -> None:
     run_calibration_check(port=args.port, panic_key=args.panic_key, duration_s=args.duration)
 
 
+def _cmd_doctor(args: argparse.Namespace) -> None:
+    from deep_eye_oh.doctor import run_doctor
+
+    raise SystemExit(run_doctor())
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="deep_eye_oh", description="capture/replay v0 CLI")
+    parser.add_argument(
+        "--version", action="version", version=f"deep-eye-oh {__version__}"
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_capture = sub.add_parser("capture", help="capture a screen region and record a replay")
@@ -250,6 +260,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_browser_calibrate.add_argument("--panic-key", type=str, default="pause")
     p_browser_calibrate.add_argument("--duration", type=float, default=30.0, help="seconds")
     p_browser_calibrate.set_defaults(func=_cmd_browser_calibrate)
+
+    p_doctor = sub.add_parser(
+        "doctor", help="check that the installed runtime/browser/extension/bridge prerequisites are ready"
+    )
+    p_doctor.set_defaults(func=_cmd_doctor)
 
     return parser
 

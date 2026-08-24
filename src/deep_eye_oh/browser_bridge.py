@@ -44,10 +44,13 @@ class BrowserBridgeServer:
         self._time_source = time_source
         self._lock = threading.Lock()
         self._latest: BrowserGameState | None = None
+        self._connected = False
         self._server: Server | None = None
         self._thread: threading.Thread | None = None
 
     def _handle_connection(self, connection) -> None:
+        with self._lock:
+            self._connected = True
         for raw_text in connection:
             received_at = self._time_source()
             try:
@@ -84,6 +87,16 @@ class BrowserBridgeServer:
             self._thread.join(timeout=timeout)
         self._server = None
         self._thread = None
+
+    def has_connected(self) -> bool:
+        """True once at least one WebSocket connection has been accepted,
+        regardless of whether it has sent any (valid) message yet -- a
+        cheaper, earlier readiness signal than latest() being non-None, so
+        startup orchestration can distinguish "extension never connected"
+        from "extension connected but the Oracle isn't producing telemetry
+        yet"."""
+        with self._lock:
+            return self._connected
 
     def latest(self) -> BrowserGameState | None:
         with self._lock:
