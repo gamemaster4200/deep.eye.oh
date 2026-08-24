@@ -108,16 +108,33 @@
   const ACCEPTED_SAMPLE_CAP = 20;
   const REJECTED_SAMPLE_CAP = 30;
 
+  // How many distinct canvas elements are tracked for provenance (see
+  // canvasProvenance below) at once. diep.io realistically has very few
+  // canvases (the game canvas, maybe a minimap or other small overlay);
+  // this is generous headroom, bounding memory the same way
+  // MAX_TRACKED_SUBPATHS bounds per-fill subpath tracking above.
+  const MAX_TRACKED_CANVASES = 8;
+
   const pathState = new WeakMap();
   const shapeCache = new Map();
   let hooksInstalled = false;
   let startTime = 0;
-  // The canvas element most recently observed in any fill() call, of any
-  // color/shape. Used only to report canvas positioning metadata
-  // (snapshot().canvas, see below) for downstream screen/mouse coordinate
-  // calibration -- best-effort, diagnostic-only, never used to drive shape
-  // acceptance.
-  let lastCanvasElement = null;
+
+  // canvasProvenance: canvas element -> { id, acceptedCount, firstSeenAt,
+  // lastAcceptedAt }, updated ONLY when a fill() is an ACCEPTED neutral
+  // shape (see recordCanvasProvenance, called from onFill below) -- never
+  // from an arbitrary fill() of any color/shape, which is what the
+  // previous "track whatever canvas last called fill()" heuristic did and
+  // is exactly what let an unrelated hidden/detached canvas (a 0x0-rect
+  // helper canvas that also happens to call fill()) win the race and get
+  // reported as snapshot.canvas. A canvas earns provenance only by
+  // actually being where a real, accepted Square/Triangle/Pentagon was
+  // drawn. See canvasInfo()/selectSingleScreenMappableCanvas() below for
+  // how this is turned into (or deliberately withheld from)
+  // snapshot.canvas, and diagnostics()'s canvasProvenance field for full
+  // visibility into every tracked canvas, not just the selected one.
+  const canvasProvenance = new Map();
+  let nextCanvasTrackId = 0;
 
   const callCounters = {
     beginPath: 0, moveTo: 0, lineTo: 0, rect: 0, closePath: 0, fill: 0,
@@ -742,13 +759,74 @@
     return outcome;
   }
 
-  // --- Accepted-shape cache ---------------------------------------------
+  // --- Canvas provenance ---------------------------------------------------
+  //
+  // Which canvas element is snapshot.shapes' coordinate space actually
+  // relative to? A fill() call alone doesn't answer that (a page can have
+  // several canvases, and nothing about fill() says which one is the real,
+  // on-screen game surface) -- only "this canvas is where we just accepted
+  // a real neutral shape" is real evidence. Even that is only trustworthy
+  // when it is unambiguous (exactly one canvas has recently produced
+  // accepted shapes) and the canvas is actually laid out on screen
+  // (positive backing-store dimensions AND a positive CSS bounding rect --
+  // a detached/display:none/0x0 canvas fails this even if it happens to be
+  // the one fill() was called on). Contract: snapshot.canvas is emitted
+  // ONLY when both hold; otherwise it is omitted entirely (never a guess),
+  // and downstream (deep.eye.oh) continues to fail closed on a missing
+  // canvas exactly as it already does.
 
-  function canvasInfo() {
-    const canvas = lastCanvasElement;
+  function recordCanvasProvenance(canvas, timestamp) {
     if (canvas == null) {
-      return undefined;
+      return;
     }
+    let entry = canvasProvenance.get(canvas);
+    if (!entry) {
+      if (canvasProvenance.size >= MAX_TRACKED_CANVASES) {
+        // Evict the least-recently-accepted canvas (not insertion order)
+        // to make room -- a canvas that stopped producing accepted shapes
+        // a while ago is the least likely to still be the real game
+        // canvas.
+        let oldestCanvas;
+        let oldestTime = Infinity;
+        for (const [trackedCanvas, trackedEntry] of canvasProvenance) {
+          if (trackedEntry.lastAcceptedAt < oldestTime) {
+            oldestTime = trackedEntry.lastAcceptedAt;
+            oldestCanvas = trackedCanvas;
+          }
+        }
+        if (oldestCanvas !== undefined) {
+          canvasProvenance.delete(oldestCanvas);
+        }
+      }
+      entry = {
+        id: nextCanvasTrackId, acceptedCount: 0, firstSeenAt: timestamp, lastAcceptedAt: timestamp,
+      };
+      nextCanvasTrackId += 1;
+      canvasProvenance.set(canvas, entry);
+    }
+    entry.acceptedCount += 1;
+    entry.lastAcceptedAt = timestamp;
+  }
+
+  // Reuses the same CACHE_WINDOW_MS "recent observation" heuristic
+  // shapeCache itself uses (see that constant's comment) -- a canvas that
+  // stopped producing accepted shapes within this window is no longer
+  // trusted as "the" current shape canvas (e.g. the game switched
+  // rendering targets, or that canvas was actually an unrelated
+  // coincidence and simply stopped being drawn to).
+  function pruneCanvasProvenance(currentTime) {
+    for (const [canvas, entry] of canvasProvenance) {
+      if (currentTime - entry.lastAcceptedAt > CACHE_WINDOW_MS) {
+        canvasProvenance.delete(canvas);
+      }
+    }
+  }
+
+  // Reads a canvas element's own geometry (backing store + CSS rect) and
+  // returns undefined unless every dimension involved is a positive,
+  // finite number -- see the "screen-mappable" contract in this section's
+  // module comment. Never treats a canvas as valid based on partial data.
+  function readCanvasGeometry(canvas) {
     const width = finiteNumber(safeRead(canvas, 'width'));
     const height = finiteNumber(safeRead(canvas, 'height'));
     const rect = safeCall(safeRead(canvas, 'getBoundingClientRect'), canvas).value;
@@ -760,10 +838,11 @@
       width === undefined || height === undefined
       || rectLeft === undefined || rectTop === undefined
       || rectWidth === undefined || rectHeight === undefined
+      || !(width > 0) || !(height > 0) || !(rectWidth > 0) || !(rectHeight > 0)
     ) {
       return undefined;
     }
-    const info = {
+    return {
       width,
       height,
       clientWidth: finiteNumber(safeRead(canvas, 'clientWidth')),
@@ -773,8 +852,85 @@
       },
       devicePixelRatio: finiteNumber(safeRead(window, 'devicePixelRatio')),
     };
-    return info;
   }
+
+  // The single source of truth for "which canvas (if any) is
+  // snapshot.canvas allowed to describe right now" -- shared by
+  // canvasInfo() (production) and canvasProvenanceDiagnostics() (so
+  // diagnostics can mark exactly the same canvas as `selected`, never a
+  // second, divergent notion of "the" canvas). Prunes as a side effect.
+  // Returns undefined (fail closed, never a guess) unless exactly one
+  // canvas has recently produced an accepted shape AND that canvas is
+  // currently screen-mappable.
+  function selectSingleScreenMappableCanvas(currentTime) {
+    pruneCanvasProvenance(currentTime);
+    if (canvasProvenance.size !== 1) {
+      return undefined;
+    }
+    const [[canvas, entry]] = canvasProvenance;
+    const geometry = readCanvasGeometry(canvas);
+    if (geometry === undefined) {
+      return undefined;
+    }
+    return { canvas, entry, geometry };
+  }
+
+  function canvasInfo() {
+    const selected = selectSingleScreenMappableCanvas(now());
+    return selected ? selected.geometry : undefined;
+  }
+
+  // JSON-safe, no-DOM-objects diagnostic view of every currently-tracked
+  // canvas (not just the selected one) -- so "why is snapshot.canvas
+  // missing/wrong" is answerable from diagnostics() alone: how many
+  // distinct canvases are being tracked, each one's backing/CSS geometry,
+  // isConnected, accepted-shape count, and which one (if any) is selected.
+  function buildCanvasProvenanceEntry(canvas, entry, currentTime, selectedCanvas) {
+    const width = finiteNumber(safeRead(canvas, 'width'));
+    const height = finiteNumber(safeRead(canvas, 'height'));
+    const rect = safeCall(safeRead(canvas, 'getBoundingClientRect'), canvas).value;
+    const rectWidth = finiteNumber(safeRead(rect, 'width'));
+    const rectHeight = finiteNumber(safeRead(rect, 'height'));
+    const isConnected = safeRead(canvas, 'isConnected');
+
+    const result = {
+      id: entry.id,
+      acceptedShapeCount: entry.acceptedCount,
+      ageOfLastAcceptedMs: currentTime - entry.lastAcceptedAt,
+      selected: canvas === selectedCanvas,
+    };
+    addValue(result, 'width', width);
+    addValue(result, 'height', height);
+    addValue(result, 'clientWidth', finiteNumber(safeRead(canvas, 'clientWidth')));
+    addValue(result, 'clientHeight', finiteNumber(safeRead(canvas, 'clientHeight')));
+    addValue(result, 'rectLeft', finiteNumber(safeRead(rect, 'left')));
+    addValue(result, 'rectTop', finiteNumber(safeRead(rect, 'top')));
+    addValue(result, 'rectWidth', rectWidth);
+    addValue(result, 'rectHeight', rectHeight);
+    if (typeof isConnected === 'boolean') {
+      result.isConnected = isConnected;
+    }
+    result.screenMappable = (
+      width !== undefined && height !== undefined && rectWidth !== undefined && rectHeight !== undefined
+      && width > 0 && height > 0 && rectWidth > 0 && rectHeight > 0
+    );
+    return result;
+  }
+
+  function canvasProvenanceDiagnostics() {
+    const currentTime = now();
+    const selected = selectSingleScreenMappableCanvas(currentTime);
+    const canvases = Array.from(canvasProvenance.entries()).map(
+      ([canvas, entry]) => buildCanvasProvenanceEntry(canvas, entry, currentTime, selected ? selected.canvas : undefined),
+    );
+    return {
+      distinctCanvasesTracked: canvases.length,
+      distinctCanvasesEverSeen: nextCanvasTrackId,
+      canvases,
+    };
+  }
+
+  // --- Accepted-shape cache ---------------------------------------------
 
   function buildRecord(shapeClass, vertices, fillStyle, ctx) {
     const bbox = computeBBox(vertices);
@@ -985,7 +1141,6 @@
 
   function onFill(ctx) {
     callCounters.fill += 1;
-    lastCanvasElement = safeRead(ctx, 'canvas') ?? lastCanvasElement;
 
     let outcome;
     try {
@@ -1007,7 +1162,9 @@
 
     if (outcome.accepted) {
       try {
-        recordShape(buildRecord(outcome.shapeClass, outcome.vertices, outcome.fillStyle, ctx));
+        const record = buildRecord(outcome.shapeClass, outcome.vertices, outcome.fillStyle, ctx);
+        recordShape(record);
+        recordCanvasProvenance(safeRead(ctx, 'canvas'), record.timestamp);
         cacheCounters.acceptedTotal += 1;
       } catch (_error) {
         outcome.accepted = false;
@@ -1034,6 +1191,7 @@
         currentlyCached: shapeCache.size,
         prunedTotal: cacheCounters.prunedTotal,
       },
+      canvasProvenance: canvasProvenanceDiagnostics(),
       acceptedSamples: acceptedSamples.map(cloneSample),
       // Backward-compatible top-level alias for the Square class
       // specifically (the field names the popup and existing tests read).
