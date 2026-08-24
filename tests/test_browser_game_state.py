@@ -5,10 +5,12 @@ physical-screen-pixel coordinate transform."""
 import pytest
 
 from deep_eye_oh.browser_game_state import (
+    BrowserCircle,
     BrowserGameState,
     CanvasInfo,
     InvalidSnapshotError,
     compute_screen_transform,
+    merge_colocated_circles,
     parse_bridge_message,
 )
 
@@ -291,3 +293,66 @@ def test_transform_none_for_degenerate_client_rect(client_rect):
 def test_transform_none_for_degenerate_canvas():
     assert compute_screen_transform(_canvas(width=0), client_rect=(0, 0, 1600, 900)) is None
     assert compute_screen_transform(_canvas(rect_width=0), client_rect=(0, 0, 1600, 900)) is None
+
+
+# ---------------------------------------------------------------------------
+# merge_colocated_circles (projectile-speed-and-lead-v0 live-smoke fix): a
+# border+fill render pair at the same position/timestamp must collapse to
+# one circle -- see this function's module comment for the live evidence.
+# ---------------------------------------------------------------------------
+
+
+def _circle(cx, cy, radius, timestamp_ms=100.0, color=None):
+    return BrowserCircle(cx=cx, cy=cy, radius=radius, color=color, timestamp_ms=timestamp_ms)
+
+
+def test_merge_collapses_a_colocated_border_fill_pair_to_the_larger_radius():
+    border = _circle(865.209, 402.618, radius=10.54, timestamp_ms=721297.8, color="#0085a8")
+    fill = _circle(865.209, 402.618, radius=7.66, timestamp_ms=721297.8, color="#00b2e1")
+    merged = merge_colocated_circles((border, fill))
+    assert len(merged) == 1
+    assert merged[0].radius == 10.54
+    assert merged[0].cx == 865.209
+    assert merged[0].cy == 402.618
+
+
+def test_merge_leaves_distinct_positions_unmerged():
+    a = _circle(100.0, 100.0, radius=5.0)
+    b = _circle(500.0, 500.0, radius=5.0)
+    merged = merge_colocated_circles((a, b))
+    assert len(merged) == 2
+    assert set(merged) == {a, b}
+
+
+def test_merge_does_not_merge_same_position_different_timestamp():
+    # A genuinely stationary circle observed on two different frames must
+    # NOT be collapsed -- only a same-instant render pair should be.
+    t1 = _circle(100.0, 100.0, radius=5.0, timestamp_ms=100.0)
+    t2 = _circle(100.0, 100.0, radius=5.0, timestamp_ms=150.0)
+    merged = merge_colocated_circles((t1, t2))
+    assert len(merged) == 2
+
+
+def test_merge_handles_three_or_more_colocated_circles():
+    a = _circle(0.0, 0.0, radius=5.0)
+    b = _circle(0.0, 0.0, radius=9.0)
+    c = _circle(0.0, 0.0, radius=3.0)
+    merged = merge_colocated_circles((a, b, c))
+    assert len(merged) == 1
+    assert merged[0].radius == 9.0
+
+
+def test_merge_within_sub_pixel_epsilon_still_collapses():
+    a = _circle(100.0, 100.0, radius=10.0)
+    b = _circle(100.05, 100.05, radius=6.0)  # sub-pixel float noise, same entity
+    merged = merge_colocated_circles((a, b))
+    assert len(merged) == 1
+
+
+def test_merge_empty_input():
+    assert merge_colocated_circles(()) == ()
+
+
+def test_merge_single_circle_unchanged():
+    a = _circle(1.0, 2.0, radius=3.0)
+    assert merge_colocated_circles((a,)) == (a,)

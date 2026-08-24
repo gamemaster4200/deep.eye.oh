@@ -403,9 +403,9 @@ def test_target_candidates_excludes_claimed_and_near_self():
     near_self = _circle(820.0, 450.0)  # 20px from origin, within SELF_EXCLUSION_RADIUS_PX
     claimed_far = _circle(1200.0, 450.0)
     unclaimed_far = _circle(1200.0, 460.0)
-    state = _state(circles=(near_self, claimed_far, unclaimed_far), canvas=CANVAS)
+    circles = (near_self, claimed_far, unclaimed_far)
 
-    candidates = bf._target_candidates(state, origin, frozenset({(1200.0, 450.0)}))
+    candidates = bf._target_candidates(circles, origin, frozenset({(1200.0, 450.0)}))
 
     assert [(c.cx, c.cy) for c in candidates] == [(1200.0, 460.0)]
 

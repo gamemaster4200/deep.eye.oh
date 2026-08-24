@@ -16,8 +16,10 @@ ProjectileSpeedEstimator, a separate moving-target candidate stream feeds
 a TargetTracker, and browser_policy.compute_lead() combines the two into
 an aim-point OVERRIDE used only when it is confidently available --
 farming's own shape-targeting/movement is otherwise unchanged, and a
-missing/low-confidence lead simply falls back to it (see
-_decide_action_for_tick).
+missing/low-confidence lead simply falls back to it (see run_farming_loop
+below). Circles are merge_colocated_circles()-deduplicated before either
+tracker sees them -- see that function's module comment in
+browser_game_state.py for the live evidence that made this necessary.
 """
 
 from __future__ import annotations
@@ -25,11 +27,18 @@ from __future__ import annotations
 import logging
 import math
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from deep_eye_oh import window_focus
 from deep_eye_oh.browser_bridge import DEFAULT_PORT, BrowserBridgeServer
-from deep_eye_oh.browser_game_state import BrowserGameState, ScreenTransform, compute_screen_transform
+from deep_eye_oh.browser_game_state import (
+    BrowserCircle,
+    BrowserGameState,
+    ScreenTransform,
+    compute_screen_transform,
+    merge_colocated_circles,
+)
 from deep_eye_oh.browser_policy import BrowserAction, BrowserPolicy, LeadResult, compute_lead, select_target
 from deep_eye_oh.control import Controller, ControlNotSafeError
 from deep_eye_oh.projectile_tracking import (
@@ -139,16 +148,16 @@ def _aim_direction(
 
 
 def _target_candidates(
-    state: BrowserGameState, origin: tuple[float, float], claimed_positions: frozenset
+    circles: Sequence[BrowserCircle], origin: tuple[float, float], claimed_positions: frozenset
 ) -> list[TargetCandidate]:
-    """Generic circle observations offered to TargetTracker this tick --
+    """Generic circle observations (already merge_colocated_circles()-
+    deduplicated by the caller) offered to TargetTracker this tick --
     excludes anything OwnProjectileTracker just claimed as a likely own
     projectile, and anything within SELF_EXCLUSION_RADIUS_PX of self (the
-    player's own tank body, if it renders as a circle). A v0 heuristic
-    (see SELF_EXCLUSION_RADIUS_PX); real renderer evidence from the live
-    smoke may refine this."""
+    player's own tank body). A v0 heuristic (see SELF_EXCLUSION_RADIUS_PX);
+    real renderer evidence from the live smoke may refine this further."""
     candidates = []
-    for circle in state.circles:
+    for circle in circles:
         if (circle.cx, circle.cy) in claimed_positions:
             continue
         if math.hypot(circle.cx - origin[0], circle.cy - origin[1]) <= SELF_EXCLUSION_RADIUS_PX:
@@ -336,17 +345,31 @@ def run_farming_loop(
             circles_seen = 0
             speed_estimate = speed_estimator.estimate(now=now)
             if usable:
-                circles_seen = len(state.circles)
+                # See merge_colocated_circles's module comment: diep.io
+                # commonly renders one circular entity (at least tank
+                # bodies) as a same-position, same-timestamp border+fill
+                # PAIR of arc()/fill() calls. Left unmerged, a nearest-
+                # neighbor tracker sees two indistinguishable-by-position
+                # candidates and rejects the match as ambiguous -- not
+                # because they're competing hypotheses, but because
+                # they're two honest observations of the SAME entity. This
+                # was confirmed live (projectile-speed-and-lead-v0's PR
+                # description): without merging, bullet_speed and
+                # target_now never left "insufficient_samples"/"no_target"
+                # for an entire live session, despite circles_seen pinned
+                # at the Oracle's cache cap the whole time.
+                merged_circles = merge_colocated_circles(state.circles)
+                circles_seen = len(merged_circles)
                 aim_dir = _aim_direction(last_aim_point, origin)
                 speed_samples = own_projectile_tracker.update(
-                    state.circles, now_ms=state.performance_now_ms or 0.0,
+                    merged_circles, now_ms=state.performance_now_ms or 0.0,
                     self_position=origin, aim_direction=aim_dir, shoot_active=last_shoot_active,
                 )
                 for sample in speed_samples:
                     speed_estimator.add_sample(sample.speed_px_s, now=now)
                 speed_estimate = speed_estimator.estimate(now=now)
 
-                candidates = _target_candidates(state, origin, own_projectile_tracker.claimed_positions)
+                candidates = _target_candidates(merged_circles, origin, own_projectile_tracker.claimed_positions)
                 target_observation = target_tracker.update(candidates, now_ms=state.performance_now_ms or 0.0)
 
                 lead = compute_lead(

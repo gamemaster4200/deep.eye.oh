@@ -246,3 +246,42 @@ def compute_screen_transform(
     offset_x = client_left + (canvas.rect_left * css_to_screen_x)
     offset_y = client_top + (canvas.rect_top * css_to_screen_y)
     return ScreenTransform(scale_x=scale_x, scale_y=scale_y, offset_x=offset_x, offset_y=offset_y)
+
+
+# --- Circle post-processing: colocated-render merging -----------------------
+#
+# Live evidence (projectile-speed-and-lead-v0's live smoke -- see its PR
+# description) showed diep.io commonly renders one circular entity (at
+# least tank bodies) as TWO separate arc()/fill() calls at the exact same
+# center and timestamp: a slightly larger "border" circle plus a slightly
+# smaller "fill" circle, in two different but close shades. Oracle reports
+# both independently and correctly -- it has no concept of "these two
+# belong together" (see deep.eye.oh.ext's oracle.js: circles() carries no
+# entity ID by design). Left unmerged, two same-position observations are
+# indistinguishable by position alone to a nearest-neighbor tracker and get
+# rejected as an ambiguous match (see projectile_tracking.py/
+# target_tracking.py's ambiguity-margin logic) -- not because they are
+# genuinely competing hypotheses about what happened, but because they are
+# two honest observations of the SAME entity. merge_colocated_circles
+# collapses each such same-position, same-timestamp group into one
+# representative circle (the largest radius in the group -- the entity's
+# outer visual extent) before circles reach any tracker.
+
+_COLOCATION_EPSILON_PX = 0.5  # sub-pixel; live evidence showed exact float matches, this is a small safety margin
+
+
+def merge_colocated_circles(circles: tuple[BrowserCircle, ...]) -> tuple[BrowserCircle, ...]:
+    """Collapses groups of circles that share the same (cx, cy) (within
+    _COLOCATION_EPSILON_PX) and the same timestamp_ms into one circle each
+    (the group's largest radius) -- see module comment above. A circle
+    with no colocated partner passes through unchanged. Order is not
+    preserved (callers must not depend on it)."""
+    groups: dict[tuple[float, float, float], list[BrowserCircle]] = {}
+    for circle in circles:
+        key = (
+            round(circle.cx / _COLOCATION_EPSILON_PX),
+            round(circle.cy / _COLOCATION_EPSILON_PX),
+            circle.timestamp_ms,
+        )
+        groups.setdefault(key, []).append(circle)
+    return tuple(max(group, key=lambda c: c.radius) for group in groups.values())
