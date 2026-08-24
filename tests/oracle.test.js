@@ -1137,9 +1137,10 @@ function bboxCenterOf(points) {
 }
 
 {
-  // snapshot().canvas: best-effort canvas positioning metadata (used by
-  // downstream screen/mouse coordinate calibration), sourced from the
-  // most recently observed canvas element of any fill(), any color.
+  // snapshot().canvas: canvas positioning metadata for downstream
+  // screen/mouse coordinate calibration, sourced ONLY from the canvas that
+  // actually produced an accepted neutral shape (Square/Triangle/Pentagon)
+  // -- provenance, not "whatever canvas fill() was last called on".
   const { oracle, ctxCtor } = installOracle();
   const canvas = {
     width: 1600,
@@ -1173,6 +1174,134 @@ function bboxCenterOf(points) {
   const { oracle } = installOracle();
   const snapshot = oracle.snapshot();
   assert.equal(Object.hasOwn(snapshot, 'canvas'), false);
+}
+
+// ---------------------------------------------------------------------------
+// Canvas provenance: snapshot.canvas must describe the canvas that actually
+// produced the reported shapes, not merely the canvas most recently seen in
+// any fill() call. See oracle.js's "Canvas provenance" section.
+// ---------------------------------------------------------------------------
+
+function visibleCanvas({
+  width = 1920, height = 800, clientWidth = 1536, clientHeight = 640, rect = {
+    left: 0, top: 0, width: 1536, height: 640,
+  },
+} = {}) {
+  return {
+    width,
+    height,
+    clientWidth,
+    clientHeight,
+    getBoundingClientRect: () => rect,
+  };
+}
+
+function hiddenCanvas({ width = 1920, height = 800 } = {}) {
+  return {
+    width,
+    height,
+    clientWidth: 0,
+    clientHeight: 0,
+    getBoundingClientRect: () => ({
+      left: 0, top: 0, width: 0, height: 0,
+    }),
+  };
+}
+
+{
+  // An arbitrary later fill() on a hidden/detached 0x0-rect canvas -- of
+  // any color, accepted or not -- must not replace or corrupt the canvas
+  // already established by an earlier accepted shape on a real, visible
+  // canvas. This is the exact regression the old "lastCanvasElement =
+  // ctx.canvas on every fill()" heuristic was vulnerable to.
+  const { oracle, ctxCtor } = installOracle();
+  const canvas = visibleCanvas();
+  const ctx = new ctxCtor({ fillStyle: '#ffe869', canvas });
+  drawQuad(ctx, [[0, 0], [10, 0], [10, 10], [0, 10]], [IDENTITY]);
+
+  const hidden = hiddenCanvas();
+  const hiddenCtx = new ctxCtor({ fillStyle: '#123456', canvas: hidden });
+  drawQuad(hiddenCtx, [[0, 0], [10, 0], [10, 10], [0, 10]], [IDENTITY]);
+
+  const snapshot = plain(oracle.snapshot());
+  assert.ok(snapshot.canvas, 'the real canvas must still be reported');
+  assert.equal(snapshot.canvas.width, 1920);
+  assert.equal(snapshot.canvas.rect.width, 1536);
+}
+
+{
+  // Unrelated rejected fills on a second, otherwise-valid/visible canvas
+  // must not corrupt or replace the provenance established by the first
+  // canvas's accepted shape -- a rejected fill never earns provenance,
+  // regardless of the canvas it happened on.
+  const { oracle, ctxCtor } = installOracle();
+  const canvas = visibleCanvas();
+  const ctx = new ctxCtor({ fillStyle: '#ffe869', canvas });
+  drawQuad(ctx, [[0, 0], [10, 0], [10, 10], [0, 10]], [IDENTITY]);
+
+  const otherCanvas = visibleCanvas({
+    width: 800, height: 600, rect: {
+      left: 100, top: 100, width: 800, height: 600,
+    },
+  });
+  // Wrong color for a 4-vertex quad: rejected (colorMismatch), so it must
+  // never be recorded as provenance.
+  const otherCtx = new ctxCtor({ fillStyle: '#123456', canvas: otherCanvas });
+  drawQuad(otherCtx, [[0, 0], [10, 0], [10, 10], [0, 10]], [IDENTITY]);
+
+  const diag = oracle.diagnostics();
+  assert.equal(diag.rejectionReasons.colorMismatch, 1);
+
+  const snapshot = plain(oracle.snapshot());
+  assert.equal(snapshot.canvas.width, 1920, 'provenance must stay on the canvas with the accepted shape');
+}
+
+{
+  // A canvas with a positive backing store but a zero-size bounding rect
+  // (hidden/detached/helper canvas) must never be advertised as
+  // screen-mappable, even when it is the ONLY canvas to have produced an
+  // accepted shape.
+  const { oracle, ctxCtor } = installOracle();
+  const hidden = hiddenCanvas();
+  const ctx = new ctxCtor({ fillStyle: '#ffe869', canvas: hidden });
+  drawQuad(ctx, [[0, 0], [10, 0], [10, 10], [0, 10]], [IDENTITY]);
+
+  assert.equal(oracle.shapes().length, 1, 'the shape itself is still reported');
+  const snapshot = oracle.snapshot();
+  assert.equal(Object.hasOwn(snapshot, 'canvas'), false, 'a zero-rect canvas must never be reported as snapshot.canvas');
+
+  const diag = oracle.diagnostics();
+  assert.equal(diag.canvasProvenance.canvases.length, 1);
+  assert.equal(diag.canvasProvenance.canvases[0].screenMappable, false);
+  assert.equal(diag.canvasProvenance.canvases[0].selected, false);
+}
+
+{
+  // Two DIFFERENT, both screen-mappable, canvases each producing an
+  // accepted shape is an unresolvable ambiguity -- snapshot.canvas must be
+  // omitted (fail closed), never a guess at which one is "the" game
+  // canvas, and never a silently merged/combined description.
+  const { oracle, ctxCtor } = installOracle();
+  const canvasA = visibleCanvas();
+  const ctxA = new ctxCtor({ fillStyle: '#ffe869', canvas: canvasA });
+  drawQuad(ctxA, [[0, 0], [10, 0], [10, 10], [0, 10]], [IDENTITY]);
+
+  const canvasB = visibleCanvas({
+    width: 800, height: 600, rect: {
+      left: 100, top: 100, width: 800, height: 600,
+    },
+  });
+  const ctxB = new ctxCtor({ fillStyle: '#ffe869', canvas: canvasB });
+  drawQuad(ctxB, [[20, 20], [30, 20], [30, 30], [20, 30]], [IDENTITY]);
+
+  assert.equal(oracle.shapes().length, 2, 'both accepted shapes are still reported individually');
+  const snapshot = oracle.snapshot();
+  assert.equal(Object.hasOwn(snapshot, 'canvas'), false, 'ambiguous provenance must omit snapshot.canvas rather than guess');
+
+  const diag = oracle.diagnostics();
+  assert.equal(diag.canvasProvenance.distinctCanvasesTracked, 2);
+  assert.equal(diag.canvasProvenance.canvases.every((entry) => entry.screenMappable), true);
+  assert.equal(diag.canvasProvenance.canvases.every((entry) => entry.selected === false), true, 'neither ambiguous canvas may be marked selected');
 }
 
 console.log(
