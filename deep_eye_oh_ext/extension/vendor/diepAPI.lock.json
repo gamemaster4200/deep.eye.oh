@@ -1,0 +1,10 @@
+﻿{
+    "source_repo":  "https://github.com/Cazka/diepAPI",
+    "license":  "MIT",
+    "release_tag":  "v3.3.1",
+    "release_url":  "https://github.com/Cazka/diepAPI/releases/tag/v3.3.1",
+    "asset_name":  "diepAPI.user.js",
+    "asset_url":  "https://github.com/Cazka/diepAPI/releases/download/v3.3.1/diepAPI.user.js",
+    "sha256":  "414dccfd3244c2ff8600a4935630d8d32a800e636d5bbecfdd232d0ad618192b",
+    "fetched_at_utc":  "2026-08-20T22:12:41.8049583Z"
+}

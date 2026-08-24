@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "deep.eye.oh Browser Oracle",
+  "description": "Runtime observations from the official diep.io client for research and vision ground truth.",
+  "version": "0.5.0",
+  "minimum_chrome_version": "111",
+  "permissions": [
+    "clipboardWrite",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://diep.io/*"
+  ],
+  "action": {
+    "default_title": "deep.eye.oh Browser Oracle",
+    "default_popup": "popup/popup.html"
+  },
+  "background": {
+    "service_worker": "background/bridge.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://diep.io/*"
+      ],
+      "js": [
+        "src/oracle.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'none'"
+  }
+}

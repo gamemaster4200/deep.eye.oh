@@ -1,0 +1,2 @@
+extension/vendor/diepAPI.user.js -text -whitespace
+third_party/** -whitespace
