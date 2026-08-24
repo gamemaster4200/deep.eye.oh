@@ -244,6 +244,33 @@ def test_speed_exactly_at_the_upper_plausibility_ceiling_is_accepted():
     assert math.isclose(samples[0].speed_px_s, MAX_PLAUSIBLE_ECHO_SPEED_PX_S, rel_tol=1e-6)
 
 
+def test_track_moving_toward_self_does_not_emit_a_sample():
+    # Live-smoke hypothesis: an incoming enemy bullet, just before it
+    # reaches us, can transiently satisfy the muzzle/aim-alignment seed
+    # criteria too -- but unlike our own outgoing shots, its distance
+    # from self DECREASES. Must not be treated as an own-projectile speed
+    # sample regardless of how "plausible" its speed looks.
+    tracker = OwnProjectileTracker()
+    tracker.update([_circle(SELF[0] + 60, SELF[1], 0.0)], now_ms=0.0, self_position=SELF, aim_direction=AIM_RIGHT, shoot_active=True)
+    # Moved CLOSER to self (60px away -> 30px away) -- incoming, not outgoing.
+    samples = tracker.update(
+        [_circle(SELF[0] + 30, SELF[1], 50.0)], now_ms=50.0,
+        self_position=SELF, aim_direction=AIM_RIGHT, shoot_active=True,
+    )
+    assert samples == []
+
+
+def test_track_moving_away_from_self_still_emits_a_sample():
+    tracker = OwnProjectileTracker()
+    tracker.update([_circle(SELF[0] + 20, SELF[1], 0.0)], now_ms=0.0, self_position=SELF, aim_direction=AIM_RIGHT, shoot_active=True)
+    samples = tracker.update(
+        [_circle(SELF[0] + 55, SELF[1], 50.0)], now_ms=50.0,
+        self_position=SELF, aim_direction=AIM_RIGHT, shoot_active=True,
+    )
+    assert len(samples) == 1
+    assert math.isclose(samples[0].speed_px_s, 700.0, rel_tol=1e-6)
+
+
 def test_no_track_seeded_when_self_position_or_aim_unknown():
     tracker = OwnProjectileTracker()
     near = [_circle(SELF[0] + 20, SELF[1], 0.0)]

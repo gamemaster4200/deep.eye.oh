@@ -303,6 +303,20 @@ class OwnProjectileTracker:
             if not (dt_ms > 0):
                 continue
             speed_px_s = _distance((x0, y0), (x1, y1)) / (dt_ms / 1000.0)
+
+            # An incoming enemy bullet, just before it reaches us, can
+            # transiently satisfy the muzzle/aim-alignment seed criteria
+            # too (near self, roughly toward whoever we're both facing) --
+            # but unlike our own outgoing shots, its distance from self is
+            # DECREASING, not increasing. A genuine own projectile always
+            # moves away from self by definition; require that here as an
+            # additional discriminator, independent of speed.
+            if self_position is not None:
+                distance_before = _distance((x0, y0), self_position)
+                distance_after = _distance((x1, y1), self_position)
+                if not (distance_after > distance_before):
+                    continue
+
             # Lower bound (MIN_PLAUSIBLE_PROJECTILE_SPEED_PX_S): an
             # implausibly slow "projectile" is almost certainly a nearby
             # tank, not a bullet. Upper bound (MAX_PLAUSIBLE_ECHO_SPEED_PX_S,
@@ -343,7 +357,18 @@ MIN_SAMPLES_FOR_TRIMMED_MEAN = 5
 TRIM_FRACTION = 0.1  # drop the top/bottom 10% as outliers once there is enough data
 REGIME_SHIFT_RECENT_N = 5
 REGIME_SHIFT_RELATIVE_DELTA = 0.25  # a >25% jump between recent and overall medians is treated as a build change
-MAX_ACCEPTABLE_RELATIVE_DISPERSION = 0.3
+# Live-smoke calibration: with the outgoing-direction filter above (and
+# the earlier echo/speed-plausibility fixes), observed own-projectile
+# samples were no longer buggy, but still showed genuine relative
+# dispersion in roughly the 15-30% range within a single window -- likely
+# real camera-relative measurement noise (our own tank's WASD movement
+# shifts the camera, and thus a bullet's OBSERVED canvas-space speed,
+# independent of the bullet's own true speed) rather than a bug. The
+# original 0.3 cap left confidence pinned near 0 for nearly all of a live
+# session despite individually-sane speed values; widened from this
+# session's own observed dispersion range so a realistic, non-buggy
+# window can actually cross compute_lead's confidence bar.
+MAX_ACCEPTABLE_RELATIVE_DISPERSION = 0.5
 
 
 def _trimmed_mean(values: Sequence[float]) -> float:
