@@ -1,15 +1,21 @@
-"""Tests for browser_policy.py: target selection and Action production."""
+"""Tests for browser_policy.py: target selection, Action production, and
+lead (projectile-speed-and-lead-v0)."""
 
 from deep_eye_oh.browser_game_state import BrowserGameState, BrowserShape, CanvasInfo
-from deep_eye_oh.browser_policy import NOOP, BrowserPolicy, select_target
+from deep_eye_oh.browser_policy import NOOP, BrowserPolicy, compute_lead, select_target
+from deep_eye_oh.projectile_tracking import ProjectileSpeedEstimate
+from deep_eye_oh.target_tracking import TargetObservation
 
 
 def _shape(shape_class, cx, cy, radius=10.0):
     return BrowserShape(shape_class=shape_class, cx=cx, cy=cy, radius=radius, timestamp_ms=0.0)
 
 
-def _state(*shapes, canvas=None):
-    return BrowserGameState(shapes=tuple(shapes), canvas=canvas, polled_at_ms=0.0, performance_now_ms=None, received_at=0.0)
+def _state(*shapes, canvas=None, circles=()):
+    return BrowserGameState(
+        shapes=tuple(shapes), circles=tuple(circles), canvas=canvas,
+        polled_at_ms=0.0, performance_now_ms=None, received_at=0.0,
+    )
 
 
 ORIGIN = (0.0, 0.0)
@@ -149,3 +155,101 @@ def test_noop_has_no_target():
     assert NOOP.has_target is False
     assert NOOP.shoot is False
     assert NOOP.move_keys == frozenset()
+
+
+# ---------------------------------------------------------------------------
+# compute_lead (projectile-speed-and-lead-v0)
+# ---------------------------------------------------------------------------
+
+
+def _target(cx=100.0, cy=0.0, vx=0.0, vy=0.0, timestamp_ms=1000.0, confidence=0.9, radius=15.0):
+    return TargetObservation(cx=cx, cy=cy, vx=vx, vy=vy, radius=radius, timestamp_ms=timestamp_ms, confidence=confidence)
+
+
+def _speed(speed_px_s=500.0, confidence=0.9, sample_count=10, measured_at=0.0, last_updated=0.0):
+    return ProjectileSpeedEstimate(
+        speed_px_s=speed_px_s, confidence=confidence, sample_count=sample_count,
+        measured_at=measured_at, last_updated=last_updated,
+    )
+
+
+SHOOTER = (0.0, 0.0)
+
+
+def test_compute_lead_unavailable_without_target():
+    result = compute_lead(shooter=SHOOTER, target=None, now_ms=1000.0, speed_estimate=_speed())
+    assert not result.available
+    assert result.reason == "no_target"
+    assert result.aim_x is None and result.aim_y is None
+
+
+def test_compute_lead_unavailable_when_target_stale():
+    target = _target(timestamp_ms=0.0)
+    result = compute_lead(shooter=SHOOTER, target=target, now_ms=10_000.0, speed_estimate=_speed())
+    assert not result.available
+    assert result.reason == "target_stale"
+
+
+def test_compute_lead_unavailable_when_target_low_confidence():
+    target = _target(confidence=0.1)
+    result = compute_lead(shooter=SHOOTER, target=target, now_ms=1000.0, speed_estimate=_speed())
+    assert not result.available
+    assert result.reason == "target_low_confidence"
+
+
+def test_compute_lead_unavailable_when_speed_estimate_missing():
+    result = compute_lead(shooter=SHOOTER, target=_target(), now_ms=1000.0, speed_estimate=None)
+    assert not result.available
+    assert result.reason == "speed_unavailable"
+
+
+def test_compute_lead_unavailable_when_speed_estimate_unavailable():
+    unavailable = ProjectileSpeedEstimate(speed_px_s=None, confidence=0.0, sample_count=0, measured_at=0.0, last_updated=None)
+    result = compute_lead(shooter=SHOOTER, target=_target(), now_ms=1000.0, speed_estimate=unavailable)
+    assert not result.available
+    assert result.reason == "speed_unavailable"
+
+
+def test_compute_lead_unavailable_when_speed_low_confidence():
+    result = compute_lead(shooter=SHOOTER, target=_target(), now_ms=1000.0, speed_estimate=_speed(confidence=0.05))
+    assert not result.available
+    assert result.reason == "speed_low_confidence"
+
+
+def test_compute_lead_unavailable_when_no_intercept_solution():
+    # Target receding directly away faster than the projectile -- no valid
+    # positive-time solution exists (see test_intercept.py's equivalent).
+    target = _target(cx=10.0, cy=0.0, vx=100.0, vy=0.0)
+    result = compute_lead(shooter=SHOOTER, target=target, now_ms=1000.0, speed_estimate=_speed(speed_px_s=50.0))
+    assert not result.available
+    assert result.reason == "no_intercept_solution"
+
+
+def test_compute_lead_available_stationary_target():
+    target = _target(cx=100.0, cy=0.0, vx=0.0, vy=0.0)
+    result = compute_lead(shooter=SHOOTER, target=target, now_ms=1000.0, speed_estimate=_speed(speed_px_s=50.0))
+    assert result.available
+    assert result.reason == "ok"
+    assert result.aim_x == 100.0
+    assert result.aim_y == 0.0
+    assert result.intercept_t == 2.0
+
+
+def test_compute_lead_available_moving_target_aims_ahead():
+    # Target moving laterally -- the intercept aim point must be AHEAD of
+    # the target's current position in the direction of motion, not at its
+    # current position.
+    target = _target(cx=100.0, cy=0.0, vx=0.0, vy=50.0)
+    result = compute_lead(shooter=SHOOTER, target=target, now_ms=1000.0, speed_estimate=_speed(speed_px_s=200.0))
+    assert result.available
+    assert result.aim_y > 0.0, "aim point must lead ahead of the target's current position in its direction of travel"
+    assert result.intercept_t is not None and result.intercept_t > 0.0
+
+
+def test_compute_lead_rejects_future_timestamped_target_as_stale():
+    # now_ms before the target's own timestamp is not a valid non-negative
+    # age -- treat it the same as staleness rather than a negative age.
+    target = _target(timestamp_ms=5000.0)
+    result = compute_lead(shooter=SHOOTER, target=target, now_ms=1000.0, speed_estimate=_speed())
+    assert not result.available
+    assert result.reason == "target_stale"

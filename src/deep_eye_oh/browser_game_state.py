@@ -41,6 +41,22 @@ class BrowserShape:
 
 
 @dataclass(frozen=True)
+class BrowserCircle:
+    """One generic filled-circle observation, in the same Oracle
+    canvas-backing pixel space as BrowserShape -- see deep.eye.oh.ext's
+    oracle.js circles()/CircleObservation. Deliberately carries no class,
+    ownership, or entity identity: only what rendering actually shows.
+    `color` is best-effort (the fill's raw fillStyle string, or None if it
+    was not a form the Oracle recognized)."""
+
+    cx: float
+    cy: float
+    radius: float
+    color: str | None
+    timestamp_ms: float  # oracle's performance.now() at detection
+
+
+@dataclass(frozen=True)
 class CanvasInfo:
     """Oracle canvas positioning metadata (deepEyeOracle.snapshot().canvas),
     used only for the browser->screen coordinate transform below."""
@@ -57,6 +73,7 @@ class CanvasInfo:
 @dataclass(frozen=True)
 class BrowserGameState:
     shapes: tuple[BrowserShape, ...]
+    circles: tuple[BrowserCircle, ...]
     canvas: CanvasInfo | None
     polled_at_ms: float  # bridge's Date.now() when it polled the tab
     performance_now_ms: float | None  # oracle's performance.now() at read
@@ -93,6 +110,21 @@ def _parse_shape(raw: object, index: int) -> BrowserShape:
     )
 
 
+def _parse_circle(raw: object, index: int) -> BrowserCircle:
+    context = f"snapshot.circles[{index}]"
+    circle = _require_dict(raw, context)
+    color = circle.get("color")
+    if color is not None and not isinstance(color, str):
+        raise InvalidSnapshotError(f"{context}: field 'color' must be a string or absent, got {type(color).__name__}")
+    return BrowserCircle(
+        cx=_require_number(circle, "cx", context),
+        cy=_require_number(circle, "cy", context),
+        radius=_require_number(circle, "radius", context),
+        color=color,
+        timestamp_ms=_require_number(circle, "timestamp", context),
+    )
+
+
 def _parse_canvas(raw: object) -> CanvasInfo:
     canvas = _require_dict(raw, "snapshot.canvas")
     rect = _require_dict(canvas.get("rect"), "snapshot.canvas.rect")
@@ -125,6 +157,18 @@ def parse_bridge_message(raw: object, *, received_at: float) -> BrowserGameState
         raise InvalidSnapshotError("snapshot.shapes must be a list")
     shapes = tuple(_parse_shape(entry, index) for index, entry in enumerate(shapes_raw))
 
+    # Absent entirely (an older Oracle build with no circles() capability)
+    # is treated as "no circles observed", not a malformed message -- this
+    # is a strictly additive capability. Present-but-wrong-type, or any one
+    # malformed entry, still rejects the whole message like every other
+    # field here (see module docstring).
+    circles: tuple[BrowserCircle, ...] = ()
+    if "circles" in snapshot:
+        circles_raw = snapshot.get("circles")
+        if not isinstance(circles_raw, list):
+            raise InvalidSnapshotError("snapshot.circles must be a list")
+        circles = tuple(_parse_circle(entry, index) for index, entry in enumerate(circles_raw))
+
     canvas = _parse_canvas(snapshot["canvas"]) if "canvas" in snapshot else None
 
     performance_now_ms = None
@@ -136,6 +180,7 @@ def parse_bridge_message(raw: object, *, received_at: float) -> BrowserGameState
 
     return BrowserGameState(
         shapes=shapes,
+        circles=circles,
         canvas=canvas,
         polled_at_ms=polled_at_ms,
         performance_now_ms=performance_now_ms,

@@ -9,8 +9,9 @@ import pytest
 from deep_eye_oh import browser_farming as bf
 from deep_eye_oh import control as ctrl_mod
 from deep_eye_oh import win32_input, window_focus
-from deep_eye_oh.browser_game_state import BrowserGameState, BrowserShape, CanvasInfo, ScreenTransform
+from deep_eye_oh.browser_game_state import BrowserCircle, BrowserGameState, BrowserShape, CanvasInfo, ScreenTransform
 from deep_eye_oh.browser_policy import NOOP, BrowserAction
+from deep_eye_oh.intercept import solve_intercept
 from deep_eye_oh.window_focus import TargetWindow
 
 TARGET = TargetWindow(hwnd=1, pid=2, title_at_arm="diep.io - Google Chrome")
@@ -66,9 +67,14 @@ def _shape(shape_class, cx, cy, radius=10.0):
     return BrowserShape(shape_class=shape_class, cx=cx, cy=cy, radius=radius, timestamp_ms=0.0)
 
 
-def _state(*shapes, canvas=None, received_at=0.0):
+def _circle(cx, cy, timestamp_ms=0.0, radius=3.0, color=None):
+    return BrowserCircle(cx=cx, cy=cy, radius=radius, color=color, timestamp_ms=timestamp_ms)
+
+
+def _state(*shapes, canvas=None, circles=(), received_at=0.0):
     return BrowserGameState(
-        shapes=tuple(shapes), canvas=canvas, polled_at_ms=0.0, performance_now_ms=None, received_at=received_at
+        shapes=tuple(shapes), circles=tuple(circles), canvas=canvas,
+        polled_at_ms=0.0, performance_now_ms=None, received_at=received_at,
     )
 
 
@@ -372,3 +378,175 @@ def test_controller_trip_reason_property_is_read_only(monkeypatch):
     assert controller.trip_reason == "emergency_stop"
     assert isinstance(type(controller).trip_reason, property)
     assert type(controller).trip_reason.fset is None, "trip_reason must not expose a mutable setter"
+
+
+# ---------------------------------------------------------------------------
+# _aim_direction / _target_candidates (projectile-speed-and-lead-v0)
+# ---------------------------------------------------------------------------
+
+
+def test_aim_direction_none_without_last_aim_point_or_origin():
+    assert bf._aim_direction(None, (0.0, 0.0)) is None
+    assert bf._aim_direction((10.0, 0.0), None) is None
+
+
+def test_aim_direction_points_from_origin_to_last_aim_point():
+    assert bf._aim_direction((110.0, 50.0), (100.0, 50.0)) == (10.0, 0.0)
+
+
+def test_aim_direction_none_when_coincident():
+    assert bf._aim_direction((100.0, 50.0), (100.0, 50.0)) is None
+
+
+def test_target_candidates_excludes_claimed_and_near_self():
+    origin = (800.0, 450.0)
+    near_self = _circle(820.0, 450.0)  # 20px from origin, within SELF_EXCLUSION_RADIUS_PX
+    claimed_far = _circle(1200.0, 450.0)
+    unclaimed_far = _circle(1200.0, 460.0)
+    state = _state(circles=(near_self, claimed_far, unclaimed_far), canvas=CANVAS)
+
+    candidates = bf._target_candidates(state, origin, frozenset({(1200.0, 450.0)}))
+
+    assert [(c.cx, c.cy) for c in candidates] == [(1200.0, 460.0)]
+
+
+# ---------------------------------------------------------------------------
+# run_farming_loop: own-projectile speed estimation + target lead wiring
+# ---------------------------------------------------------------------------
+
+
+class FakeSequenceBridge:
+    """Returns one (state, age) pair per latest()/age_s() call, advancing
+    through a scripted sequence -- unlike FakeBridge (fixed single state),
+    this lets a test script out several ticks of consistent motion."""
+
+    def __init__(self, items):
+        self._items = list(items)
+        self._index = -1
+        self.started = False
+        self.stopped = False
+
+    def start(self):
+        self.started = True
+
+    def stop(self, timeout=None):
+        self.stopped = True
+
+    def latest(self):
+        if self._index + 1 < len(self._items):
+            self._index += 1
+        return self._items[self._index][0]
+
+    def age_s(self, now=None):
+        return self._items[self._index][1]
+
+
+def _lead_scenario_states():
+    """A scripted 12-tick sequence: a stationary bait shape keeps farming
+    shooting every tick (so OwnProjectileTracker's shoot_active gate stays
+    open); starting tick 2, a projectile circle travels at a true 700px/s
+    along the aim direction (+x from self) and a target circle travels at
+    200px/s in +y, far enough from self/the projectile to never be
+    confused with either. By tick 12 there are 10 consistent own-
+    projectile speed samples (enough for ProjectileSpeedEstimate to cross
+    its confidence bar) and a fresh, confident TargetObservation -- lead
+    should become available exactly there."""
+    bait = _shape("square", 900.0, 450.0)
+    states = [_state(bait, canvas=CANVAS, received_at=0.0)]  # tick 1: no circles yet
+    for tick in range(2, 13):
+        t_ms = 50.0 * (tick - 1)
+        projectile = _circle(820.0 + (35.0 * (tick - 2)), 450.0, timestamp_ms=t_ms)
+        moving_target = _circle(1200.0, 450.0 + (10.0 * (tick - 2)), timestamp_ms=t_ms)
+        state = BrowserGameState(
+            shapes=(bait,), circles=(projectile, moving_target), canvas=CANVAS,
+            polled_at_ms=t_ms, performance_now_ms=t_ms, received_at=0.0,
+        )
+        states.append(state)
+    return states
+
+
+# ---------------------------------------------------------------------------
+# _format_lead_diagnostics
+# ---------------------------------------------------------------------------
+
+
+def test_format_lead_diagnostics_unavailable_state_shows_reasons():
+    from deep_eye_oh.browser_policy import LeadResult
+    from deep_eye_oh.projectile_tracking import ProjectileSpeedEstimate
+
+    output = bf._format_lead_diagnostics(
+        circles_seen=0,
+        projectile_tracks=0,
+        likely_own_projectiles=0,
+        speed_estimate=ProjectileSpeedEstimate(speed_px_s=None, confidence=0.0, sample_count=0, measured_at=0.0, last_updated=None),
+        now_monotonic=0.0,
+        target=None,
+        now_ms=None,
+        origin=None,
+        lead=LeadResult(available=False, reason="no_target"),
+        commanded_aim=None,
+    )
+    assert "circles_seen: 0" in output
+    assert "bullet_speed: unavailable (insufficient_samples)" in output
+    assert "target_now: unavailable (no_target)" in output
+    assert "intercept: unavailable (no_target)" in output
+    assert "commanded_aim: none" in output
+
+
+def test_format_lead_diagnostics_available_state_shows_values():
+    from deep_eye_oh.browser_policy import LeadResult
+    from deep_eye_oh.projectile_tracking import ProjectileSpeedEstimate
+    from deep_eye_oh.target_tracking import TargetObservation
+
+    speed_estimate = ProjectileSpeedEstimate(speed_px_s=713.4, confidence=0.91, sample_count=12, measured_at=10.0, last_updated=9.92)
+    target = TargetObservation(cx=1200.0, cy=550.0, vx=0.0, vy=200.0, radius=15.0, timestamp_ms=550.0, confidence=0.8)
+    lead = LeadResult(available=True, reason="ok", aim_x=1200.0, aim_y=600.0, intercept_t=0.25)
+
+    output = bf._format_lead_diagnostics(
+        circles_seen=2,
+        projectile_tracks=1,
+        likely_own_projectiles=1,
+        speed_estimate=speed_estimate,
+        now_monotonic=10.0,
+        target=target,
+        now_ms=550.0,
+        origin=(800.0, 450.0),
+        lead=lead,
+        commanded_aim=(1200, 600),
+    )
+    assert "bullet_speed: 713.4 px/s" in output
+    assert "bullet_speed_confidence: 0.91" in output
+    assert "bullet_speed_samples: 12" in output
+    assert "target_now: (1200, 550)" in output
+    assert "target_velocity: (0.0, 200.0) px/s" in output
+    assert "target_confidence: 0.80" in output
+    assert "intercept_t: 0.250 s" in output
+    assert "predicted_intercept: (1200, 600)" in output
+    assert "commanded_aim: (1200, 600)" in output
+
+
+def test_run_farming_loop_wires_own_projectile_speed_and_target_lead(monkeypatch):
+    sent = _patch_healthy_environment(monkeypatch)
+    monkeypatch.setattr(window_focus, "arm_foreground_window", lambda: TARGET)
+    monkeypatch.setattr(window_focus, "client_rect_on_screen", lambda t: (0, 0, 1600, 900))
+
+    states = _lead_scenario_states()
+    fake_bridge = FakeSequenceBridge([(state, 0.01) for state in states])
+    monkeypatch.setattr(bf, "BrowserBridgeServer", lambda port=None: fake_bridge)
+
+    bf.run_farming_loop(max_ticks=len(states), tick_interval_s=0.0)
+
+    # Early ticks (before enough own-projectile samples/target confidence
+    # accumulate): farming's own shape-aim behavior must be unaffected --
+    # existing farming behavior is not destroyed by adding lead.
+    assert ("move", 900, 450) in sent
+
+    # By the final tick, lead must have kicked in: the commanded aim point
+    # must be the intercept solver's own answer for the exact target
+    # state/estimated speed this scenario converges to (700 px/s, target
+    # at (1200, 550) moving (0, 200) px/s), not the raw bait shape point.
+    expected = solve_intercept((800.0, 450.0), (1200.0, 550.0), (0.0, 200.0), 700.0)
+    assert expected is not None
+    expected_move = ("move", round(expected.aim_x), round(expected.aim_y))
+    assert expected_move in sent, f"expected {expected_move} (lead-computed) in {sent}"
+    assert expected_move != ("move", 900, 450)

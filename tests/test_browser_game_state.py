@@ -13,6 +13,12 @@ from deep_eye_oh.browser_game_state import (
 )
 
 
+def _valid_circle(**overrides):
+    circle = {"cx": 400.0, "cy": 300.0, "radius": 4.0, "color": "#ffffff", "timestamp": 4205.0}
+    circle.update(overrides)
+    return circle
+
+
 def _valid_message(**overrides):
     message = {
         "type": "oracle_snapshot",
@@ -62,6 +68,7 @@ def test_parses_valid_message():
     assert state.polled_at_ms == 1000.0
     assert state.performance_now_ms == 4242.5
     assert state.received_at == 123.0
+    assert state.circles == (), "a message with no snapshot.circles key at all must parse with an empty tuple"
 
 
 def test_parses_message_with_no_shapes():
@@ -69,6 +76,68 @@ def test_parses_message_with_no_shapes():
     message["snapshot"]["shapes"] = []
     state = parse_bridge_message(message, received_at=1.0)
     assert state.shapes == ()
+
+
+# ---------------------------------------------------------------------------
+# parse_bridge_message: circles (additive, backward-compatible field)
+# ---------------------------------------------------------------------------
+
+
+def test_parses_message_with_circles():
+    message = _valid_message()
+    message["snapshot"]["circles"] = [_valid_circle(), _valid_circle(cx=1.0, cy=2.0, color=None)]
+    state = parse_bridge_message(message, received_at=1.0)
+    assert len(state.circles) == 2
+    assert state.circles[0].cx == 400.0
+    assert state.circles[0].cy == 300.0
+    assert state.circles[0].radius == 4.0
+    assert state.circles[0].color == "#ffffff"
+    assert state.circles[0].timestamp_ms == 4205.0
+    assert state.circles[1].color is None, "color must be optional"
+
+
+def test_parses_message_without_circles_key_as_empty_tuple():
+    # An older Oracle build (no circles() capability) omits this field
+    # entirely -- that is "no circles observed", not malformed.
+    message = _valid_message()
+    assert "circles" not in message["snapshot"]
+    state = parse_bridge_message(message, received_at=1.0)
+    assert state.circles == ()
+
+
+def test_parses_message_with_empty_circles_list():
+    message = _valid_message()
+    message["snapshot"]["circles"] = []
+    state = parse_bridge_message(message, received_at=1.0)
+    assert state.circles == ()
+
+
+def test_rejects_circles_not_a_list():
+    message = _valid_message()
+    message["snapshot"]["circles"] = {"not": "a list"}
+    with pytest.raises(InvalidSnapshotError):
+        parse_bridge_message(message, received_at=1.0)
+
+
+@pytest.mark.parametrize(
+    "bad_circle",
+    [
+        {"cy": 0, "radius": 1, "timestamp": 0},  # missing cx
+        {"cx": 0, "cy": 0, "timestamp": 0},  # missing radius
+        {"cx": "nan", "cy": 0, "radius": 1, "timestamp": 0},  # non-numeric cx
+        {"cx": 0, "cy": 0, "radius": 1, "timestamp": True},  # bool is not a number
+        {"cx": 0, "cy": 0, "radius": 1, "timestamp": 0, "color": 123},  # non-string color
+        "not an object",
+    ],
+    ids=["missing_cx", "missing_radius", "non_numeric_cx", "bool_timestamp", "non_string_color", "non_object_circle"],
+)
+def test_rejects_one_malformed_circle_by_rejecting_the_whole_message(bad_circle):
+    # Same fail-closed contract as shapes: one bad circle rejects the WHOLE
+    # snapshot, not just that entry.
+    message = _valid_message()
+    message["snapshot"]["circles"] = [_valid_circle(), bad_circle]
+    with pytest.raises(InvalidSnapshotError):
+        parse_bridge_message(message, received_at=1.0)
 
 
 def test_parses_message_without_canvas():
