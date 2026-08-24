@@ -25,6 +25,16 @@ DEFAULT_MAX_JUMP_PX = 320.0
 ASSOCIATION_AMBIGUITY_MARGIN_PX = 20.0
 DEFAULT_MIN_CONFIDENCE = 0.5
 
+# Live-smoke finding (see projectile_tracking.py's identical constant for
+# the full story): two candidates a few px apart in position but only a
+# fraction of a millisecond apart in timestamp implied an absurd speed
+# once accepted as an echo purely on spatial closeness. A real target's
+# frame-to-frame motion cannot imply a speed beyond this generous
+# ceiling; two spatially-close candidates whose implied speed exceeds it
+# are not echoes of one entity and must fall through to the ordinary
+# ambiguity rejection.
+MAX_PLAUSIBLE_ECHO_SPEED_PX_S = 3000.0
+
 INITIAL_CONFIDENCE = 0.34
 CONFIDENCE_STEP_UP = 0.22
 CONFIDENCE_STEP_DOWN = 0.34
@@ -75,6 +85,23 @@ class TargetObservation:
 
 def _distance(ax: float, ay: float, bx: float, by: float) -> float:
     return math.hypot(ax - bx, ay - by)
+
+
+def _is_plausible_echo(candidate: TargetCandidate, other: TargetCandidate) -> bool:
+    """Is `candidate` plausibly another recent-frame observation of the
+    SAME entity as `other` -- different timestamp, close in position, AND
+    an implied speed between them that isn't physically absurd (see
+    MAX_PLAUSIBLE_ECHO_SPEED_PX_S)? A tiny timestamp gap with a non-
+    trivial position gap implies an impossible speed and is NOT an echo,
+    regardless of how spatially close the two are."""
+    if candidate.timestamp_ms == other.timestamp_ms:
+        return False
+    spatial_distance = _distance(candidate.cx, candidate.cy, other.cx, other.cy)
+    if spatial_distance > ASSOCIATION_AMBIGUITY_MARGIN_PX:
+        return False
+    dt_s = abs(candidate.timestamp_ms - other.timestamp_ms) / 1000.0
+    implied_speed = spatial_distance / dt_s if dt_s > 0 else math.inf
+    return implied_speed <= MAX_PLAUSIBLE_ECHO_SPEED_PX_S
 
 
 class TargetTracker:
@@ -168,14 +195,12 @@ class TargetTracker:
         for candidate, distance in candidates_with_distance[1:]:
             if distance - best_distance >= ASSOCIATION_AMBIGUITY_MARGIN_PX:
                 break  # sorted by distance -- everything after this is even farther
-            if (
-                candidate.timestamp_ms != best.timestamp_ms
-                and _distance(candidate.cx, candidate.cy, best.cx, best.cy) <= ASSOCIATION_AMBIGUITY_MARGIN_PX
-            ):
+            if _is_plausible_echo(candidate, best):
                 # A different-TIME echo of the same entity, not a
                 # competing one -- prefer whichever is more recent. Same
-                # timestamp = a genuine simultaneous ambiguity, falls
-                # through to the reject below.
+                # timestamp, or a physically-absurd implied speed, is NOT
+                # an echo (see _is_plausible_echo) and falls through to
+                # the reject below.
                 if candidate.timestamp_ms > best.timestamp_ms:
                     best, best_distance = candidate, distance
                 continue

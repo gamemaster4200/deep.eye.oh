@@ -6,6 +6,7 @@ import math
 
 from deep_eye_oh.browser_game_state import BrowserCircle
 from deep_eye_oh.projectile_tracking import (
+    MAX_PLAUSIBLE_ECHO_SPEED_PX_S,
     MIN_PLAUSIBLE_PROJECTILE_SPEED_PX_S,
     MUZZLE_RADIUS_PX,
     OwnProjectileTracker,
@@ -195,6 +196,52 @@ def test_speed_exactly_at_the_plausibility_floor_is_accepted():
     )
     assert len(samples) == 1
     assert math.isclose(samples[0].speed_px_s, MIN_PLAUSIBLE_PROJECTILE_SPEED_PX_S, rel_tol=1e-6)
+
+
+def test_tiny_time_gap_with_meaningful_position_gap_is_not_an_echo():
+    # Live-smoke regression: two spatially-close candidates whose
+    # timestamps differ by a fraction of a millisecond (sub-ms browser
+    # clock precision on two genuinely distinct nearby entities) implied
+    # an absurd speed (tens/hundreds of thousands of px/s) once accepted
+    # as an "echo" purely on spatial closeness. Must be treated as a
+    # genuine, unresolvable ambiguity instead -- not merged.
+    tracker = OwnProjectileTracker()
+    tracker.update([_circle(SELF[0] + 1, SELF[1], 0.0)], now_ms=0.0, self_position=SELF, aim_direction=AIM_RIGHT, shoot_active=True)
+
+    step2 = [
+        _circle(SELF[0] + 15, SELF[1], 50.0),
+        _circle(SELF[0] + 25, SELF[1], 50.001),  # 10px apart, 0.001ms apart -> ~10,000,000 px/s implied
+    ]
+    samples = tracker.update(step2, now_ms=50.0, self_position=SELF, aim_direction=AIM_RIGHT, shoot_active=True)
+    assert samples == []
+
+
+def test_implausibly_fast_unambiguous_match_does_not_emit_a_speed_sample():
+    # Defense in depth: even a SINGLE, unambiguous candidate (no echo
+    # resolution involved at all) must not produce a sample if the
+    # implied speed between it and the track's prior point is physically
+    # absurd -- covers any other path a tiny dt_ms could slip through.
+    tracker = OwnProjectileTracker()
+    tracker.update([_circle(SELF[0] + 1, SELF[1], 0.0)], now_ms=0.0, self_position=SELF, aim_direction=AIM_RIGHT, shoot_active=True)
+
+    # Sole candidate: 50px away, but only 0.01ms after the seed -> 5,000,000 px/s.
+    samples = tracker.update(
+        [_circle(SELF[0] + 51, SELF[1], 0.01)], now_ms=0.01,
+        self_position=SELF, aim_direction=AIM_RIGHT, shoot_active=True,
+    )
+    assert samples == []
+
+
+def test_speed_exactly_at_the_upper_plausibility_ceiling_is_accepted():
+    tracker = OwnProjectileTracker()
+    tracker.update([_circle(SELF[0] + 1, SELF[1], 0.0)], now_ms=0.0, self_position=SELF, aim_direction=AIM_RIGHT, shoot_active=True)
+    displacement = MAX_PLAUSIBLE_ECHO_SPEED_PX_S * 0.05  # exactly the ceiling over 50ms
+    samples = tracker.update(
+        [_circle(SELF[0] + 1 + displacement, SELF[1], 50.0)], now_ms=50.0,
+        self_position=SELF, aim_direction=AIM_RIGHT, shoot_active=True,
+    )
+    assert len(samples) == 1
+    assert math.isclose(samples[0].speed_px_s, MAX_PLAUSIBLE_ECHO_SPEED_PX_S, rel_tol=1e-6)
 
 
 def test_no_track_seeded_when_self_position_or_aim_unknown():

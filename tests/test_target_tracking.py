@@ -88,6 +88,20 @@ def test_multiple_recent_frame_echoes_of_the_same_entity_resolve_to_the_freshest
     assert math.isclose(result.vx, 340.0, rel_tol=1e-6)  # 17px / 50ms
 
 
+def test_tiny_time_gap_with_meaningful_position_gap_is_not_an_echo():
+    # Live-smoke regression: two spatially-close candidates whose
+    # timestamps differ by a fraction of a millisecond implied an absurd
+    # speed once accepted as an "echo" purely on spatial closeness. Must
+    # be treated as a genuine, unresolvable ambiguity instead.
+    tracker = TargetTracker()
+    tracker.update([_c(0.0, 0.0, 0.0)], now_ms=0.0)
+    result = tracker.update(
+        [_c(15.0, 0.0, 50.0), _c(25.0, 0.0, 50.001)],  # 10px apart, 0.001ms apart
+        now_ms=50.0,
+    )
+    assert result is None
+
+
 def test_two_candidates_at_the_exact_same_timestamp_are_still_ambiguous():
     # Two comparably-close candidates at the SAME instant are a genuine
     # simultaneous ambiguity (two different real objects), not an echo of

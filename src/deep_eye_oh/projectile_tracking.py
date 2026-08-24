@@ -66,6 +66,19 @@ MAX_ASSOCIATION_JUMP_PX = 260.0
 # lose confidence rather than arbitrarily reassigned").
 ASSOCIATION_AMBIGUITY_MARGIN_PX = 20.0
 
+# Fourth live-smoke finding: two candidates a few px apart in POSITION but
+# only a fraction of a millisecond apart in TIMESTAMP -- from sub-
+# millisecond browser clock precision on genuinely distinct nearby
+# entities, not one smoothly-moving entity -- implied an absurd speed
+# (tens/hundreds of THOUSANDS of px/s) once accepted as an "echo" purely
+# on spatial closeness. A real physical entity's frame-to-frame motion
+# cannot imply a speed beyond this generous ceiling (comfortably above
+# any plausible bullet, even at extreme upgrades); two spatially-close
+# candidates whose IMPLIED speed exceeds it are not temporal echoes of
+# one entity and must fall through to the ordinary ambiguity rejection,
+# not be merged.
+MAX_PLAUSIBLE_ECHO_SPEED_PX_S = 3000.0
+
 INITIAL_TRACK_CONFIDENCE = 0.34
 TRACK_CONFIDENCE_STEP_UP = 0.22
 TRACK_CONFIDENCE_STEP_DOWN = 0.34
@@ -116,6 +129,23 @@ class _Track:
 
 def _distance(a: tuple[float, float], b: tuple[float, float]) -> float:
     return math.hypot(a[0] - b[0], a[1] - b[1])
+
+
+def _is_plausible_echo(circle: BrowserCircle, other: BrowserCircle) -> bool:
+    """Is `circle` plausibly another recent-frame observation of the SAME
+    entity as `other` -- different timestamp, close in position, AND an
+    implied speed between them that isn't physically absurd (see
+    MAX_PLAUSIBLE_ECHO_SPEED_PX_S's module comment)? A tiny timestamp gap
+    with a non-trivial position gap implies an impossible speed and is
+    NOT an echo, regardless of how spatially close the two are."""
+    if circle.timestamp_ms == other.timestamp_ms:
+        return False
+    spatial_distance = _distance((circle.cx, circle.cy), (other.cx, other.cy))
+    if spatial_distance > ASSOCIATION_AMBIGUITY_MARGIN_PX:
+        return False
+    dt_s = abs(circle.timestamp_ms - other.timestamp_ms) / 1000.0
+    implied_speed = spatial_distance / dt_s if dt_s > 0 else math.inf
+    return implied_speed <= MAX_PLAUSIBLE_ECHO_SPEED_PX_S
 
 
 def _predict_next_position(track: _Track) -> tuple[float, float]:
@@ -178,16 +208,13 @@ def _best_match(
     for index, circle, distance in candidates[1:]:
         if distance - best_distance >= ASSOCIATION_AMBIGUITY_MARGIN_PX:
             break  # sorted by distance -- everything after this is even farther
-        if (
-            circle.timestamp_ms != best_circle.timestamp_ms
-            and _distance((circle.cx, circle.cy), (best_circle.cx, best_circle.cy)) <= ASSOCIATION_AMBIGUITY_MARGIN_PX
-        ):
+        if _is_plausible_echo(circle, best_circle):
             # A different-TIME echo of the same entity (see this
             # function's docstring), not a competing one -- prefer
             # whichever observation is more recent. Two candidates at the
-            # exact same timestamp are a genuine simultaneous ambiguity
-            # (two real, distinct objects at that instant), not an echo,
-            # and fall through to the ambiguous-reject below.
+            # exact same timestamp, or whose implied speed is physically
+            # absurd, are NOT an echo (see _is_plausible_echo) and fall
+            # through to the ambiguous-reject below.
             if circle.timestamp_ms > best_circle.timestamp_ms:
                 best_index, best_circle, best_distance = index, circle, distance
             continue
@@ -276,11 +303,20 @@ class OwnProjectileTracker:
             if not (dt_ms > 0):
                 continue
             speed_px_s = _distance((x0, y0), (x1, y1)) / (dt_ms / 1000.0)
-            # See MIN_PLAUSIBLE_PROJECTILE_SPEED_PX_S's module comment:
-            # an implausibly slow "projectile" is almost certainly a
-            # nearby tank, not a bullet -- drop the observation rather
-            # than let it corrupt the speed estimator's dispersion.
-            if math.isfinite(speed_px_s) and speed_px_s >= MIN_PLAUSIBLE_PROJECTILE_SPEED_PX_S:
+            # Lower bound (MIN_PLAUSIBLE_PROJECTILE_SPEED_PX_S): an
+            # implausibly slow "projectile" is almost certainly a nearby
+            # tank, not a bullet. Upper bound (MAX_PLAUSIBLE_ECHO_SPEED_PX_S,
+            # reused here as a general physical-plausibility ceiling, not
+            # just an echo-matching concept): defense in depth against a
+            # tiny dt_ms slipping through match resolution some other way
+            # and implying an impossible speed -- see that constant's
+            # module comment for the live evidence (speeds in the tens/
+            # hundreds of THOUSANDS of px/s). Either way, drop the
+            # observation rather than let it corrupt the estimator.
+            if (
+                math.isfinite(speed_px_s)
+                and MIN_PLAUSIBLE_PROJECTILE_SPEED_PX_S <= speed_px_s <= MAX_PLAUSIBLE_ECHO_SPEED_PX_S
+            ):
                 samples.append(ProjectileSpeedSample(speed_px_s=speed_px_s, measured_at_ms=track.timestamps_ms[-1]))
 
         return samples
