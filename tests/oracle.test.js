@@ -34,6 +34,7 @@ function createCanvasCtor() {
   CanvasRenderingContext2D.prototype.fill = function fill() {};
   CanvasRenderingContext2D.prototype.rect = function rect(_x, _y, _w, _h) {};
   CanvasRenderingContext2D.prototype.closePath = function closePath() {};
+  CanvasRenderingContext2D.prototype.arc = function arc(_x, _y, _radius, _startAngle, _endAngle, _anticlockwise) {};
   CanvasRenderingContext2D.prototype.getTransform = function getTransform() {
     const index = Math.min(this._transformCallCount, this._transforms.length - 1);
     this._transformCallCount += 1;
@@ -70,6 +71,16 @@ function drawQuad(ctx, points, transforms) {
   ctx.fill();
 }
 
+const FULL_TURN = 2 * Math.PI;
+
+function drawCircle(ctx, { x, y, radius, startAngle = 0, endAngle = FULL_TURN }, transforms) {
+  ctx._transforms = transforms;
+  ctx._transformCallCount = 0;
+  ctx.beginPath();
+  ctx.arc(x, y, radius, startAngle, endAngle);
+  ctx.fill();
+}
+
 function plain(value) {
   return JSON.parse(JSON.stringify(value));
 }
@@ -82,11 +93,19 @@ function plain(value) {
   const { oracle } = installOracle();
   assert.deepEqual(
     Object.keys(oracle).sort(),
-    ['diagnostics', 'isReady', 'shapes', 'snapshot', 'version'],
+    ['circles', 'diagnostics', 'isReady', 'shapes', 'snapshot', 'version'],
     'the public API must expose only observation operations, diagnostics, and version metadata',
   );
-  assert.equal(oracle.version, '0.5.0');
+  assert.equal(oracle.version, '0.6.0');
   assert.equal(oracle.isReady(), true, 'hooking all four Canvas2D methods must report ready');
+}
+
+{
+  // arc() is a diagnostic-only/additional-capability hook (like rect() and
+  // closePath()): its absence must not affect isReady(), which reports
+  // readiness of the core neutral-shape polygon path only.
+  const { oracle } = installOracle({ missingMethod: 'arc' });
+  assert.equal(oracle.isReady(), true, 'a missing arc() must not affect isReady()');
 }
 
 {
@@ -1304,6 +1323,225 @@ function hiddenCanvas({ width = 1920, height = 800 } = {}) {
   assert.equal(diag.canvasProvenance.canvases.every((entry) => entry.selected === false), true, 'neither ambiguous canvas may be marked selected');
 }
 
+// ---------------------------------------------------------------------------
+// Circle observation: generic filled-circle candidates from arc()/fill(),
+// independent of neutral-shape (Square/Triangle/Pentagon) classification.
+// ---------------------------------------------------------------------------
+
+function rotateScale(scale, degrees, { e = 0, f = 0 } = {}) {
+  const radians = (degrees * Math.PI) / 180;
+  return matrix({
+    a: scale * Math.cos(radians),
+    b: scale * Math.sin(radians),
+    c: -scale * Math.sin(radians),
+    d: scale * Math.cos(radians),
+    e,
+    f,
+  });
+}
+
+// Mirrors oracle.js's own transformPoint -- used only to compute the
+// EXPECTED value independently in these tests, never imported from the
+// source under test.
+function transformPointForTest(m, x, y) {
+  return { x: (m.a * x) + (m.c * y) + m.e, y: (m.b * x) + (m.d * y) + m.f };
+}
+
+{
+  // Identity transform: a plain beginPath()/arc()/fill() full circle must
+  // be reported with the arc's own center/radius, unscaled/untranslated.
+  const { oracle, ctxCtor } = installOracle();
+  const ctx = new ctxCtor({ fillStyle: '#abcdef' });
+  drawCircle(ctx, { x: 50, y: 60, radius: 12 }, [IDENTITY]);
+
+  const found = plain(oracle.circles());
+  assert.equal(found.length, 1, 'a full-circle arc()/fill() must be observed');
+  assert.equal(found[0].cx, 50);
+  assert.equal(found[0].cy, 60);
+  assert.equal(found[0].radius, 12);
+  assert.equal(found[0].source, 'canvas2d');
+  assert.doesNotThrow(() => JSON.stringify(found));
+}
+
+{
+  // A uniform-scale + rotation transform (a similarity) must scale the
+  // radius and rotate/translate the center correctly -- proving the
+  // transform is actually applied, not just passed through for identity.
+  const { oracle, ctxCtor } = installOracle();
+  const ctx = new ctxCtor({ fillStyle: '#abcdef' });
+  const transform = rotateScale(2, 30, { e: 100, f: 50 });
+  drawCircle(ctx, { x: 10, y: 0, radius: 10 }, [transform]);
+
+  const [circle] = plain(oracle.circles());
+  const expectedCenter = transformPointForTest(transform, 10, 0);
+  assert.ok(Math.abs(circle.cx - expectedCenter.x) < 1e-9);
+  assert.ok(Math.abs(circle.cy - expectedCenter.y) < 1e-9);
+  assert.ok(Math.abs(circle.radius - 20) < 1e-9, "radius must scale by the transform's uniform scale factor (2x)");
+}
+
+{
+  // fill association: the circle's color must reflect the fillStyle
+  // active at the time of THIS fill() call, not some other fill's.
+  const { oracle, ctxCtor } = installOracle();
+  const ctx = new ctxCtor({ fillStyle: '#123456' });
+  drawCircle(ctx, { x: 0, y: 0, radius: 5 }, [IDENTITY]);
+
+  const [circle] = plain(oracle.circles());
+  assert.equal(circle.color, '#123456');
+}
+
+{
+  // A half-circle (partial arc, e.g. a healthbar or pie wedge) must be
+  // rejected -- it is not a solid filled circle, and reporting its radius
+  // as if it were would misrepresent what was actually rendered.
+  const { oracle, ctxCtor } = installOracle();
+  const ctx = new ctxCtor({ fillStyle: '#abcdef' });
+  drawCircle(ctx, { x: 0, y: 0, radius: 10, startAngle: 0, endAngle: Math.PI }, [IDENTITY]);
+  assert.equal(oracle.circles().length, 0, 'a half-circle arc must not be reported as a circle candidate');
+  assert.equal(oracle.diagnostics().circleCache.rejectedTotal, 1);
+}
+
+{
+  // Malformed/degenerate arc: zero radius must be rejected, not reported
+  // as a zero-size circle.
+  const { oracle, ctxCtor } = installOracle();
+  const ctx = new ctxCtor({ fillStyle: '#abcdef' });
+  drawCircle(ctx, { x: 0, y: 0, radius: 0 }, [IDENTITY]);
+  assert.equal(oracle.circles().length, 0, 'a zero-radius arc must be rejected');
+}
+
+{
+  // Malformed/degenerate arc: a negative radius (never legal, but must not
+  // crash or be silently coerced to positive) must be rejected.
+  const { oracle, ctxCtor } = installOracle();
+  const ctx = new ctxCtor({ fillStyle: '#abcdef' });
+  drawCircle(ctx, { x: 0, y: 0, radius: -5 }, [IDENTITY]);
+  assert.equal(oracle.circles().length, 0, 'a negative-radius arc must be rejected');
+  assert.doesNotThrow(() => JSON.stringify(oracle.diagnostics()));
+}
+
+{
+  // A path mixing arc() with an ordinary lineTo (e.g. a pie-slice back to
+  // center) must be rejected as a circle candidate -- it is not a plain
+  // filled circle.
+  const { oracle, ctxCtor } = installOracle();
+  const ctx = new ctxCtor({ fillStyle: '#abcdef' });
+  ctx._transforms = [IDENTITY];
+  ctx.beginPath();
+  ctx.arc(0, 0, 10, 0, FULL_TURN);
+  ctx.lineTo(0, 0);
+  ctx.fill();
+  assert.equal(oracle.circles().length, 0, 'arc() mixed with lineTo() must not be reported as a circle');
+}
+
+{
+  // Two arc() calls within the same beginPath()/fill() is ambiguous -- no
+  // single circle to report -- and must be rejected rather than reporting
+  // either (or both) arbitrarily.
+  const { oracle, ctxCtor } = installOracle();
+  const ctx = new ctxCtor({ fillStyle: '#abcdef' });
+  ctx._transforms = [IDENTITY];
+  ctx.beginPath();
+  ctx.arc(0, 0, 10, 0, FULL_TURN);
+  ctx.arc(50, 50, 5, 0, FULL_TURN);
+  ctx.fill();
+  assert.equal(oracle.circles().length, 0, 'multiple arc() calls on one path must not be reported as a circle');
+}
+
+{
+  // Non-uniform transform (non-uniform scale): a true circle in user space
+  // becomes an ellipse on screen. Reporting a "radius" for that would be
+  // an invented number, not an observed fact -- must be rejected.
+  const { oracle, ctxCtor } = installOracle();
+  const ctx = new ctxCtor({ fillStyle: '#abcdef' });
+  const nonUniform = matrix({ a: 3, d: 1 }); // scaleX=3, scaleY=1
+  drawCircle(ctx, { x: 0, y: 0, radius: 10 }, [nonUniform]);
+  assert.equal(oracle.circles().length, 0, 'a non-uniform-scale transform must not produce a circle candidate');
+  assert.equal(oracle.shapes().length, 0, 'and must not be misreported as a shape either');
+}
+
+{
+  // Non-uniform transform (shear): perpendicular basis vectors are
+  // required, not just equal length -- a shear transform can have equal
+  // scaleX/scaleY while still turning a circle into an ellipse.
+  const { oracle, ctxCtor } = installOracle();
+  const ctx = new ctxCtor({ fillStyle: '#abcdef' });
+  const sheared = matrix({ a: 1, b: 0, c: 1, d: 1 }); // shear, not a similarity
+  drawCircle(ctx, { x: 0, y: 0, radius: 10 }, [sheared]);
+  assert.equal(oracle.circles().length, 0, 'a shear transform must not produce a circle candidate');
+}
+
+{
+  // Recent-circle cache: circles are pruned once they age out of the same
+  // CACHE_WINDOW_MS (250ms) window shapes() uses, exactly like shapes().
+  const clock = { value: 0 };
+  const { oracle, ctxCtor } = installOracle({ clock });
+  const ctx = new ctxCtor({ fillStyle: '#abcdef' });
+  drawCircle(ctx, { x: 1, y: 1, radius: 5 }, [IDENTITY]);
+  assert.equal(oracle.circles().length, 1);
+
+  clock.value = 260; // just past the 250ms cache window
+  assert.equal(oracle.circles().length, 0, 'a circle observation must be pruned once stale');
+}
+
+{
+  // Unlike shapes() (deduped by rounded position+color, one slot per
+  // roughly-stationary shape), circles() must retain EACH accepted
+  // observation individually within the cache window -- downstream motion
+  // tracking needs multiple recent samples of the same moving object, not
+  // a single collapsed "current position".
+  const clock = { value: 0 };
+  const { oracle, ctxCtor } = installOracle({ clock });
+  const ctx = new ctxCtor({ fillStyle: '#abcdef' });
+  drawCircle(ctx, { x: 10, y: 10, radius: 5 }, [IDENTITY]);
+  clock.value = 10;
+  drawCircle(ctx, { x: 12, y: 10, radius: 5 }, [IDENTITY]);
+  clock.value = 20;
+  drawCircle(ctx, { x: 14, y: 10, radius: 5 }, [IDENTITY]);
+
+  const found = plain(oracle.circles());
+  assert.equal(found.length, 3, 'consecutive circle observations must not be collapsed into one slot');
+  assert.deepEqual(found.map((c) => c.cx).sort((x, y) => x - y), [10, 12, 14]);
+}
+
+{
+  // Existing shape behavior must be unaffected by circle observation: a
+  // normal accepted Square fill must not itself be reported as a circle,
+  // and shapes() must be unaffected by circle-only fills.
+  const clock = { value: 0 };
+  const { oracle, ctxCtor } = installOracle({ clock });
+  const squareCtx = new ctxCtor({ fillStyle: '#ffe869' });
+  drawQuad(squareCtx, [[0, 0], [10, 0], [10, 10], [0, 10]], [IDENTITY]);
+  const circleCtx = new ctxCtor({ fillStyle: '#abcdef' });
+  drawCircle(circleCtx, { x: 100, y: 100, radius: 8 }, [IDENTITY]);
+
+  assert.equal(oracle.shapes().length, 1, 'the Square must still be recognized');
+  assert.equal(oracle.shapes()[0].class, 'square');
+  assert.equal(oracle.circles().length, 1, 'the circle must still be recognized');
+  const snapshot = plain(oracle.snapshot());
+  assert.equal(snapshot.shapes.length, 1);
+  assert.equal(snapshot.circles.length, 1);
+}
+
+{
+  // Canvas provenance invariant unchanged: a circle-only fill (no accepted
+  // neutral shape ever observed) must NEVER establish snapshot.canvas --
+  // only an accepted Square/Triangle/Pentagon does (see
+  // recordCanvasProvenance's callers). A generic circle is not "an
+  // accepted-render provenance" in that sense, by design.
+  const { oracle, ctxCtor } = installOracle();
+  const canvas = visibleCanvas();
+  const ctx = new ctxCtor({ fillStyle: '#abcdef', canvas });
+  drawCircle(ctx, { x: 10, y: 10, radius: 5 }, [IDENTITY]);
+
+  assert.equal(oracle.circles().length, 1, 'the circle itself is still observed');
+  const snapshot = oracle.snapshot();
+  assert.equal(Object.hasOwn(snapshot, 'canvas'), false, 'a circle-only observation must never establish canvas provenance');
+
+  const diag = oracle.diagnostics();
+  assert.equal(diag.canvasProvenance.distinctCanvasesTracked, 0, 'circle fills must not be tracked as canvas provenance at all');
+}
+
 console.log(
-  'Oracle tests passed: polygon recognition, closing-vertex normalization, per-call transform, geometry, color filtering, JSON safety, detachment, cache lifetime, diagnostics, multi-subpath topology, subdivided-contour square reconstruction, and Triangle/Pentagon generalization.',
+  'Oracle tests passed: polygon recognition, closing-vertex normalization, per-call transform, geometry, color filtering, JSON safety, detachment, cache lifetime, diagnostics, multi-subpath topology, subdivided-contour square reconstruction, Triangle/Pentagon generalization, canvas provenance, and generic circle observation.',
 );

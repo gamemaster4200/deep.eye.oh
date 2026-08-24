@@ -5,7 +5,7 @@
     return;
   }
 
-  const VERSION = '0.5.0';
+  const VERSION = '0.6.0';
 
   // diep.io's official client fills each neutral shape class with a fixed
   // color (matches the vendored Cazka/diepAPI EntityColor map, and -- for
@@ -104,6 +104,43 @@
   // left the screen).
   const CACHE_WINDOW_MS = 250;
 
+  // Generic circle observation (see the "Circle observation" section
+  // below): a filled circle drawn via beginPath()/arc()/fill() has no
+  // color/shape-class contract like Square/Triangle/Pentagon do, so these
+  // tolerances are independent of SIDE_LENGTH_RATIO_TOLERANCE etc. above.
+  //
+  // How many arc() calls within one beginPath()/fill() are kept in detail
+  // -- only the first is ever needed (more than one arc() call on the same
+  // path is rejected as ambiguous, see classifyCircleFill), so this is
+  // just a small memory bound for a pathological many-arc path, mirroring
+  // MAX_TRACKED_SUBPATHS's role for polygon subpaths.
+  const MAX_TRACKED_ARCS_PER_STATE = 4;
+  // A rolling cache of recent circle observations is capped independently
+  // of the per-fill arc() tracking above -- this bounds total memory
+  // across many fills within one CACHE_WINDOW_MS window (e.g. a burst of
+  // projectiles), evicting the oldest observation first.
+  const MAX_TRACKED_CIRCLES = 64;
+  // How close an arc()'s |endAngle - startAngle| must be to a full turn
+  // (2*PI) to be treated as a solid filled circle rather than a partial
+  // wedge/ring -- Canvas2D angle arguments are user-supplied radians, so a
+  // small tolerance absorbs float noise (e.g. 2*Math.PI computed two
+  // different ways) without accepting a genuinely partial arc.
+  const CIRCLE_FULL_ARC_ANGLE_EPS = 0.01;
+  // A 2D linear transform maps a circle to a circle (not an ellipse) only
+  // when it is a similarity (uniform scale + rotation, no shear/skew): its
+  // two transformed basis vectors must have equal length (within this
+  // ratio tolerance) and be perpendicular (within this normalized dot
+  // tolerance) -- see transformScaleInfo. Tighter than the polygon
+  // tolerances above on purpose: an ellipse silently reported as a circle
+  // would corrupt a downstream radius/position estimate, so this
+  // deliberately rejects anything but a near-exact similarity transform
+  // rather than being lenient about rendering noise.
+  const CIRCLE_TRANSFORM_SCALE_RATIO_TOLERANCE = 1.02;
+  const CIRCLE_TRANSFORM_ORTHOGONALITY_TOLERANCE = 0.02;
+  // Same noise floor as MIN_SIDE_LENGTH_PX (see above) applied to a
+  // transformed circle's radius.
+  const MIN_CIRCLE_RADIUS_PX = MIN_SIDE_LENGTH_PX;
+
   const HISTOGRAM_BUCKET_CAP = 16;
   const ACCEPTED_SAMPLE_CAP = 20;
   const REJECTED_SAMPLE_CAP = 30;
@@ -117,6 +154,16 @@
 
   const pathState = new WeakMap();
   const shapeCache = new Map();
+  // circleCache: unlike shapeCache (keyed by rounded position+color, so a
+  // near-stationary neutral shape occupies one slot), generic circles are
+  // meant to support downstream motion tracking of moving objects
+  // (projectiles) -- each accepted observation gets its own monotonically
+  // increasing id and is kept until it ages out of CACHE_WINDOW_MS, so
+  // consecutive frames of the same moving circle are NOT collapsed into
+  // one "current position" slot.
+  const circleCache = new Map();
+  let nextCircleId = 0;
+  const circleCounters = { acceptedTotal: 0, rejectedTotal: 0, prunedTotal: 0 };
   let hooksInstalled = false;
   let startTime = 0;
 
@@ -137,7 +184,7 @@
   let nextCanvasTrackId = 0;
 
   const callCounters = {
-    beginPath: 0, moveTo: 0, lineTo: 0, rect: 0, closePath: 0, fill: 0,
+    beginPath: 0, moveTo: 0, lineTo: 0, rect: 0, closePath: 0, fill: 0, arc: 0,
   };
   const rejectionReasonCounters = {
     noMeaningfulSubpath: 0,
@@ -334,6 +381,14 @@
       lineToCalls: 0,
       rectCalls: 0,
       closePathCalls: 0,
+      // arc() tracking is independent of the polygon subpaths above -- see
+      // the "Circle observation" section below. arcCallCount counts every
+      // arc() call on this path (used to detect "more than one arc call",
+      // which disqualifies a circle candidate); arcCalls retains detail
+      // for only the first MAX_TRACKED_ARCS_PER_STATE of them (only the
+      // first is ever actually used).
+      arcCallCount: 0,
+      arcCalls: [],
     };
   }
 
@@ -352,6 +407,8 @@
     state.lineToCalls = 0;
     state.rectCalls = 0;
     state.closePathCalls = 0;
+    state.arcCallCount = 0;
+    state.arcCalls = [];
   }
 
   function currentSubpath(state) {
@@ -436,6 +493,29 @@
     const subpath = currentSubpath(state);
     if (subpath) {
       subpath.explicitlyClosed = true;
+    }
+  }
+
+  // arc(x, y, radius, startAngle, endAngle, anticlockwise) -- tracked
+  // entirely independently of the moveTo/lineTo subpath machinery above
+  // (see the "Circle observation" section below for why and how this is
+  // turned into a circle candidate). Recording the CURRENT transform here,
+  // at call time, matches onMoveTo/onLineTo's own approach: transform
+  // state can change between this call and fill(), so it must be captured
+  // now, not re-read later.
+  function onArc(ctx, args) {
+    callCounters.arc += 1;
+    const state = getPathState(ctx);
+    state.arcCallCount += 1;
+    if (state.arcCalls.length < MAX_TRACKED_ARCS_PER_STATE) {
+      state.arcCalls.push({
+        x: finiteNumber(args[0]),
+        y: finiteNumber(args[1]),
+        radius: finiteNumber(args[2]),
+        startAngle: finiteNumber(args[3]),
+        endAngle: finiteNumber(args[4]),
+        transform: currentTransform(ctx),
+      });
     }
   }
 
@@ -757,6 +837,142 @@
     outcome.shapeClass = expectedClass;
     outcome.reason = 'accepted';
     return outcome;
+  }
+
+  // --- Circle observation (generic filled-circle candidates) ---------------
+  //
+  // Separate from, and never interacting with, the neutral-shape
+  // classification above: a "circle candidate" carries no class/color
+  // contract, no ownership, and no entity identity -- only what is
+  // actually observable from a beginPath()/arc()/fill() call: a
+  // screen-mapped center and radius. Conservative by construction: any
+  // fill() whose path was not EXACTLY one full-circle arc() call and
+  // nothing else is rejected outright rather than guessed at (a wedge, a
+  // ring, a path mixing arc() with lineTo/rect, or more than one arc()
+  // call are all rejected, not approximated). A canvas whose transform is
+  // not a similarity (uniform scale + rotation, no shear) would turn a
+  // true circle into an ellipse on screen; rather than invent a radius for
+  // that case, such an arc is rejected too (see transformScaleInfo).
+
+  // Does this 2D linear transform preserve circles as circles (a
+  // "similarity": uniform scale + rotation/reflection, no shear/skew)? The
+  // transform's two basis vectors -- (a,b) for local +x, (c,d) for local
+  // +y -- must have equal length (uniform scale in both directions) and be
+  // perpendicular (no shear). Returns undefined if the matrix itself is
+  // unreadable/non-finite or degenerate (zero scale in either direction).
+  function transformScaleInfo(matrix) {
+    const a = finiteNumber(safeRead(matrix, 'a'));
+    const b = finiteNumber(safeRead(matrix, 'b'));
+    const c = finiteNumber(safeRead(matrix, 'c'));
+    const d = finiteNumber(safeRead(matrix, 'd'));
+    if (a === undefined || b === undefined || c === undefined || d === undefined) {
+      return undefined;
+    }
+    const scaleX = Math.hypot(a, b);
+    const scaleY = Math.hypot(c, d);
+    if (!(scaleX > 0) || !(scaleY > 0)) {
+      return undefined;
+    }
+    const normalizedDot = Math.abs((a * c) + (b * d)) / (scaleX * scaleY);
+    const scaleRatio = Math.max(scaleX, scaleY) / Math.min(scaleX, scaleY);
+    const uniform = (
+      normalizedDot <= CIRCLE_TRANSFORM_ORTHOGONALITY_TOLERANCE
+      && scaleRatio <= CIRCLE_TRANSFORM_SCALE_RATIO_TOLERANCE
+    );
+    return { scale: (scaleX + scaleY) / 2, uniform };
+  }
+
+  // The single source of truth for "is this fill() a clean, screen-mapped
+  // filled circle" -- mirrors classifyFill's role for polygons, but is
+  // entirely independent of it (never shares acceptance state, never
+  // affects Square/Triangle/Pentagon classification, and vice versa).
+  // `nonArcOpCount` is moveTo+lineTo+rect calls seen on the SAME path --
+  // any of those alongside an arc() means this was not a plain filled
+  // circle (e.g. a moveTo back to center for a pie wedge), so it disqualifies
+  // the candidate rather than trying to interpret the mixed path.
+  function classifyCircleFill(arcCallCount, firstArc, nonArcOpCount, fillStyle) {
+    const outcome = { accepted: false, reason: 'noArc', fillStyle };
+    if (arcCallCount === 0) {
+      return outcome;
+    }
+    if (nonArcOpCount > 0) {
+      outcome.reason = 'mixedPathOps';
+      return outcome;
+    }
+    if (arcCallCount > 1) {
+      outcome.reason = 'multipleArcs';
+      return outcome;
+    }
+    if (
+      firstArc === undefined
+      || firstArc.x === undefined || firstArc.y === undefined
+      || firstArc.radius === undefined || !(firstArc.radius > 0)
+      || firstArc.startAngle === undefined || firstArc.endAngle === undefined
+    ) {
+      outcome.reason = 'malformedArc';
+      return outcome;
+    }
+
+    const span = Math.abs(firstArc.endAngle - firstArc.startAngle);
+    if (span < (2 * Math.PI) - CIRCLE_FULL_ARC_ANGLE_EPS) {
+      outcome.reason = 'partialArc';
+      return outcome;
+    }
+
+    const center = transformPoint(firstArc.transform, firstArc.x, firstArc.y);
+    if (center === undefined) {
+      outcome.reason = 'transformError';
+      return outcome;
+    }
+
+    const scaleInfo = transformScaleInfo(firstArc.transform);
+    if (scaleInfo === undefined || !scaleInfo.uniform) {
+      outcome.reason = 'nonUniformTransform';
+      return outcome;
+    }
+
+    const radius = firstArc.radius * scaleInfo.scale;
+    if (!(radius >= MIN_CIRCLE_RADIUS_PX) || !Number.isFinite(radius)) {
+      outcome.reason = 'degenerateRadius';
+      return outcome;
+    }
+
+    outcome.accepted = true;
+    outcome.cx = center.x;
+    outcome.cy = center.y;
+    outcome.radius = radius;
+    return outcome;
+  }
+
+  function buildCircleRecord(circleOutcome) {
+    const record = {
+      cx: circleOutcome.cx,
+      cy: circleOutcome.cy,
+      radius: circleOutcome.radius,
+      timestamp: now(),
+      source: 'canvas2d',
+    };
+    addValue(record, 'color', typeof circleOutcome.fillStyle === 'string' ? circleOutcome.fillStyle : undefined);
+    return record;
+  }
+
+  function pruneCircleCache(currentTime) {
+    for (const [key, record] of circleCache) {
+      if (currentTime - record.timestamp > CACHE_WINDOW_MS) {
+        circleCache.delete(key);
+        circleCounters.prunedTotal += 1;
+      }
+    }
+  }
+
+  function recordCircle(record) {
+    pruneCircleCache(record.timestamp);
+    if (circleCache.size >= MAX_TRACKED_CIRCLES) {
+      const oldestKey = circleCache.keys().next().value;
+      circleCache.delete(oldestKey);
+    }
+    circleCache.set(nextCircleId, record);
+    nextCircleId += 1;
   }
 
   // --- Canvas provenance ---------------------------------------------------
@@ -1142,6 +1358,19 @@
   function onFill(ctx) {
     callCounters.fill += 1;
 
+    // Must be captured BEFORE classifyFill(ctx) below, which resets this
+    // same per-ctx path state as part of its own bookkeeping -- circle
+    // classification is independent of classifyFill, but shares the one
+    // underlying path-state object.
+    const stateBeforeClassify = pathState.get(ctx);
+    const arcCallCount = stateBeforeClassify ? stateBeforeClassify.arcCallCount : 0;
+    const firstArc = stateBeforeClassify && stateBeforeClassify.arcCalls.length > 0
+      ? stateBeforeClassify.arcCalls[0]
+      : undefined;
+    const nonArcOpCount = stateBeforeClassify
+      ? stateBeforeClassify.moveToCalls + stateBeforeClassify.lineToCalls + stateBeforeClassify.rectCalls
+      : 0;
+
     let outcome;
     try {
       outcome = classifyFill(ctx);
@@ -1173,11 +1402,36 @@
     }
 
     recordDiagnostics(outcome);
+
+    // Independent of the neutral-shape path above: never establishes
+    // canvas provenance (see the "Circle observation" section's module
+    // comment and canvas provenance's own invariant above it), never
+    // affects outcome/shape acceptance either direction.
+    let circleOutcome;
+    try {
+      circleOutcome = classifyCircleFill(arcCallCount, firstArc, nonArcOpCount, outcome.fillStyle);
+    } catch (_error) {
+      circleOutcome = { accepted: false, reason: 'other' };
+    }
+    if (circleOutcome.accepted) {
+      try {
+        recordCircle(buildCircleRecord(circleOutcome));
+        circleCounters.acceptedTotal += 1;
+      } catch (_error) {
+        circleCounters.rejectedTotal += 1;
+      }
+    } else if (circleOutcome.reason !== 'noArc') {
+      // 'noArc' (the overwhelming majority of ordinary polygon fills) is
+      // not counted as a rejection -- it is simply "not a circle fill",
+      // not a circle candidate that failed.
+      circleCounters.rejectedTotal += 1;
+    }
   }
 
   function diagnostics() {
     const currentTime = now();
     pruneCache(currentTime);
+    pruneCircleCache(currentTime);
 
     const result = {
       version: VERSION,
@@ -1192,6 +1446,12 @@
         prunedTotal: cacheCounters.prunedTotal,
       },
       canvasProvenance: canvasProvenanceDiagnostics(),
+      circleCache: {
+        acceptedTotal: circleCounters.acceptedTotal,
+        rejectedTotal: circleCounters.rejectedTotal,
+        currentlyCached: circleCache.size,
+        prunedTotal: circleCounters.prunedTotal,
+      },
       acceptedSamples: acceptedSamples.map(cloneSample),
       // Backward-compatible top-level alias for the Square class
       // specifically (the field names the popup and existing tests read).
@@ -1253,6 +1513,10 @@
     // Diagnostic-only hooks; their success/failure does not affect isReady().
     hookMethod(proto, 'rect', onRect);
     hookMethod(proto, 'closePath', onClosePath);
+    // Circle observation is an additional, independent capability (see the
+    // "Circle observation" section above) -- its absence must not affect
+    // isReady(), which reports readiness of the core neutral-shape path.
+    hookMethod(proto, 'arc', onArc);
     return installedBeginPath && installedMoveTo && installedLineTo && installedFill;
   }
 
@@ -1270,6 +1534,18 @@
     return Array.from(shapeCache.values()).map(cloneRecord);
   }
 
+  // Generic recent circle candidates -- same canvas-backing coordinate
+  // system as shapes(), same rolling-cache freshness contract, but no
+  // class/ownership/identity fields (see the "Circle observation" section
+  // above). Each object is already a plain, JSON-safe value (no shared
+  // references into internal state), so unlike cloneRecord/shapes() no
+  // per-entry deep-copy is needed beyond the shallow spread.
+  function circles() {
+    const currentTime = now();
+    pruneCircleCache(currentTime);
+    return Array.from(circleCache.values()).map((record) => ({ ...record }));
+  }
+
   function snapshot() {
     const info = canvasInfo();
     const result = {
@@ -1277,6 +1553,7 @@
       timestamps: { performanceNow: now(), wallClockMs: wallClockNow() },
       browser: { devicePixelRatio: finiteNumber(safeRead(window, 'devicePixelRatio')) },
       shapes: shapes(),
+      circles: circles(),
     };
     if (info !== undefined) {
       result.canvas = info;
@@ -1296,6 +1573,7 @@
     isReady,
     snapshot,
     shapes,
+    circles,
     diagnostics,
   });
 
