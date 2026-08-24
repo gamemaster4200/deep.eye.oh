@@ -33,12 +33,13 @@ deepEyeOracle.version
 deepEyeOracle.isReady()
 deepEyeOracle.snapshot()
 deepEyeOracle.shapes()
+deepEyeOracle.circles()
 deepEyeOracle.diagnostics()
 ```
 
-`isReady()` means the Canvas2D observer installed successfully and is able to observe the square render path — not that a square is currently on screen. In a frame with no visible neutral Square, `shapes()` is legitimately empty while `isReady()` is `true`. Use `diagnostics()` (below) to tell "empty because nothing yellow is on screen" apart from "empty because detection is failing."
+`isReady()` means the Canvas2D observer installed successfully and is able to observe the square render path — not that a square is currently on screen. In a frame with no visible neutral Square, `shapes()` is legitimately empty while `isReady()` is `true`. Use `diagnostics()` (below) to tell "empty because nothing yellow is on screen" apart from "empty because detection is failing." `circles()` is a separate, independent capability (see "Generic circle observation" below) and its absence/emptiness has no bearing on `isReady()` either.
 
-Every `snapshot()`, `shapes()`, and `diagnostics()` result is newly allocated plain data safe for `JSON.stringify`; mutating a previously returned result never affects oracle state.
+Every `snapshot()`, `shapes()`, `circles()`, and `diagnostics()` result is newly allocated plain data safe for `JSON.stringify`; mutating a previously returned result never affects oracle state.
 
 ### How the Canvas2D observer works
 
@@ -138,6 +139,14 @@ Coordinates are absolute canvas pixel coordinates, not viewport-center-relative 
 
 `shapes()`/`snapshot()` also return neutral Triangles (`kind: "neutral_triangle"`, `class: "triangle"`, 3 `vertices`, color `#fc7677`) and neutral Pentagons (`kind: "neutral_pentagon"`, `class: "pentagon"`, 5 `vertices`, color `#768dfc`) -- the same colors the vendored `Cazka/diepAPI`'s `EntityColor` map records, with Square's independently confirmed live. All three classes are produced by the SAME classification pipeline in `classifyFill()` (color+corner-count together, generalized side/radius-ratio geometry, generalized area/perimeter consistency), not three copy-pasted detectors, and share the same `cx`/`cy` coordinate space, so downstream code can treat `oracle.shapes()` as one flat, mixed-class list. `radius` (mean vertex-to-centroid distance) is provided uniformly across all three classes as a size measure that does not assume Square's bbox-symmetric geometry.
 
+## Generic circle observation (projectile-speed-and-lead-v0)
+
+`deepEyeOracle.circles()` / `snapshot().circles` report generic filled-circle candidates observed via `beginPath()`/`arc()`/`fill()`, independently of Square/Triangle/Pentagon classification. Unlike `shapes()`, a `CircleObservation` carries no class, color contract, ownership, entity ID, or "enemy" field -- only what rendering actually shows: `{ cx, cy, radius, color?, timestamp, source: "canvas2d" }`, in the same canvas-backing coordinate system as `shapes()`. This is a deliberately conservative candidate stream, not a projectile/entity detector: a fill is reported only when its path was EXACTLY one `arc()` call spanning a full circle (not a wedge, ring, or partial arc) and nothing else (no mixed `moveTo`/`lineTo`/`rect`), and only when the canvas transform in effect is a similarity (uniform scale + rotation, no shear) -- a non-uniform transform would turn a true circle into an ellipse on screen, and rather than invent a radius for that case, such a fill is rejected outright (see `oracle.js`'s "Circle observation" section, `transformScaleInfo`/`classifyCircleFill`). `circles()` never establishes `snapshot.canvas` provenance (see "Canvas provenance" above) -- only an accepted neutral shape does that.
+
+Unlike `shapeCache` (one slot per roughly-stationary shape, deduped by rounded position+color), the circle cache keeps every accepted observation individually, each aging out independently after the same ~250ms `CACHE_WINDOW_MS` window `shapes()` uses -- so a moving circle (e.g. a projectile) naturally leaves several recent, distinct samples for a downstream consumer to correlate into a track, rather than collapsing to one "current position."
+
+`diagnostics().circleCache` (`acceptedTotal`, `rejectedTotal`, `currentlyCached`, `prunedTotal`) mirrors `diagnostics().cache`'s role for `shapes()` -- use it to tell "no circles because nothing circular is currently rendered" apart from "circles are being rejected" (e.g. `rejectedTotal` climbing means fills ARE reaching `arc()`-based rendering but are failing the full-circle/single-arc/similarity-transform contract above).
+
 ## Bridge: forwarding Oracle snapshots to the agent process
 
 `extension/background/bridge.js` is a Manifest V3 background service worker (the only file in this extension permitted to touch the network or hold a background lifecycle). At a fixed ~10Hz interval it pulls `window.deepEyeOracle.snapshot()` out of the active diep.io tab's MAIN world via `chrome.scripting.executeScript` (bypassing page CSP, since a MAIN-world *page* script speaking to the network would be subject to diep.io's own Content-Security-Policy) and forwards it as one small JSON message, `{type: "oracle_snapshot", tabId, polledAtMs, snapshot}`, over a plain `WebSocket` to `ws://127.0.0.1:8765/` -- a local `deep.eye.oh` agent process (see that repository's `browser_bridge` module) is expected to be listening there. There is no inbound command channel: the bridge never reads anything back off that socket, so nothing on the other end can make the extension (or the game) do anything. This is a thin, purpose-specific export, not a general message broker -- see `tests/bridge.test.js` for what is unit tested (message shape, reconnect backoff, tab selection) versus the live smoke procedure below (the actual `chrome.tabs`/`chrome.scripting`/`WebSocket` glue).
@@ -220,6 +229,7 @@ Manual DevTools access remains available in the page context when deeper inspect
 deepEyeOracle.isReady()
 deepEyeOracle.snapshot()
 deepEyeOracle.shapes()
+deepEyeOracle.circles()
 deepEyeOracle.diagnostics()
 JSON.stringify(deepEyeOracle.diagnostics())
 ```
