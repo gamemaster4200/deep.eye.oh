@@ -6,6 +6,7 @@ import math
 
 from deep_eye_oh.browser_game_state import BrowserCircle
 from deep_eye_oh.projectile_tracking import (
+    MIN_PLAUSIBLE_PROJECTILE_SPEED_PX_S,
     MUZZLE_RADIUS_PX,
     OwnProjectileTracker,
     ProjectileSpeedEstimator,
@@ -169,6 +170,31 @@ def test_claimed_positions_reflects_most_recent_update_only():
 
     tracker.update([], now_ms=100.0, self_position=SELF, aim_direction=AIM_RIGHT, shoot_active=False)
     assert tracker.claimed_positions == frozenset()
+
+
+def test_implausibly_slow_match_does_not_emit_a_speed_sample():
+    # Live-smoke regression: a nearby, modestly-moving entity (e.g.
+    # another tank in melee range) can satisfy the muzzle/aim-alignment
+    # seed criteria too. Its slow observed speed must never reach the
+    # estimator -- it corrupted bullet_speed_confidence to 0.00 in the
+    # live run by mixing with genuine fast samples.
+    tracker = OwnProjectileTracker()
+    tracker.update([_circle(SELF[0] + 20, SELF[1], 0.0)], now_ms=0.0, self_position=SELF, aim_direction=AIM_RIGHT, shoot_active=True)
+    # Only 5px over 50ms = 100 px/s -- well under the plausibility floor.
+    samples = tracker.update([_circle(SELF[0] + 25, SELF[1], 50.0)], now_ms=50.0, self_position=SELF, aim_direction=AIM_RIGHT, shoot_active=True)
+    assert samples == []
+
+
+def test_speed_exactly_at_the_plausibility_floor_is_accepted():
+    tracker = OwnProjectileTracker()
+    tracker.update([_circle(SELF[0] + 1.0, SELF[1], 0.0)], now_ms=0.0, self_position=SELF, aim_direction=AIM_RIGHT, shoot_active=True)
+    displacement = MIN_PLAUSIBLE_PROJECTILE_SPEED_PX_S * 0.05  # exactly the floor over 50ms
+    samples = tracker.update(
+        [_circle(SELF[0] + 1.0 + displacement, SELF[1], 50.0)], now_ms=50.0,
+        self_position=SELF, aim_direction=AIM_RIGHT, shoot_active=True,
+    )
+    assert len(samples) == 1
+    assert math.isclose(samples[0].speed_px_s, MIN_PLAUSIBLE_PROJECTILE_SPEED_PX_S, rel_tol=1e-6)
 
 
 def test_no_track_seeded_when_self_position_or_aim_unknown():

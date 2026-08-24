@@ -79,6 +79,24 @@ MAX_TRACK_HISTORY = 8
 
 MAX_TRACK_COUNT = 8  # bounds total memory; diep.io fire rate makes this generous
 
+# Third live-smoke finding: MUZZLE_RADIUS_PX + aim-alignment alone is not
+# bullet-specific enough -- any nearby, modestly-moving entity (another
+# tank in melee range, roughly in the direction being fought) can satisfy
+# both and get seeded as a track too. Live evidence showed exactly this: a
+# single ProjectileSpeedEstimator window mixing genuine ~260-470 px/s
+# samples with implausibly slow ~9-180 px/s ones, driving
+# bullet_speed_confidence to 0.00 every time (dispersion far exceeds
+# MAX_ACCEPTABLE_RELATIVE_DISPERSION) despite a full 20-sample window. A
+# projectile is categorically faster than any tank's movement speed, so a
+# conservative floor on the OBSERVED per-step speed -- not a claim about
+# what bullet speed IS, just a sanity bound below which something is
+# definitely not a projectile -- is the right discriminator, applied
+# before a sample ever reaches the estimator (rather than trying to
+# untangle a bimodal mixture statistically downstream). v0 heuristic set
+# from this live evidence's clear gap between the two clusters; refine
+# further if live evidence warrants.
+MIN_PLAUSIBLE_PROJECTILE_SPEED_PX_S = 200.0
+
 
 @dataclass(frozen=True)
 class ProjectileSpeedSample:
@@ -258,7 +276,11 @@ class OwnProjectileTracker:
             if not (dt_ms > 0):
                 continue
             speed_px_s = _distance((x0, y0), (x1, y1)) / (dt_ms / 1000.0)
-            if math.isfinite(speed_px_s) and speed_px_s > 0:
+            # See MIN_PLAUSIBLE_PROJECTILE_SPEED_PX_S's module comment:
+            # an implausibly slow "projectile" is almost certainly a
+            # nearby tank, not a bullet -- drop the observation rather
+            # than let it corrupt the speed estimator's dispersion.
+            if math.isfinite(speed_px_s) and speed_px_s >= MIN_PLAUSIBLE_PROJECTILE_SPEED_PX_S:
                 samples.append(ProjectileSpeedSample(speed_px_s=speed_px_s, measured_at_ms=track.timestamps_ms[-1]))
 
         return samples
