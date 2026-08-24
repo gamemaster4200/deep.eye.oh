@@ -5,12 +5,20 @@ physical-screen-pixel coordinate transform."""
 import pytest
 
 from deep_eye_oh.browser_game_state import (
+    BrowserCircle,
     BrowserGameState,
     CanvasInfo,
     InvalidSnapshotError,
     compute_screen_transform,
+    merge_colocated_circles,
     parse_bridge_message,
 )
+
+
+def _valid_circle(**overrides):
+    circle = {"cx": 400.0, "cy": 300.0, "radius": 4.0, "color": "#ffffff", "timestamp": 4205.0}
+    circle.update(overrides)
+    return circle
 
 
 def _valid_message(**overrides):
@@ -62,6 +70,7 @@ def test_parses_valid_message():
     assert state.polled_at_ms == 1000.0
     assert state.performance_now_ms == 4242.5
     assert state.received_at == 123.0
+    assert state.circles == (), "a message with no snapshot.circles key at all must parse with an empty tuple"
 
 
 def test_parses_message_with_no_shapes():
@@ -69,6 +78,68 @@ def test_parses_message_with_no_shapes():
     message["snapshot"]["shapes"] = []
     state = parse_bridge_message(message, received_at=1.0)
     assert state.shapes == ()
+
+
+# ---------------------------------------------------------------------------
+# parse_bridge_message: circles (additive, backward-compatible field)
+# ---------------------------------------------------------------------------
+
+
+def test_parses_message_with_circles():
+    message = _valid_message()
+    message["snapshot"]["circles"] = [_valid_circle(), _valid_circle(cx=1.0, cy=2.0, color=None)]
+    state = parse_bridge_message(message, received_at=1.0)
+    assert len(state.circles) == 2
+    assert state.circles[0].cx == 400.0
+    assert state.circles[0].cy == 300.0
+    assert state.circles[0].radius == 4.0
+    assert state.circles[0].color == "#ffffff"
+    assert state.circles[0].timestamp_ms == 4205.0
+    assert state.circles[1].color is None, "color must be optional"
+
+
+def test_parses_message_without_circles_key_as_empty_tuple():
+    # An older Oracle build (no circles() capability) omits this field
+    # entirely -- that is "no circles observed", not malformed.
+    message = _valid_message()
+    assert "circles" not in message["snapshot"]
+    state = parse_bridge_message(message, received_at=1.0)
+    assert state.circles == ()
+
+
+def test_parses_message_with_empty_circles_list():
+    message = _valid_message()
+    message["snapshot"]["circles"] = []
+    state = parse_bridge_message(message, received_at=1.0)
+    assert state.circles == ()
+
+
+def test_rejects_circles_not_a_list():
+    message = _valid_message()
+    message["snapshot"]["circles"] = {"not": "a list"}
+    with pytest.raises(InvalidSnapshotError):
+        parse_bridge_message(message, received_at=1.0)
+
+
+@pytest.mark.parametrize(
+    "bad_circle",
+    [
+        {"cy": 0, "radius": 1, "timestamp": 0},  # missing cx
+        {"cx": 0, "cy": 0, "timestamp": 0},  # missing radius
+        {"cx": "nan", "cy": 0, "radius": 1, "timestamp": 0},  # non-numeric cx
+        {"cx": 0, "cy": 0, "radius": 1, "timestamp": True},  # bool is not a number
+        {"cx": 0, "cy": 0, "radius": 1, "timestamp": 0, "color": 123},  # non-string color
+        "not an object",
+    ],
+    ids=["missing_cx", "missing_radius", "non_numeric_cx", "bool_timestamp", "non_string_color", "non_object_circle"],
+)
+def test_rejects_one_malformed_circle_by_rejecting_the_whole_message(bad_circle):
+    # Same fail-closed contract as shapes: one bad circle rejects the WHOLE
+    # snapshot, not just that entry.
+    message = _valid_message()
+    message["snapshot"]["circles"] = [_valid_circle(), bad_circle]
+    with pytest.raises(InvalidSnapshotError):
+        parse_bridge_message(message, received_at=1.0)
 
 
 def test_parses_message_without_canvas():
@@ -222,3 +293,66 @@ def test_transform_none_for_degenerate_client_rect(client_rect):
 def test_transform_none_for_degenerate_canvas():
     assert compute_screen_transform(_canvas(width=0), client_rect=(0, 0, 1600, 900)) is None
     assert compute_screen_transform(_canvas(rect_width=0), client_rect=(0, 0, 1600, 900)) is None
+
+
+# ---------------------------------------------------------------------------
+# merge_colocated_circles (projectile-speed-and-lead-v0 live-smoke fix): a
+# border+fill render pair at the same position/timestamp must collapse to
+# one circle -- see this function's module comment for the live evidence.
+# ---------------------------------------------------------------------------
+
+
+def _circle(cx, cy, radius, timestamp_ms=100.0, color=None):
+    return BrowserCircle(cx=cx, cy=cy, radius=radius, color=color, timestamp_ms=timestamp_ms)
+
+
+def test_merge_collapses_a_colocated_border_fill_pair_to_the_larger_radius():
+    border = _circle(865.209, 402.618, radius=10.54, timestamp_ms=721297.8, color="#0085a8")
+    fill = _circle(865.209, 402.618, radius=7.66, timestamp_ms=721297.8, color="#00b2e1")
+    merged = merge_colocated_circles((border, fill))
+    assert len(merged) == 1
+    assert merged[0].radius == 10.54
+    assert merged[0].cx == 865.209
+    assert merged[0].cy == 402.618
+
+
+def test_merge_leaves_distinct_positions_unmerged():
+    a = _circle(100.0, 100.0, radius=5.0)
+    b = _circle(500.0, 500.0, radius=5.0)
+    merged = merge_colocated_circles((a, b))
+    assert len(merged) == 2
+    assert set(merged) == {a, b}
+
+
+def test_merge_does_not_merge_same_position_different_timestamp():
+    # A genuinely stationary circle observed on two different frames must
+    # NOT be collapsed -- only a same-instant render pair should be.
+    t1 = _circle(100.0, 100.0, radius=5.0, timestamp_ms=100.0)
+    t2 = _circle(100.0, 100.0, radius=5.0, timestamp_ms=150.0)
+    merged = merge_colocated_circles((t1, t2))
+    assert len(merged) == 2
+
+
+def test_merge_handles_three_or_more_colocated_circles():
+    a = _circle(0.0, 0.0, radius=5.0)
+    b = _circle(0.0, 0.0, radius=9.0)
+    c = _circle(0.0, 0.0, radius=3.0)
+    merged = merge_colocated_circles((a, b, c))
+    assert len(merged) == 1
+    assert merged[0].radius == 9.0
+
+
+def test_merge_within_sub_pixel_epsilon_still_collapses():
+    a = _circle(100.0, 100.0, radius=10.0)
+    b = _circle(100.05, 100.05, radius=6.0)  # sub-pixel float noise, same entity
+    merged = merge_colocated_circles((a, b))
+    assert len(merged) == 1
+
+
+def test_merge_empty_input():
+    assert merge_colocated_circles(()) == ()
+
+
+def test_merge_single_circle_unchanged():
+    a = _circle(1.0, 2.0, radius=3.0)
+    assert merge_colocated_circles((a,)) == (a,)

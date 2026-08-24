@@ -80,3 +80,36 @@ GameState -> Policy`) is untouched by this branch. All autonomous input
 still goes exclusively through the existing `Controller` (`control.py`)
 and its focus/emergency-stop safety gates -- this branch changes only
 what feeds the policy, never how input is sent.
+
+## projectile-speed-and-lead-v0: own-projectile speed + target lead
+
+Built on browser-informed-farming-v0's `BrowserGameState`, now also
+carrying `circles` (generic filled-circle observations from
+`deep.eye.oh.ext`'s `oracle.js circles()` -- see that repo's
+`feat/generic-circle-observation-v0`). Renderer ownership of a circle is
+never assumed: `projectile_tracking.OwnProjectileTracker` infers likely
+own projectiles purely by correlating circle observations against things
+this process already knows (self position, current commanded aim
+direction, whether we are currently shooting), never from anything the
+Oracle claims about ownership.
+
+`projectile_tracking.ProjectileSpeedEstimator` maintains an ADAPTIVE
+`ProjectileSpeedEstimate` (robust central estimate + regime-shift
+detection) from those correlated samples. There is deliberately no
+`DIEP_BULLET_SPEED` constant anywhere in this codebase and never should
+be: Bullet Speed upgrades change effective projectile speed mid-session,
+so the estimator must track the CURRENT observed speed, not a
+class/build lookup.
+
+`target_tracking.TargetTracker` is a minimal single-target motion
+tracker (one-to-one nearest-neighbor association, real observed
+timestamps) feeding `intercept.solve_intercept` (a pure geometry module
+with no dependency on Oracle/Controller/this project at all) via
+`browser_policy.compute_lead()`. Lead is a minimal aim-point OVERRIDE
+used only when target freshness/confidence and speed-estimate confidence
+both clear a bar and the solver finds a valid positive-time intercept;
+otherwise farming's existing shape-targeting behavior is unchanged --
+lead never substitutes a guessed or stale aim point.
+
+Safety-relevant behavior (`Controller`, focus/emergency-stop gates,
+Oracle canvas provenance) is unchanged by this slice.
