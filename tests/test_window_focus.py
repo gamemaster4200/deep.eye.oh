@@ -1,7 +1,16 @@
 """Exercises window_focus.py with win32gui/win32process monkeypatched --
-no real window/cursor state is ever touched."""
+no real window/cursor state is ever touched. arm_process_window() is the
+one exception: it is exercised against a real spawned process/window on
+this machine's real desktop, since its whole job is coordinating with
+actual Win32 foreground-window semantics that a mock cannot meaningfully
+stand in for."""
 
+import os
+import subprocess
+import sys
 import time
+
+import pytest
 
 from deep_eye_oh import window_focus as wf
 
@@ -139,6 +148,66 @@ def test_target_still_exists(monkeypatch):
     assert wf.target_still_exists(target) is True
     monkeypatch.setattr(wf.win32gui, "IsWindow", lambda h: False)
     assert wf.target_still_exists(target) is False
+
+
+# ---------------------------------------------------------------------------
+# arm_process_window: real spawned process/window on this real desktop
+# ---------------------------------------------------------------------------
+
+
+# A plain tkinter Toplevel, not a prebuilt OS app (e.g. modern Windows
+# Notepad, which is an MSIX-packaged app whose notepad.exe is only a
+# launcher stub -- the actual visible window ends up owned by a *different*
+# pid than the one we spawn). This matches Chrome for Testing's own real
+# process shape far more faithfully: a plain, non-packaged win32 process
+# that owns its own top-level window directly.
+_TK_WINDOW_SCRIPT = (
+    "import tkinter\n"
+    "root = tkinter.Tk()\n"
+    "root.title('deep-eye-oh test window')\n"
+    "root.geometry('200x100')\n"
+    "root.mainloop()\n"
+)
+
+
+@pytest.fixture
+def spawned_window():
+    # sys.executable, not sys._base_executable: modern Windows venvs (this
+    # project's own included) make Scripts\python.exe a small redirecting
+    # launcher that execs the real base interpreter as a *child* process --
+    # spawning through it would give us the launcher's pid while the
+    # window ends up owned by a different, child pid, which is a venv
+    # tooling artifact, not something real Chrome for Testing does (its
+    # root process owns its own window directly). Use the real interpreter
+    # so this test's pid/window ownership matches what arm_process_window
+    # actually needs to handle in production.
+    base_python = getattr(sys, "_base_executable", sys.executable)
+    proc = subprocess.Popen([base_python, "-c", _TK_WINDOW_SCRIPT])
+    try:
+        yield proc
+    finally:
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+
+
+def test_arm_process_window_finds_and_foregrounds_spawned_window(spawned_window):
+    target = wf.arm_process_window(spawned_window.pid, timeout_s=10.0)
+
+    assert target.pid == spawned_window.pid
+    assert wf.win32gui.IsWindow(target.hwnd)
+    assert wf.win32gui.GetForegroundWindow() == target.hwnd
+    assert target.title_at_arm  # non-empty
+
+
+def test_arm_process_window_raises_when_no_window_appears():
+    # The current test-runner process itself owns no top-level GUI window,
+    # so this must time out quickly rather than hang or silently arm the
+    # wrong window.
+    with pytest.raises(RuntimeError, match="no top-level window appeared"):
+        wf.arm_process_window(os.getpid(), timeout_s=0.3, poll_interval_s=0.05)
 
 
 def _wait_for(predicate, timeout=2.0, interval=0.01):

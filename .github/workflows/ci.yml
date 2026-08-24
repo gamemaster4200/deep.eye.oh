@@ -23,9 +23,16 @@ jobs:
       - name: Install project (with dev extras)
         # WITH_EXTENSION=0: use mwparserfromhell's pure-Python tokenizer so
         # this doesn't depend on MSVC build tools being present on the runner.
-        run: pip install -e ".[dev,wiki,knowledge,browser]"
+        run: pip install -e ".[dev,wiki,knowledge]"
         env:
           WITH_EXTENSION: "0"
 
       - name: Run pytest
         run: pytest -v
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Validate the Browser Oracle extension
+        run: pwsh -File deep_eye_oh_ext/scripts/validate.ps1

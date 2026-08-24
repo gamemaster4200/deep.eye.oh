@@ -26,11 +26,12 @@ from __future__ import annotations
 
 import logging
 import math
+import subprocess
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from deep_eye_oh import window_focus
+from deep_eye_oh import browser_runtime, paths, window_focus
 from deep_eye_oh.browser_bridge import DEFAULT_PORT, BrowserBridgeServer
 from deep_eye_oh.browser_game_state import (
     BrowserCircle,
@@ -69,6 +70,28 @@ LEAD_DIAGNOSTICS_PRINT_EVERY_N_TICKS = 40  # ~2s at the default 20Hz tick rate -
 # second unproven magic number; both describe the same muzzle-adjacent
 # zone around self.
 SELF_EXCLUSION_RADIUS_PX = MUZZLE_RADIUS_PX
+
+# Startup readiness timeouts -- all of these fail *before* Controller is
+# armed (see run_farming_loop), so a timeout here means clean process
+# teardown, never a release_all() of input that was never armed.
+READY_CONNECT_TIMEOUT_S = 10.0
+READY_TELEMETRY_TIMEOUT_S = 15.0
+WINDOW_ARM_TIMEOUT_S = 15.0
+
+
+class BrowserFarmStartupError(RuntimeError):
+    """The managed browser/extension/bridge path did not become ready
+    during startup. Controller is guaranteed to still be disarmed whenever
+    this is raised."""
+
+
+def _wait_for(predicate, timeout_s: float, poll_interval_s: float = 0.1) -> bool:
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        if predicate():
+            return True
+        time.sleep(poll_interval_s)
+    return predicate()
 
 
 @dataclass(frozen=True)
@@ -275,37 +298,72 @@ def run_farming_loop(
     stale_after_s: float = STALE_AFTER_S,
     tick_interval_s: float = TICK_INTERVAL_S,
     max_ticks: int | None = None,
+    ready_connect_timeout_s: float = READY_CONNECT_TIMEOUT_S,
+    ready_telemetry_timeout_s: float = READY_TELEMETRY_TIMEOUT_S,
+    window_arm_timeout_s: float = WINDOW_ARM_TIMEOUT_S,
 ) -> None:
-    """Arms Controller on the current foreground window (the operator must
-    have the diep.io browser tab focused before calling this), then
-    repeatedly: reads the latest browser telemetry, fails closed if it is
-    missing/stale/uncalibratable, otherwise picks a target via
-    BrowserPolicy (optionally lead-overridden -- see module docstring) and
-    applies it through Controller. Runs until max_ticks (None = forever /
-    until Ctrl+C / until Controller trips)."""
-    target = window_focus.arm_foreground_window()
-    controller = Controller(panic_key=panic_key)
+    """Self-contained startup: resolves/downloads the pinned Chrome for
+    Testing build, resolves the bundled extension, launches Chrome with a
+    dedicated profile and the extension loaded, and waits for the
+    extension to connect to the bridge and produce real telemetry --
+    Controller is not armed until all of that is proven working, so
+    "browser failed to launch"/"extension failed to load"/"bridge never
+    connected"/"no telemetry" all fail with input never having been armed.
+    Only once that startup path succeeds does this behave like the
+    original farming loop: read the latest browser telemetry each tick,
+    fail closed if it is missing/stale/uncalibratable, otherwise pick a
+    target via BrowserPolicy (optionally lead-overridden -- see module
+    docstring) and apply it through Controller. Runs until max_ticks (None
+    = forever / until Ctrl+C / until Controller trips)."""
     bridge = BrowserBridgeServer(port=port)
-    policy = BrowserPolicy()
     own_projectile_tracker = OwnProjectileTracker()
     speed_estimator = ProjectileSpeedEstimator()
     target_tracker = TargetTracker()
-
-    bridge.start()
-    held = _HeldInputs()
-    # last_aim_point/last_shoot_active feed OwnProjectileTracker's NEXT
-    # tick (see _aim_direction below) -- last_shoot_active is taken from
-    # `held` (what Controller actually still holds after _apply_action,
-    # e.g. False if the window-boundary check rejected the point and
-    # released everything), so a rare rejected-point tick still correctly
-    # suppresses new-track seeding next tick even though last_aim_point
-    # itself reflects the INTENDED point, not confirmed pixel-for-pixel
-    # delivery.
-    last_aim_point: tuple[float, float] | None = None
-    last_shoot_active = False
+    chrome_process: subprocess.Popen | None = None
+    controller: Controller | None = None
     try:
+        chrome_exe = browser_runtime.find_or_download_chrome()
+        extension_dir = paths.resolve_extension_dir()
+
+        bridge.start()
+        chrome_process = browser_runtime.launch_chrome(chrome_exe, extension_dir)
+        print(
+            f"Launched managed Chrome for Testing (pid={chrome_process.pid}); "
+            f"waiting for the extension to connect on port {port}..."
+        )
+
+        if not _wait_for(bridge.has_connected, ready_connect_timeout_s):
+            raise BrowserFarmStartupError(
+                f"extension never connected to the bridge within "
+                f"{ready_connect_timeout_s:.0f}s -- check that Chrome launched "
+                "with the bundled extension loaded and diep.io is reachable."
+            )
+
+        print("Extension connected; waiting for the first browser telemetry snapshot...")
+        if not _wait_for(lambda: bridge.latest() is not None, ready_telemetry_timeout_s):
+            raise BrowserFarmStartupError(
+                f"extension connected but produced no telemetry within "
+                f"{ready_telemetry_timeout_s:.0f}s -- diep.io may still be "
+                "loading, or the Oracle isn't observing canvas draws yet."
+            )
+
+        target = window_focus.arm_process_window(chrome_process.pid, timeout_s=window_arm_timeout_s)
+
+        controller = Controller(panic_key=panic_key)
+        policy = BrowserPolicy()
+        held = _HeldInputs()
+        # last_aim_point/last_shoot_active feed OwnProjectileTracker's NEXT
+        # tick (see _aim_direction below) -- last_shoot_active is taken from
+        # `held` (what Controller actually still holds after _apply_action,
+        # e.g. False if the window-boundary check rejected the point and
+        # released everything), so a rare rejected-point tick still correctly
+        # suppresses new-track seeding next tick even though last_aim_point
+        # itself reflects the INTENDED point, not confirmed pixel-for-pixel
+        # delivery.
+        last_aim_point: tuple[float, float] | None = None
+        last_shoot_active = False
         controller.arm(target)
-        print(f"Armed on {target.title_at_arm!r}. Waiting for browser telemetry on port {port}...")
+        print(f"Armed on {target.title_at_arm!r}. Farming.")
 
         tick = 0
         while max_ticks is None or tick < max_ticks:
@@ -417,9 +475,12 @@ def run_farming_loop(
 
             time.sleep(tick_interval_s)
     finally:
-        controller.release_all()
+        if controller is not None:
+            controller.release_all()
+            controller.disarm()
         bridge.stop()
-        controller.disarm()
+        if chrome_process is not None:
+            browser_runtime.terminate_chrome(chrome_process)
 
 
 def run_calibration_check(

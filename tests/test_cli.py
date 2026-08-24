@@ -6,8 +6,9 @@ it requires a real screen."""
 import json
 
 import numpy as np
+import pytest
 
-from deep_eye_oh import cli
+from deep_eye_oh import __version__, cli
 from deep_eye_oh.observation import Observation, Viewport
 from deep_eye_oh.replay import ReplayWriter
 
@@ -102,6 +103,27 @@ def test_cli_replay_timing_prints_stats(tmp_path, capsys):
     assert "frames read: 5" in out
     assert "delta t (s):" in out
     assert "implied fps" in out
+
+
+def test_cli_version_prints_and_exits_zero(capsys):
+    with pytest.raises(SystemExit) as exc_info:
+        cli.main(["--version"])
+    assert exc_info.value.code == 0
+    assert capsys.readouterr().out.strip() == f"deep-eye-oh {__version__}"
+
+
+def test_cli_doctor_exits_with_run_doctor_return_code(monkeypatch):
+    import deep_eye_oh.doctor as doctor_mod
+
+    monkeypatch.setattr(doctor_mod, "run_doctor", lambda: 0)
+    with pytest.raises(SystemExit) as exc_info:
+        cli.main(["doctor"])
+    assert exc_info.value.code == 0
+
+    monkeypatch.setattr(doctor_mod, "run_doctor", lambda: 1)
+    with pytest.raises(SystemExit) as exc_info:
+        cli.main(["doctor"])
+    assert exc_info.value.code == 1
 
 
 def test_cli_replay_timing_too_few_frames(tmp_path, capsys):

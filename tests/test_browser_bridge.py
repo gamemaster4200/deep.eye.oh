@@ -43,6 +43,20 @@ def test_latest_is_none_before_any_message(server):
     assert server.age_s() is None
 
 
+def test_has_connected_false_before_any_connection(server):
+    assert server.has_connected() is False
+
+
+def test_has_connected_true_once_connection_accepted_before_any_message(server):
+    # has_connected() must go True as soon as the WebSocket handshake
+    # completes, independent of whether any (valid) message ever arrives --
+    # it's the earlier, cheaper readiness signal browser-farm's startup
+    # orchestration checks before waiting on latest().
+    with _connect(server) as client:
+        _wait_until(lambda: server.has_connected())
+        assert server.latest() is None, "has_connected() must not require a message to have been sent yet"
+
+
 def test_receives_and_parses_a_valid_message(server):
     server.clock["value"] = 10.0
     with _connect(server) as client:

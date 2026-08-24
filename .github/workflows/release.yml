@@ -1,0 +1,76 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: build and publish release
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install project (with dev extras)
+        # Same gate as ci.yml, run again here as a cheap redundant safety
+        # net before cutting a release.
+        run: pip install -e ".[dev,wiki,knowledge]"
+        env:
+          WITH_EXTENSION: "0"
+
+      - name: Run pytest
+        run: pytest -v
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Validate the Browser Oracle extension
+        run: pwsh -File deep_eye_oh_ext/scripts/validate.ps1
+
+      - name: Check that pyproject/manifest/tag versions agree
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $tagVersion = $tag -replace '^v', ''
+
+          $pyproject = Get-Content -Raw pyproject.toml
+          if ($pyproject -notmatch 'version\s*=\s*"([^"]+)"') {
+              throw "could not find [project] version in pyproject.toml"
+          }
+          $pyprojectVersion = $Matches[1]
+
+          $manifest = Get-Content -Raw deep_eye_oh_ext/extension/manifest.json | ConvertFrom-Json
+          $manifestVersion = $manifest.version
+
+          if ($pyprojectVersion -ne $tagVersion) {
+              throw "pyproject.toml version ($pyprojectVersion) does not match tag $tag"
+          }
+          if ($manifestVersion -ne $tagVersion) {
+              throw "extension manifest.json version ($manifestVersion) does not match tag $tag"
+          }
+          Write-Host "versions agree: tag=$tag pyproject=$pyprojectVersion manifest=$manifestVersion"
+
+      - name: Install uv
+        run: powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+      - name: Build wheel
+        shell: pwsh
+        run: |
+          $env:Path = "$env:USERPROFILE\.local\bin;$env:Path"
+          uv build --wheel
+
+      - name: Create GitHub release
+        shell: pwsh
+        run: |
+          gh release create "${{ github.ref_name }}" dist/*.whl packaging/install.ps1 --repo "${{ github.repository }}" --generate-notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
