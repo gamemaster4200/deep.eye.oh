@@ -87,6 +87,47 @@ def test_unrelated_circle_elsewhere_does_not_corrupt_track():
     assert math.isclose(samples[0].speed_px_s, 700.0, rel_tol=1e-6)
 
 
+def test_multiple_recent_frame_echoes_of_the_same_entity_resolve_to_the_freshest():
+    # Live-smoke regression: the Oracle's circle cache commonly delivers
+    # SEVERAL recent-frame echoes of the SAME physical entity within one
+    # tick's circle list (consecutive bridge polls ~100ms apart against a
+    # ~250ms cache window overlap). These are NOT competing hypotheses --
+    # naively rejecting them as ambiguous meant no track ever survived
+    # past its first observation in the live run. Different timestamps,
+    # close together spatially: resolve to the freshest, not ambiguous.
+    tracker = OwnProjectileTracker()
+    tracker.update([_circle(SELF[0] + 20, SELF[1], 0.0)], now_ms=0.0, self_position=SELF, aim_direction=AIM_RIGHT, shoot_active=True)
+
+    # Three echoes of the same moving projectile, each from a slightly
+    # different recent frame (different timestamps), a couple pixels
+    # apart -- exactly the live-observed pattern.
+    step2 = [
+        _circle(SELF[0] + 33, SELF[1], 40.0),
+        _circle(SELF[0] + 35, SELF[1], 45.0),
+        _circle(SELF[0] + 37, SELF[1], 50.0),  # freshest
+    ]
+    samples = tracker.update(step2, now_ms=50.0, self_position=SELF, aim_direction=AIM_RIGHT, shoot_active=True)
+    assert len(samples) == 1, "echoes of one entity must resolve to a match, not be rejected as ambiguous"
+    # Matched against the FRESHEST echo (37px away, t=50.0): 17px over 50ms.
+    assert math.isclose(samples[0].speed_px_s, 340.0, rel_tol=1e-6)
+    assert samples[0].measured_at_ms == 50.0
+
+
+def test_two_candidates_at_the_exact_same_timestamp_are_still_ambiguous():
+    # Two comparably-close candidates at the SAME instant are a genuine
+    # simultaneous ambiguity (two different real objects), not an echo of
+    # one entity -- must still be rejected, not arbitrarily resolved.
+    tracker = OwnProjectileTracker()
+    tracker.update([_circle(SELF[0] + 20, SELF[1], 0.0)], now_ms=0.0, self_position=SELF, aim_direction=AIM_RIGHT, shoot_active=True)
+
+    step2 = [
+        _circle(SELF[0] + 25, SELF[1] + 3, 50.0),
+        _circle(SELF[0] + 25, SELF[1] - 3, 50.0),
+    ]
+    samples = tracker.update(step2, now_ms=50.0, self_position=SELF, aim_direction=AIM_RIGHT, shoot_active=True)
+    assert samples == []
+
+
 def test_ambiguous_match_drops_confidence_rather_than_guessing():
     tracker = OwnProjectileTracker()
     step1 = [_circle(SELF[0] + 20, SELF[1], 0.0)]

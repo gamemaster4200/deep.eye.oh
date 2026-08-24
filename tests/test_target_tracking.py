@@ -68,6 +68,36 @@ def test_ambiguous_association_does_not_guess():
     assert result is None
 
 
+def test_multiple_recent_frame_echoes_of_the_same_entity_resolve_to_the_freshest():
+    # Live-smoke regression: the Oracle's circle cache commonly delivers
+    # SEVERAL recent-frame echoes of the SAME physical entity within one
+    # tick's candidate list (consecutive bridge polls ~100ms apart against
+    # a ~250ms cache window overlap). These are NOT competing hypotheses
+    # -- naively rejecting them as ambiguous meant no target was ever
+    # confirmed in the live run. Different timestamps, close together
+    # spatially: resolve to the freshest, not ambiguous.
+    tracker = TargetTracker()
+    tracker.update([_c(0.0, 0.0, 0.0)], now_ms=0.0)
+
+    result = tracker.update(
+        [_c(13.0, 0.0, 40.0), _c(15.0, 0.0, 45.0), _c(17.0, 0.0, 50.0)],  # freshest last
+        now_ms=50.0,
+    )
+    assert result is not None, "echoes of one entity must resolve to a match, not be rejected as ambiguous"
+    assert result.cx == 17.0  # matched against the freshest echo
+    assert math.isclose(result.vx, 340.0, rel_tol=1e-6)  # 17px / 50ms
+
+
+def test_two_candidates_at_the_exact_same_timestamp_are_still_ambiguous():
+    # Two comparably-close candidates at the SAME instant are a genuine
+    # simultaneous ambiguity (two different real objects), not an echo of
+    # one entity -- must still be rejected, not arbitrarily resolved.
+    tracker = TargetTracker()
+    tracker.update([_c(0.0, 0.0, 0.0)], now_ms=0.0)
+    result = tracker.update([_c(30.0, 5.0, 50.0), _c(30.0, -5.0, 50.0)], now_ms=50.0)
+    assert result is None
+
+
 def test_implausible_jump_is_rejected_as_a_candidate():
     tracker = TargetTracker(max_jump_px=100.0)
     tracker.update([_c(0.0, 0.0, 0.0)], now_ms=0.0)

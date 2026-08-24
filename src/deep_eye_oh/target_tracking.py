@@ -131,27 +131,56 @@ class TargetTracker:
         )
 
     def _best_match(self, candidates: Sequence[TargetCandidate]) -> TargetCandidate | None:
+        """Nearest candidate to the tracked target's last known position,
+        within max_jump_px -- or None.
+
+        Live evidence (projectile-speed-and-lead-v0's live smoke) showed
+        the Oracle's circle cache commonly delivers SEVERAL recent-frame
+        echoes of the SAME physical entity within one tick's candidate
+        list (consecutive bridge polls ~100ms apart against a ~250ms
+        cache window overlap substantially). Naively rejecting any two
+        comparably-close candidates as "ambiguous" meant a real target
+        was rejected almost every tick, and no track ever survived past
+        its first sighting. The distinguishing signal: genuinely
+        competing candidates (two different entities that happen to be
+        near each other) are NOT close to EACH OTHER, only individually
+        close to the tracked position -- multiple echoes of one entity
+        ARE close to each other too. Among candidates comparably close to
+        the current best (within ASSOCIATION_AMBIGUITY_MARGIN_PX of its
+        distance), one that is ALSO within that margin of the current
+        best's OWN position is treated as another echo of the same
+        entity (prefer whichever is fresher by timestamp, never
+        ambiguous); one that is comparably close but NOT close to the
+        current best's position is a genuinely distinct, competing
+        hypothesis -- fail closed there, do not guess.
+        """
         assert self._last is not None
-        best: TargetCandidate | None = None
-        best_distance: float | None = None
-        second_best_distance: float | None = None
+        candidates_with_distance = []
         for candidate in candidates:
             distance = _distance(candidate.cx, candidate.cy, self._last.cx, self._last.cy)
-            if distance > self._max_jump_px:
-                continue  # implausible jump -- not a plausible continuation
-            if best_distance is None or distance < best_distance:
-                second_best_distance = best_distance
-                best_distance = distance
-                best = candidate
-            elif second_best_distance is None or distance < second_best_distance:
-                second_best_distance = distance
-        if best is None:
+            if distance <= self._max_jump_px:
+                candidates_with_distance.append((candidate, distance))
+        if not candidates_with_distance:
             return None
-        if (
-            second_best_distance is not None
-            and (second_best_distance - best_distance) < ASSOCIATION_AMBIGUITY_MARGIN_PX
-        ):
-            return None  # ambiguous -- do not guess which candidate continues the track
+
+        candidates_with_distance.sort(key=lambda item: item[1])
+        best, best_distance = candidates_with_distance[0]
+        for candidate, distance in candidates_with_distance[1:]:
+            if distance - best_distance >= ASSOCIATION_AMBIGUITY_MARGIN_PX:
+                break  # sorted by distance -- everything after this is even farther
+            if (
+                candidate.timestamp_ms != best.timestamp_ms
+                and _distance(candidate.cx, candidate.cy, best.cx, best.cy) <= ASSOCIATION_AMBIGUITY_MARGIN_PX
+            ):
+                # A different-TIME echo of the same entity, not a
+                # competing one -- prefer whichever is more recent. Same
+                # timestamp = a genuine simultaneous ambiguity, falls
+                # through to the reject below.
+                if candidate.timestamp_ms > best.timestamp_ms:
+                    best, best_distance = candidate, distance
+                continue
+            return None  # a genuinely distinct, comparably-plausible candidate -- do not guess
+
         return best
 
     @property

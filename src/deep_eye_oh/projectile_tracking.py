@@ -121,31 +121,61 @@ def _best_match(
     claimed: set[int],
 ) -> tuple[int, BrowserCircle] | None:
     """Nearest unclaimed circle to `predicted`, within
-    MAX_ASSOCIATION_JUMP_PX, and unambiguously closer than any other
-    candidate (see ASSOCIATION_AMBIGUITY_MARGIN_PX) -- or None."""
-    best_index: int | None = None
-    best_distance: float | None = None
-    second_best_distance: float | None = None
+    MAX_ASSOCIATION_JUMP_PX -- or None.
+
+    Live evidence (projectile-speed-and-lead-v0's live smoke) showed the
+    Oracle's circle cache commonly delivers SEVERAL recent-frame echoes of
+    the SAME physical entity within one tick's circle list -- consecutive
+    bridge polls only ~100ms apart against a ~250ms cache window overlap
+    substantially, so one moving tank can appear 2-3 times a couple
+    pixels apart, each from a slightly different recent frame, not from
+    two different entities. Naively rejecting any two comparably-close
+    candidates as "ambiguous" (the original design) meant this happened
+    on almost every real tick, and no track ever survived past its first
+    observation. The distinguishing signal is: genuinely competing
+    candidates (two different entities that happen to be near each
+    other) are NOT close to EACH OTHER, only individually close to
+    `predicted` -- multiple echoes of one entity ARE close to each other
+    too. So: among candidates comparably close to the current best (within
+    ASSOCIATION_AMBIGUITY_MARGIN_PX of its distance), one that is ALSO
+    within that margin of the current best's OWN position is treated as
+    another echo of the same entity (pick whichever is fresher by
+    timestamp, never ambiguous); a candidate that is comparably close to
+    `predicted` but NOT close to the current best's position is a
+    genuinely distinct, competing hypothesis -- fail closed there, do not
+    guess which one is real.
+    """
+    candidates = []
     for index, circle in enumerate(circles):
         if index in claimed:
             continue
         distance = _distance(predicted, (circle.cx, circle.cy))
-        if distance > MAX_ASSOCIATION_JUMP_PX:
-            continue
-        if best_distance is None or distance < best_distance:
-            second_best_distance = best_distance
-            best_distance = distance
-            best_index = index
-        elif second_best_distance is None or distance < second_best_distance:
-            second_best_distance = distance
-    if best_index is None:
+        if distance <= MAX_ASSOCIATION_JUMP_PX:
+            candidates.append((index, circle, distance))
+    if not candidates:
         return None
-    if (
-        second_best_distance is not None
-        and (second_best_distance - best_distance) < ASSOCIATION_AMBIGUITY_MARGIN_PX
-    ):
-        return None  # ambiguous -- do not guess which one is the real continuation
-    return best_index, circles[best_index]
+
+    candidates.sort(key=lambda item: item[2])
+    best_index, best_circle, best_distance = candidates[0]
+    for index, circle, distance in candidates[1:]:
+        if distance - best_distance >= ASSOCIATION_AMBIGUITY_MARGIN_PX:
+            break  # sorted by distance -- everything after this is even farther
+        if (
+            circle.timestamp_ms != best_circle.timestamp_ms
+            and _distance((circle.cx, circle.cy), (best_circle.cx, best_circle.cy)) <= ASSOCIATION_AMBIGUITY_MARGIN_PX
+        ):
+            # A different-TIME echo of the same entity (see this
+            # function's docstring), not a competing one -- prefer
+            # whichever observation is more recent. Two candidates at the
+            # exact same timestamp are a genuine simultaneous ambiguity
+            # (two real, distinct objects at that instant), not an echo,
+            # and fall through to the ambiguous-reject below.
+            if circle.timestamp_ms > best_circle.timestamp_ms:
+                best_index, best_circle, best_distance = index, circle, distance
+            continue
+        return None  # a genuinely distinct, comparably-plausible candidate -- do not guess
+
+    return best_index, best_circle
 
 
 class OwnProjectileTracker:
