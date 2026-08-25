@@ -43,8 +43,9 @@ assert.equal(typeof internals, 'object', 'bridge.js must expose __deepEyeBridgeI
 assert.deepEqual(
   Object.keys(internals).sort(),
   [
-    'DEFAULT_BRIDGE_PORT', 'POLL_INTERVAL_MS', 'bridgeUrl', 'buildOutboundMessage',
-    'createBridge', 'nextReconnectDelayMs', 'pickTargetTab',
+    'DEFAULT_BRIDGE_PORT', 'OVERLAY_PORT_NAME', 'POLL_INTERVAL_MS', 'bridgeUrl', 'buildOutboundMessage',
+    'buildOverlayOutboundMessage', 'createBridge', 'nextReconnectDelayMs', 'parseInboundBridgeMessage',
+    'pickTargetTab',
   ],
 );
 
@@ -107,6 +108,74 @@ assert.deepEqual(
 }
 
 // ---------------------------------------------------------------------------
+// buildOverlayOutboundMessage (browser-overlay-control-v0)
+// ---------------------------------------------------------------------------
+
+{
+  const message = plain(internals.buildOverlayOutboundMessage({ type: 'overlay_command', text: 'pause' }, 7, 12345));
+  assert.deepEqual(message, { type: 'overlay_command', tabId: 7, sentAtMs: 12345, text: 'pause' });
+}
+
+{
+  const message = plain(internals.buildOverlayOutboundMessage({ type: 'overlay_focus', focused: true }, 7, 12345));
+  assert.deepEqual(message, { type: 'overlay_focus', tabId: 7, sentAtMs: 12345, focused: true });
+}
+
+{
+  // Anything that isn't exactly one of the two known port-message shapes
+  // must never be forwarded onto the WebSocket -- this is the entire
+  // point of the "narrow, explicit, reviewed exception", not a general
+  // message bus.
+  const cases = [
+    null,
+    undefined,
+    {},
+    { type: 'overlay_command' }, // missing text
+    { type: 'overlay_command', text: 42 }, // wrong type
+    { type: 'overlay_focus' }, // missing focused
+    { type: 'overlay_focus', focused: 'yes' }, // wrong type
+    { type: 'oracle_snapshot', snapshot: {} }, // wrong channel entirely
+    { type: 'shell_command', text: 'rm -rf /' },
+  ];
+  for (const raw of cases) {
+    assert.equal(internals.buildOverlayOutboundMessage(raw, 1, 0), null, `must reject ${JSON.stringify(raw)}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// parseInboundBridgeMessage (browser-overlay-control-v0)
+// ---------------------------------------------------------------------------
+
+{
+  const message = plain(internals.parseInboundBridgeMessage(JSON.stringify({ type: 'bot_status', connected: true })));
+  assert.deepEqual(message, { type: 'bot_status', connected: true });
+}
+
+{
+  const message = plain(internals.parseInboundBridgeMessage(
+    JSON.stringify({ type: 'overlay_command_result', text: 'pause', status: 'ok', message: 'bot paused' }),
+  ));
+  assert.deepEqual(message, { type: 'overlay_command_result', text: 'pause', status: 'ok', message: 'bot paused' });
+}
+
+{
+  const message = plain(internals.parseInboundBridgeMessage(JSON.stringify({ type: 'overlay_key_event', kind: 'char', value: 'w' })));
+  assert.deepEqual(message, { type: 'overlay_key_event', kind: 'char', value: 'w' });
+}
+
+{
+  // Malformed JSON, and any message type other than the three known
+  // overlay-outbound shapes (including the pre-existing one-way
+  // oracle_snapshot channel, which this file never receives back) must
+  // be dropped, never forwarded onto the overlay port.
+  assert.equal(internals.parseInboundBridgeMessage('not valid json{{{'), null);
+  assert.equal(internals.parseInboundBridgeMessage(JSON.stringify({ type: 'oracle_snapshot' })), null);
+  assert.equal(internals.parseInboundBridgeMessage(JSON.stringify({ type: 'unknown_type' })), null);
+  assert.equal(internals.parseInboundBridgeMessage(JSON.stringify(null)), null);
+  assert.equal(internals.parseInboundBridgeMessage(JSON.stringify(42)), null);
+}
+
+// ---------------------------------------------------------------------------
 // bridgeUrl / defaults
 // ---------------------------------------------------------------------------
 
@@ -126,8 +195,13 @@ assert.deepEqual(
   const bridge = internals.createBridge(9999);
   assert.equal(typeof bridge.start, 'function');
   assert.equal(typeof bridge.stop, 'function');
+  assert.equal(typeof bridge.acceptOverlayPort, 'function');
   // stop() before start() must be a safe no-op, not throw.
   assert.doesNotThrow(() => bridge.stop());
 }
 
-console.log('Bridge tests passed: outbound message shape, reconnect backoff, tab selection, and URL construction.');
+{
+  assert.equal(internals.OVERLAY_PORT_NAME, 'deepEyeOverlay');
+}
+
+console.log('Bridge tests passed: outbound message shape, overlay relay, reconnect backoff, tab selection, and URL construction.');
