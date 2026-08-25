@@ -26,7 +26,11 @@ function Assert-ExtensionFile {
 
     Assert-True (-not [string]::IsNullOrWhiteSpace($RelativePath)) 'Manifest contains an empty file reference.'
     $fullPath = [System.IO.Path]::GetFullPath((Join-Path $extensionRoot $RelativePath))
-    $rootPrefix = [System.IO.Path]::GetFullPath($extensionRoot).TrimEnd('\') + '\'
+    # DirectorySeparatorChar (not a hardcoded '\') so this also works under
+    # pwsh on a non-Windows dev machine -- identical behavior on Windows,
+    # where it's still '\'.
+    $sep = [System.IO.Path]::DirectorySeparatorChar
+    $rootPrefix = [System.IO.Path]::GetFullPath($extensionRoot).TrimEnd($sep) + $sep
     Assert-True ($fullPath.StartsWith($rootPrefix, [StringComparison]::OrdinalIgnoreCase)) `
         "Manifest file reference escapes the extension root: $RelativePath"
     Assert-True (Test-Path -LiteralPath $fullPath -PathType Leaf) `
@@ -58,10 +62,11 @@ try {
     $allowedPattern = 'https://diep.io/*'
     $scopes = @()
     $scopes += @($manifest.host_permissions)
+    $allowedWorlds = @('MAIN', 'ISOLATED')
     foreach ($contentScript in @($manifest.content_scripts)) {
         $scopes += @($contentScript.matches)
         $scopes += @($contentScript.exclude_matches)
-        Assert-True ($contentScript.world -eq 'MAIN') 'Every content script must explicitly use world MAIN.'
+        Assert-True ($contentScript.world -in $allowedWorlds) 'Every content script must explicitly use world MAIN or ISOLATED.'
         foreach ($script in @($contentScript.js)) {
             Assert-ExtensionFile $script
         }
@@ -77,11 +82,23 @@ try {
         }
     }
     Assert-True (@($manifest.host_permissions).Count -eq 1) 'Exactly one host permission is expected.'
-    Assert-True (@($manifest.content_scripts).Count -eq 1) 'Exactly one content script declaration is expected.'
-    $mainScripts = @($manifest.content_scripts[0].js)
+    # browser-overlay-control-v0: exactly two content script declarations
+    # are now expected -- the original MAIN-world Oracle (read-only,
+    # page-context, no chrome.* access) and one ISOLATED-world overlay
+    # (chrome.runtime access, never touches window.deepEyeOracle/diepAPI).
+    Assert-True (@($manifest.content_scripts).Count -eq 2) 'Exactly two content script declarations are expected (Oracle + overlay).'
+    $mainContentScripts = @($manifest.content_scripts | Where-Object { $_.world -eq 'MAIN' })
+    $isolatedContentScripts = @($manifest.content_scripts | Where-Object { $_.world -eq 'ISOLATED' })
+    Assert-True ($mainContentScripts.Count -eq 1) 'Exactly one MAIN-world content script is expected.'
+    Assert-True ($isolatedContentScripts.Count -eq 1) 'Exactly one ISOLATED-world content script is expected.'
+    $mainScripts = @($mainContentScripts[0].js)
     Assert-True ($mainScripts.Count -eq 1) 'Exactly one MAIN-world script is expected.'
     Assert-True ($mainScripts[0] -eq 'src/oracle.js') `
-        'The oracle must be the only runtime script; the pinned vendor must not be manifest-loaded.'
+        'The oracle must be the only MAIN-world runtime script; the pinned vendor must not be manifest-loaded.'
+    $isolatedScripts = @($isolatedContentScripts[0].js)
+    Assert-True ($isolatedScripts.Count -eq 1) 'Exactly one ISOLATED-world script is expected.'
+    Assert-True ($isolatedScripts[0] -eq 'src/overlay.js') `
+        'The overlay must be the only ISOLATED-world runtime script.'
     # browser-informed-farming-v0: exactly one background service worker is
     # now expected -- the reviewed Oracle-snapshot-to-localhost bridge, and
     # nothing else (no extra background keys, e.g. no persistent page).
@@ -128,13 +145,16 @@ try {
     Assert-True (([string]$lock.sha256).ToLowerInvariant() -eq $actualSha256) `
         "Vendor lock SHA-256 does not match diepAPI.user.js ($actualSha256)."
 
-    # oracle.js and popup.js are page-context/popup-context observation
-    # code and must never touch the network or send game-control primitives
-    # -- WebSocket included, since either would mean this "read-only"
-    # runtime is quietly doing more than observing.
+    # oracle.js, popup.js, and overlay.js must never touch the network or
+    # send game-control primitives -- WebSocket included, since any of
+    # them doing so would mean this "read-only" runtime is quietly doing
+    # more than observing/rendering UI. overlay.js relays exclusively
+    # through a chrome.runtime.connect port to background/bridge.js (the
+    # one reviewed exception below), never a WebSocket of its own.
     $runtimeSources = @(
         (Join-Path $extensionRoot 'src\oracle.js'),
-        (Join-Path $extensionRoot 'popup\popup.js')
+        (Join-Path $extensionRoot 'popup\popup.js'),
+        (Join-Path $extensionRoot 'src\overlay.js')
     )
     $gameControlPatterns = @(
         '\bspawn\s*\(',
@@ -211,14 +231,17 @@ try {
     if (-not $SkipTests) {
         $node = Get-Command node -ErrorAction SilentlyContinue
         Assert-True ($null -ne $node) 'Node.js is required to run the lightweight JavaScript checks.'
+        $overlayPath = Join-Path $extensionRoot 'src\overlay.js'
         foreach ($script in @(
             $vendorPath,
             (Join-Path $extensionRoot 'src\oracle.js'),
             (Join-Path $extensionRoot 'popup\popup.js'),
             $bridgePath,
+            $overlayPath,
             (Join-Path $repoRoot 'tests\oracle.test.js'),
             (Join-Path $repoRoot 'tests\repository.test.js'),
-            (Join-Path $repoRoot 'tests\bridge.test.js')
+            (Join-Path $repoRoot 'tests\bridge.test.js'),
+            (Join-Path $repoRoot 'tests\overlay.test.js')
         )) {
             & $node.Source --check $script
             Assert-True ($LASTEXITCODE -eq 0) "JavaScript syntax check failed: $script"
@@ -229,6 +252,8 @@ try {
         Assert-True ($LASTEXITCODE -eq 0) 'Repository tests failed.'
         & $node.Source (Join-Path $repoRoot 'tests\bridge.test.js')
         Assert-True ($LASTEXITCODE -eq 0) 'Bridge tests failed.'
+        & $node.Source (Join-Path $repoRoot 'tests\overlay.test.js')
+        Assert-True ($LASTEXITCODE -eq 0) 'Overlay tests failed.'
     }
 
     Write-Host 'Validation passed:'

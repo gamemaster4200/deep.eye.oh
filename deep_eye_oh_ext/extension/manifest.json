@@ -28,6 +28,16 @@
       ],
       "run_at": "document_start",
       "world": "MAIN"
+    },
+    {
+      "matches": [
+        "https://diep.io/*"
+      ],
+      "js": [
+        "src/overlay.js"
+      ],
+      "run_at": "document_idle",
+      "world": "ISOLATED"
     }
   ],
   "content_security_policy": {

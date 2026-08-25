@@ -20,6 +20,16 @@ missing/low-confidence lead simply falls back to it (see run_farming_loop
 below). Circles are merge_colocated_circles()-deduplicated before either
 tracker sees them -- see that function's module comment in
 browser_game_state.py for the live evidence that made this necessary.
+
+browser-overlay-control-v0 adds two more narrow additions, both entirely
+at the edges of the tick loop -- the core decide/apply logic above is
+unchanged: (1) draining bridge.pop_commands() each tick and applying only
+the one real effect v0 supports (pause/resume, via the `paused` flag
+below -- see overlay_command.py's module docstring for why nothing else
+is implemented as real behavior), and (2) a throttled bridge.push_status()
+telemetry push. Removing/disabling the overlay must never change this
+loop's autonomous behavior -- only the presence of pause/resume commands
+depends on it existing at all.
 """
 
 from __future__ import annotations
@@ -42,6 +52,7 @@ from deep_eye_oh.browser_game_state import (
 )
 from deep_eye_oh.browser_policy import BrowserAction, BrowserPolicy, LeadResult, compute_lead, select_target
 from deep_eye_oh.control import Controller, ControlNotSafeError
+from deep_eye_oh.overlay_command import dispatch_command
 from deep_eye_oh.projectile_tracking import (
     MIN_SAMPLES_FOR_ESTIMATE,
     MUZZLE_RADIUS_PX,
@@ -362,6 +373,7 @@ def run_farming_loop(
         # delivery.
         last_aim_point: tuple[float, float] | None = None
         last_shoot_active = False
+        paused = False  # the only real effect overlay_command v0 supports -- see overlay_command.py
         controller.arm(target)
         print(f"Armed on {target.title_at_arm!r}. Farming.")
 
@@ -379,6 +391,21 @@ def run_farming_loop(
             if not controller.armed:
                 print(f"Controller is no longer armed ({_controller_status(controller)}); stopping farming loop.")
                 break
+
+            # Drain and apply any overlay commands queued since last tick.
+            # dispatch_command is pure (no Controller access of its own --
+            # see overlay_command.py) -- pause/resume is applied here, via
+            # the existing `usable and not paused` gate below, which lands
+            # on the SAME _release_all(controller) branch the stale-
+            # telemetry path already uses. No new Controller call is
+            # introduced by this feature.
+            for command in bridge.pop_commands():
+                result = dispatch_command(command)
+                if result.effect == "pause":
+                    paused = True
+                elif result.effect == "resume":
+                    paused = False
+                bridge.send_command_result(command, result)
 
             now = time.monotonic()
             state = bridge.latest()
@@ -437,7 +464,7 @@ def run_farming_loop(
 
             commanded_aim: tuple[float, float] | None = None
             try:
-                if usable:
+                if usable and not paused:
                     action = policy.decide(state, origin)
                     if lead.available:
                         # Lead is a minimal aim-point OVERRIDE only -- never
@@ -454,11 +481,32 @@ def run_farming_loop(
                 logger.warning("Controller refused input (%s); stopping farming loop.", exc)
                 break
 
-            last_aim_point = (action.aim_x, action.aim_y) if usable and action.has_target else None
+            # `action` is only assigned above when `usable and not paused`
+            # (see the try block) -- short-circuit on the SAME condition
+            # here, both to avoid referencing an undefined/stale `action`
+            # from a previous tick, and because a paused tick genuinely
+            # commanded no aim point this time.
+            last_aim_point = (action.aim_x, action.aim_y) if usable and not paused and action.has_target else None
             last_shoot_active = held.shooting
 
             if tick % STATUS_PRINT_EVERY_N_TICKS == 0:
                 print(_format_status(state, age, origin, controller))
+                target_summary = "none"
+                if usable and origin is not None:
+                    nearest = select_target(state, origin)
+                    if nearest is not None:
+                        target_summary = f"{nearest.shape_class}@({nearest.cx:.0f},{nearest.cy:.0f})"
+                bridge.push_status(
+                    {
+                        "connected": state is not None,
+                        "pausedByCommand": paused,
+                        "snapshotAgeS": age,
+                        "target": target_summary,
+                        "held": {"moving": bool(held.move_keys), "shooting": held.shooting},
+                        "bulletSpeedPxS": speed_estimate.speed_px_s if speed_estimate.available else None,
+                        "bulletSpeedConfidence": speed_estimate.confidence if speed_estimate.available else None,
+                    }
+                )
             if tick % LEAD_DIAGNOSTICS_PRINT_EVERY_N_TICKS == 0:
                 print(_format_lead_diagnostics(
                     circles_seen=circles_seen,

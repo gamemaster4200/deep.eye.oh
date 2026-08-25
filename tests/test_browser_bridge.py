@@ -147,3 +147,146 @@ def _wait_until(predicate, timeout=2.0, interval=0.01):
             return
         time.sleep(interval)
     assert predicate(), "condition was not met within timeout"
+
+
+# ---------------------------------------------------------------------------
+# browser-overlay-control-v0: overlay_command / overlay_focus / pushes
+# ---------------------------------------------------------------------------
+
+
+class _FakePhysicalKeyboardCapture:
+    """Stands in for the real Windows global hook (see
+    physical_keyboard_hook.py) so these fast integration tests never touch
+    a real OS hook -- only start()/stop() call-count behavior matters
+    here."""
+
+    def __init__(self):
+        self.start_calls = 0
+        self.stop_calls = 0
+
+    def start(self):
+        self.start_calls += 1
+
+    def stop(self, timeout=None):
+        self.stop_calls += 1
+
+
+@pytest.fixture
+def server_with_fake_hook():
+    clock = {"value": 0.0}
+    fake_hook = _FakePhysicalKeyboardCapture()
+    srv = BrowserBridgeServer(port=0, time_source=lambda: clock["value"], physical_keyboard_capture=fake_hook)
+    srv.start()
+    srv.clock = clock
+    srv.fake_hook = fake_hook
+    try:
+        yield srv
+    finally:
+        srv.stop(timeout=5)
+
+
+def _overlay_command_message(text="pause"):
+    return {"type": "overlay_command", "tabId": 1, "sentAtMs": 5.0, "text": text}
+
+
+def test_overlay_command_is_queued_and_does_not_touch_latest(server):
+    with _connect(server) as client:
+        client.send(json.dumps(_overlay_command_message("mode farm")))
+        time.sleep(0.2)  # give the message a chance to arrive and be queued
+
+    commands = server.pop_commands()
+    assert [c.text for c in commands] == ["mode farm"]
+    assert server.latest() is None, "an overlay_command message must never populate the telemetry slot"
+
+
+def test_pop_commands_drains_in_order_and_empties(server):
+    with _connect(server) as client:
+        client.send(json.dumps(_overlay_command_message("pause")))
+        client.send(json.dumps(_overlay_command_message("resume")))
+        time.sleep(0.2)
+
+    commands = server.pop_commands()
+    assert [c.text for c in commands] == ["pause", "resume"]
+    assert server.pop_commands() == []
+
+
+def test_malformed_overlay_command_is_dropped_not_raised(server):
+    with _connect(server) as client:
+        client.send(json.dumps({"type": "overlay_command", "text": 123}))  # text must be a string
+        client.send(json.dumps(_overlay_command_message("pause")))
+        time.sleep(0.2)
+
+    commands = server.pop_commands()
+    assert [c.text for c in commands] == ["pause"]
+
+
+def test_pushes_are_silent_no_ops_without_an_active_connection(server):
+    from deep_eye_oh.overlay_command import CommandResult, OverlayCommand
+    from deep_eye_oh.physical_keyboard_hook import KeyEvent
+
+    # No connection has ever been made -- these must not raise.
+    server.send_command_result(OverlayCommand(text="pause", received_at=0.0), CommandResult(status="ok", message="bot paused"))
+    server.push_status({"connected": False})
+    server.push_key_event(KeyEvent(kind="char", value="w"))
+
+
+def test_send_command_result_delivers_over_the_active_connection(server):
+    from deep_eye_oh.overlay_command import CommandResult, OverlayCommand
+
+    with _connect(server) as client:
+        client.send(json.dumps(_overlay_command_message("pause")))
+        time.sleep(0.1)
+        server.send_command_result(
+            OverlayCommand(text="pause", received_at=0.0), CommandResult(status="ok", message="bot paused")
+        )
+        received = json.loads(client.recv(timeout=2.0))
+
+    assert received == {"type": "overlay_command_result", "text": "pause", "status": "ok", "message": "bot paused"}
+
+
+def test_push_status_delivers_over_the_active_connection(server):
+    with _connect(server) as client:
+        time.sleep(0.1)
+        server.push_status({"connected": True, "pausedByCommand": False})
+        received = json.loads(client.recv(timeout=2.0))
+
+    assert received == {"type": "bot_status", "connected": True, "pausedByCommand": False}
+
+
+def test_overlay_focus_true_starts_physical_keyboard_capture(server_with_fake_hook):
+    with _connect(server_with_fake_hook) as client:
+        client.send(json.dumps({"type": "overlay_focus", "focused": True}))
+        _wait_until(lambda: server_with_fake_hook.fake_hook.start_calls == 1)
+
+    assert server_with_fake_hook.fake_hook.start_calls == 1
+
+
+def test_overlay_focus_false_stops_physical_keyboard_capture(server_with_fake_hook):
+    with _connect(server_with_fake_hook) as client:
+        client.send(json.dumps({"type": "overlay_focus", "focused": True}))
+        _wait_until(lambda: server_with_fake_hook.fake_hook.start_calls == 1)
+        client.send(json.dumps({"type": "overlay_focus", "focused": False}))
+        _wait_until(lambda: server_with_fake_hook.fake_hook.stop_calls >= 1)
+
+    assert server_with_fake_hook.fake_hook.start_calls == 1
+
+
+def test_dropped_connection_stops_physical_keyboard_capture(server_with_fake_hook):
+    # Safety: overlay_focus:false may simply never arrive if the tab/bridge
+    # dies while the overlay had focus -- the connection dropping alone
+    # must still stop the hook (never leave physical input suppressed).
+    with _connect(server_with_fake_hook) as client:
+        client.send(json.dumps({"type": "overlay_focus", "focused": True}))
+        _wait_until(lambda: server_with_fake_hook.fake_hook.start_calls == 1)
+
+    _wait_until(lambda: server_with_fake_hook.fake_hook.stop_calls >= 1)
+
+
+def test_malformed_overlay_focus_is_dropped_not_raised(server_with_fake_hook):
+    with _connect(server_with_fake_hook) as client:
+        client.send(json.dumps({"type": "overlay_focus", "focused": "yes"}))  # must be a bool
+        client.send(json.dumps(_overlay_command_message("pause")))
+        time.sleep(0.2)
+
+    assert server_with_fake_hook.fake_hook.start_calls == 0
+    assert [c.text for c in server_with_fake_hook.pop_commands()] == ["pause"]

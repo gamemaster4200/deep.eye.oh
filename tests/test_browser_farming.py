@@ -15,6 +15,7 @@ from deep_eye_oh import win32_input, window_focus
 from deep_eye_oh.browser_game_state import BrowserCircle, BrowserGameState, BrowserShape, CanvasInfo, ScreenTransform
 from deep_eye_oh.browser_policy import NOOP, BrowserAction
 from deep_eye_oh.intercept import solve_intercept
+from deep_eye_oh.overlay_command import OverlayCommand
 from deep_eye_oh.window_focus import TargetWindow
 
 TARGET = TargetWindow(hwnd=1, pid=2, title_at_arm="diep.io - Google Chrome")
@@ -216,6 +217,9 @@ class FakeBridge:
         self.started = False
         self.stopped = False
         self.latest_calls = 0
+        self.commands = []
+        self.command_results = []
+        self.statuses = []
 
     def start(self):
         self.started = True
@@ -232,6 +236,16 @@ class FakeBridge:
 
     def age_s(self, now=None):
         return self._age
+
+    def pop_commands(self):
+        commands, self.commands = self.commands, []
+        return commands
+
+    def send_command_result(self, command, result):
+        self.command_results.append((command, result))
+
+    def push_status(self, status):
+        self.statuses.append(status)
 
 
 class FakeChromeProcess:
@@ -334,6 +348,93 @@ def test_run_farming_loop_cleans_up_on_normal_exit(monkeypatch):
 
     assert fake_bridge.stopped is True
     assert len(terminate_calls) == 1, "the spawned Chrome process must be torn down exactly once"
+
+
+# ---------------------------------------------------------------------------
+# run_farming_loop: overlay pause/resume commands (browser-overlay-control-v0)
+# ---------------------------------------------------------------------------
+
+
+def _run_one_tick_with_command(monkeypatch, sent, *, state, age, text, max_ticks=1, client_rect=(0, 0, 1600, 900)):
+    monkeypatch.setattr(window_focus, "client_rect_on_screen", lambda t: client_rect)
+    _patch_startup(monkeypatch)
+    fake_bridge = FakeBridge(state, age)
+    if text is not None:
+        fake_bridge.commands = [OverlayCommand(text=text, received_at=0.0)]
+    monkeypatch.setattr(bf, "BrowserBridgeServer", lambda port=None: fake_bridge)
+    bf.run_farming_loop(max_ticks=max_ticks, tick_interval_s=0.0)
+    return fake_bridge
+
+
+def test_pause_command_skips_action_and_releases_held_input(monkeypatch):
+    sent = _patch_healthy_environment(monkeypatch)
+    state = _state(_shape("square", 900.0, 450.0), canvas=CANVAS)
+    fake_bridge = _run_one_tick_with_command(monkeypatch, sent, state=state, age=0.01, text="pause")
+
+    assert not any(kind in ("move", "down", "bdown") for kind, *_ in sent)
+    assert len(fake_bridge.command_results) == 1
+    command, result = fake_bridge.command_results[0]
+    assert command.text == "pause"
+    assert result.status == "ok"
+    assert result.effect == "pause"
+
+
+def test_resume_command_restarts_action_application(monkeypatch):
+    sent = _patch_healthy_environment(monkeypatch)
+    state = _state(_shape("square", 900.0, 450.0), canvas=CANVAS)
+    monkeypatch.setattr(window_focus, "client_rect_on_screen", lambda t: (0, 0, 1600, 900))
+    _patch_startup(monkeypatch)
+
+    fake_bridge = FakeBridge(state, 0.01)
+    fake_bridge.commands = [OverlayCommand(text="pause", received_at=0.0)]
+    monkeypatch.setattr(bf, "BrowserBridgeServer", lambda port=None: fake_bridge)
+
+    # Tick 1: pause takes effect, no input sent. Queue "resume" for tick 2.
+    original_pop = fake_bridge.pop_commands
+
+    def pop_then_queue_resume():
+        commands = original_pop()
+        fake_bridge.commands = [OverlayCommand(text="resume", received_at=0.0)]
+        return commands
+
+    fake_bridge.pop_commands = pop_then_queue_resume
+
+    bf.run_farming_loop(max_ticks=2, tick_interval_s=0.0)
+
+    assert any(kind == "move" for kind, *_ in sent), "resume must let tick 2 act again"
+    statuses = [r.status for _, r in fake_bridge.command_results]
+    effects = [r.effect for _, r in fake_bridge.command_results]
+    assert statuses == ["ok", "ok"]
+    assert effects == ["pause", "resume"]
+
+
+def test_unsupported_command_reported_without_changing_behavior(monkeypatch):
+    sent = _patch_healthy_environment(monkeypatch)
+    state = _state(_shape("square", 900.0, 450.0), canvas=CANVAS)
+    fake_bridge = _run_one_tick_with_command(monkeypatch, sent, state=state, age=0.01, text="mode farm")
+
+    assert any(kind == "move" for kind, *_ in sent), "an unsupported command must not pause the bot"
+    command, result = fake_bridge.command_results[0]
+    assert result.status == "unsupported"
+
+
+def test_bot_status_pushed_on_status_print_tick_with_expected_fields(monkeypatch):
+    sent = _patch_healthy_environment(monkeypatch)
+    state = _state(_shape("square", 900.0, 450.0), canvas=CANVAS)
+    fake_bridge = _run_one_tick_with_command(
+        monkeypatch, sent, state=state, age=0.01, text=None, max_ticks=bf.STATUS_PRINT_EVERY_N_TICKS
+    )
+
+    # Throttled: pushed on the STATUS_PRINT_EVERY_N_TICKS-th tick, not
+    # every tick -- matches the mission's telemetry-throttling requirement
+    # on the producer side too (see browser_farming.py's module docstring).
+    assert len(fake_bridge.statuses) == 1
+    status = fake_bridge.statuses[0]
+    assert status["connected"] is True
+    assert status["pausedByCommand"] is False
+    assert set(status["held"]) == {"moving", "shooting"}
+    assert "target" in status
+    assert "snapshotAgeS" in status
 
 
 # ---------------------------------------------------------------------------
@@ -564,6 +665,15 @@ class FakeSequenceBridge:
 
     def age_s(self, now=None):
         return self._items[self._index][1]
+
+    def pop_commands(self):
+        return []
+
+    def send_command_result(self, command, result):
+        pass
+
+    def push_status(self, status):
+        pass
 
 
 def _lead_scenario_states():

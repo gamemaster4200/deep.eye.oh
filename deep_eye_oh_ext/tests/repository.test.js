@@ -11,10 +11,15 @@ const manifest = JSON.parse(read('extension/manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.deepEqual(manifest.permissions.slice().sort(), ['clipboardWrite', 'scripting']);
 assert.deepEqual(manifest.host_permissions, ['https://diep.io/*']);
-assert.equal(manifest.content_scripts.length, 1);
+// browser-overlay-control-v0: a second, ISOLATED-world content script
+// (the overlay) is now expected alongside the original MAIN-world Oracle.
+assert.equal(manifest.content_scripts.length, 2);
 assert.deepEqual(manifest.content_scripts[0].matches, ['https://diep.io/*']);
 assert.equal(manifest.content_scripts[0].world, 'MAIN');
 assert.deepEqual(manifest.content_scripts[0].js, ['src/oracle.js']);
+assert.deepEqual(manifest.content_scripts[1].matches, ['https://diep.io/*']);
+assert.equal(manifest.content_scripts[1].world, 'ISOLATED');
+assert.deepEqual(manifest.content_scripts[1].js, ['src/overlay.js']);
 assert.equal(
   JSON.stringify(manifest).includes('diepAPI'),
   false,
@@ -102,6 +107,25 @@ for (const forbiddenPattern of [
 ]) {
   assert.doesNotMatch(bridgeSource, forbiddenPattern, `read-only boundary violation in bridge.js: ${forbiddenPattern}`);
 }
+assert.match(bridgeSource, /OVERLAY_PORT_NAME/, 'the overlay port relay must be present (browser-overlay-control-v0)');
+assert.match(bridgeSource, /chrome\.runtime\.onConnect/);
+
+// overlay.js (isolated-world content script) never touches
+// window.deepEyeOracle/diepAPI and never opens its own WebSocket -- it
+// relays exclusively through the reviewed chrome.runtime port above.
+const overlaySource = read('extension/src/overlay.js');
+assert.doesNotMatch(overlaySource, /deepEyeOracle/, 'overlay.js must never touch the page-context Oracle directly');
+assert.doesNotMatch(overlaySource, /new WebSocket\(/, 'overlay.js must relay through the background port, not its own WebSocket');
+assert.match(overlaySource, /chrome\.runtime\.connect\(/);
+assert.match(overlaySource, /Backquote/, 'the toggle must key off KeyboardEvent.code, not the layout-dependent event.key');
+for (const forbiddenPattern of [
+  /\bspawn\s*\(/, /\baimAt\s*\(/, /\blookAt\s*\(/, /\bshoot\s*\(/,
+  /\bkeyDown\s*\(/, /\bkeyUp\s*\(/, /\bkeyPress\s*\(/, /\bmouse(?:Press)?\s*\(/,
+  /\buseGamepad\s*\(/, /\bupgrade_(?:stat|tank)\s*\(/, /\bset_convar\s*\(/,
+  /\binput\.execute\s*\(/,
+]) {
+  assert.doesNotMatch(overlaySource, forbiddenPattern, `read-only boundary violation in overlay.js: ${forbiddenPattern}`);
+}
 
 const refreshSource = read('scripts/dev-refresh.ps1');
 assert.match(refreshSource, /\[switch\]\$UpdateVendor/);
@@ -143,6 +167,7 @@ const ownedTextFiles = [
   'dev-refresh.cmd',
   'extension/manifest.json',
   'extension/src/oracle.js',
+  'extension/src/overlay.js',
   'extension/background/bridge.js',
   'extension/popup/popup.css',
   'extension/popup/popup.html',
@@ -152,6 +177,7 @@ const ownedTextFiles = [
   'scripts/validate.ps1',
   'tests/oracle.test.js',
   'tests/bridge.test.js',
+  'tests/overlay.test.js',
 ];
 const mojibakePattern = /\uFFFD|\u00C3.|\u00C2.|\u00E2(?:\u20AC|\u2122)|\u0432\u0402/u;
 for (const relativePath of ownedTextFiles) {
