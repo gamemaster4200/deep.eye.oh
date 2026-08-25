@@ -9,6 +9,7 @@ import pytest
 from websockets.sync.client import connect
 
 from deep_eye_oh.browser_bridge import BrowserBridgeServer
+from deep_eye_oh.browser_lifecycle import BrowserFarmConfig, BrowserLifecycleState
 
 
 def _valid_raw_message(**overrides):
@@ -18,6 +19,23 @@ def _valid_raw_message(**overrides):
         "polledAtMs": 5.0,
         "snapshot": {"shapes": []},
     }
+    message.update(overrides)
+    return message
+
+
+def _valid_lifecycle_message(**overrides):
+    message = {
+        "type": "lifecycle_snapshot",
+        "tabId": 1,
+        "observedAtMs": 5.0,
+        "snapshot": {"state": "LOBBY", "reason": "home_screen_ready", "selectedMode": "ffa"},
+    }
+    message.update(overrides)
+    return message
+
+
+def _valid_hello(**overrides):
+    message = {"type": "bridge_hello", "protocolVersion": 1, "capabilities": ["oracle_snapshot", "lifecycle_v0"]}
     message.update(overrides)
     return message
 
@@ -138,6 +156,151 @@ def test_context_manager():
             client.send(json.dumps(_valid_raw_message()))
             _wait_until(lambda: srv.latest() is not None)
         assert srv.latest() is not None
+
+
+# ---------------------------------------------------------------------------
+# browser-lifecycle-v0: lifecycle slot is independent from the Oracle slot
+# ---------------------------------------------------------------------------
+
+
+def test_latest_lifecycle_is_none_before_any_message(server):
+    assert server.latest_lifecycle() is None
+    assert server.lifecycle_age_s() is None
+
+
+def test_receives_and_parses_a_valid_lifecycle_message(server):
+    server.clock["value"] = 20.0
+    with _connect(server) as client:
+        client.send(json.dumps(_valid_lifecycle_message(observedAtMs=77.0)))
+        _wait_until(lambda: server.latest_lifecycle() is not None)
+
+    snapshot = server.latest_lifecycle()
+    assert snapshot.state is BrowserLifecycleState.LOBBY
+    assert snapshot.reason == "home_screen_ready"
+    assert snapshot.selected_mode == "ffa"
+    assert snapshot.received_at == 20.0
+
+
+def test_lifecycle_age_s_reflects_time_source(server):
+    server.clock["value"] = 100.0
+    with _connect(server) as client:
+        client.send(json.dumps(_valid_lifecycle_message()))
+        _wait_until(lambda: server.latest_lifecycle() is not None)
+
+    server.clock["value"] = 100.3
+    assert server.lifecycle_age_s() == pytest.approx(0.3)
+
+
+def test_malformed_lifecycle_message_is_dropped_not_raised(server):
+    with _connect(server) as client:
+        bad = _valid_lifecycle_message()
+        bad["snapshot"]["state"] = "NOT_A_REAL_STATE"
+        client.send(json.dumps(bad))
+        client.send(json.dumps(_valid_lifecycle_message(observedAtMs=99.0)))
+        _wait_until(lambda: server.latest_lifecycle() is not None)
+
+    assert server.latest_lifecycle().reason == "home_screen_ready"
+
+
+def test_lifecycle_message_never_overwrites_oracle_slot_and_vice_versa(server):
+    with _connect(server) as client:
+        client.send(json.dumps(_valid_raw_message(polledAtMs=1.0)))
+        client.send(json.dumps(_valid_lifecycle_message(observedAtMs=2.0)))
+        _wait_until(lambda: server.latest() is not None and server.latest_lifecycle() is not None)
+
+    assert server.latest().polled_at_ms == 1.0
+    assert server.latest_lifecycle().state is BrowserLifecycleState.LOBBY
+
+    with _connect(server) as client2:
+        bad_oracle = _valid_raw_message(polledAtMs=999.0)
+        bad_oracle["snapshot"]["shapes"] = [{"class": "square"}]  # malformed
+        client2.send(json.dumps(bad_oracle))
+        bad_lifecycle = _valid_lifecycle_message(observedAtMs=999.0)
+        bad_lifecycle["snapshot"]["state"] = "BOGUS"
+        client2.send(json.dumps(bad_lifecycle))
+        time.sleep(0.2)
+
+    # Neither malformed message (of either kind) corrupted the other slot.
+    assert server.latest().polled_at_ms == 1.0
+    assert server.latest_lifecycle().state is BrowserLifecycleState.LOBBY
+
+
+def test_unknown_message_type_is_dropped_not_raised(server):
+    with _connect(server) as client:
+        client.send(json.dumps({"type": "run_command", "command": "rm -rf /"}))
+        client.send(json.dumps(_valid_raw_message(polledAtMs=1.0)))
+        _wait_until(lambda: server.latest() is not None)
+
+    assert server.latest().polled_at_ms == 1.0
+    assert server.latest_lifecycle() is None
+
+
+# ---------------------------------------------------------------------------
+# browser-lifecycle-v0: bridge_hello -> lifecycle_config reply
+# ---------------------------------------------------------------------------
+
+
+def test_bridge_hello_gets_lifecycle_config_reply():
+    config = BrowserFarmConfig(player_name="deep.eye.oh", game_mode="teams")
+    srv = BrowserBridgeServer(port=0, lifecycle_config=config)
+    srv.start()
+    try:
+        with _connect(srv) as client:
+            client.send(json.dumps(_valid_hello()))
+            reply = json.loads(client.recv(timeout=2.0))
+        assert reply == {"type": "lifecycle_config", "playerName": "deep.eye.oh", "gameMode": "teams"}
+    finally:
+        srv.stop(timeout=5)
+
+
+def test_bridge_hello_default_config_when_none_supplied():
+    srv = BrowserBridgeServer(port=0)
+    srv.start()
+    try:
+        with _connect(srv) as client:
+            client.send(json.dumps(_valid_hello()))
+            reply = json.loads(client.recv(timeout=2.0))
+        assert reply == {"type": "lifecycle_config", "playerName": "deep.eye.oh", "gameMode": "ffa"}
+    finally:
+        srv.stop(timeout=5)
+
+
+def test_reconnect_gets_lifecycle_config_again(server):
+    with _connect(server) as client1:
+        client1.send(json.dumps(_valid_hello()))
+        reply1 = json.loads(client1.recv(timeout=2.0))
+    assert reply1["type"] == "lifecycle_config"
+
+    # A second, independent connection (simulating extension reconnect)
+    # gets its own fresh reply -- not merely a leftover from the first.
+    with _connect(server) as client2:
+        client2.send(json.dumps(_valid_hello()))
+        reply2 = json.loads(client2.recv(timeout=2.0))
+    assert reply2 == reply1
+
+
+def test_malformed_bridge_hello_gets_no_reply_and_does_not_crash(server):
+    with _connect(server) as client:
+        client.send(json.dumps({"type": "bridge_hello", "protocolVersion": 999, "capabilities": []}))
+        # No reply should arrive for an invalid hello -- confirm the
+        # connection is still alive/usable afterward by sending a normal
+        # oracle_snapshot and getting it recorded.
+        client.send(json.dumps(_valid_raw_message(polledAtMs=1.0)))
+        _wait_until(lambda: server.latest() is not None)
+    assert server.latest().polled_at_ms == 1.0
+
+
+def test_only_lifecycle_config_type_is_ever_accepted_inbound(server):
+    # Any other inbound message TYPE (a generic selector/JS/shell-command/
+    # action payload, or even a well-formed-looking oracle_snapshot sent
+    # FROM the agent side by mistake) must never be treated as config and
+    # must never crash the connection.
+    with _connect(server) as client:
+        client.send(json.dumps({"type": "run_js", "code": "alert(1)"}))
+        client.send(json.dumps({"type": "click", "selector": "#anything"}))
+        client.send(json.dumps(_valid_raw_message(polledAtMs=1.0)))
+        _wait_until(lambda: server.latest() is not None)
+    assert server.latest().polled_at_ms == 1.0
 
 
 def _wait_until(predicate, timeout=2.0, interval=0.01):

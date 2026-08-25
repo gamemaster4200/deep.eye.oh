@@ -126,6 +126,51 @@ def test_cli_doctor_exits_with_run_doctor_return_code(monkeypatch):
     assert exc_info.value.code == 1
 
 
+def test_cli_configure_saves_and_prints_config(monkeypatch, tmp_path, capsys):
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+
+    cli.main(["configure", "--player-name", "my.bot", "--game-mode", "teams"])
+
+    out = capsys.readouterr().out
+    assert "player_name: my.bot" in out
+    assert "game_mode: teams" in out
+
+    from deep_eye_oh import browser_lifecycle
+
+    assert browser_lifecycle.load_config() == browser_lifecycle.BrowserFarmConfig(
+        player_name="my.bot", game_mode="teams"
+    )
+
+
+def test_cli_configure_defaults_to_zero_config_when_nothing_stored(monkeypatch, tmp_path, capsys):
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+
+    cli.main(["configure"])
+
+    out = capsys.readouterr().out
+    assert "player_name: deep.eye.oh" in out
+    assert "game_mode: ffa" in out
+
+
+def test_cli_configure_partial_update_preserves_other_field(monkeypatch, tmp_path, capsys):
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+    cli.main(["configure", "--player-name", "first.bot", "--game-mode", "maze"])
+    capsys.readouterr()
+
+    cli.main(["configure", "--player-name", "second.bot"])
+
+    out = capsys.readouterr().out
+    assert "player_name: second.bot" in out
+    assert "game_mode: maze" in out, "an unspecified flag must preserve the previously stored value"
+
+
+def test_cli_configure_rejects_unknown_game_mode(monkeypatch, tmp_path, capsys):
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+
+    with pytest.raises(SystemExit):
+        cli.main(["configure", "--game-mode", "not_a_real_mode"])
+
+
 def test_cli_replay_timing_too_few_frames(tmp_path, capsys):
     vp = Viewport(left=0, top=0, width=4, height=4)
     replay_dir = tmp_path / "replay"
