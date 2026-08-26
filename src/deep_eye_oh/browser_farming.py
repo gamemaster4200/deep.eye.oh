@@ -486,6 +486,18 @@ def run_farming_loop(
 
         _wait_for_fresh_oracle_after(bridge, playing_transition_monotonic, oracle_after_playing_timeout_s)
 
+        # Re-resolve the target window immediately before arming rather
+        # than trusting the hwnd captured way back before the (possibly
+        # long, human-paced-if-CAPTCHA-was-involved) lifecycle wait above.
+        # Live-smoke evidence: Controller.arm()'s own synchronous
+        # is_foreground(target) commit check can fail here even though
+        # Chrome visibly still has focus the whole time -- Chrome can
+        # replace its top-level window (e.g. a translate/locale prompt,
+        # or the initial about:blank window becoming a distinct real
+        # window) during that wait, leaving the originally-captured hwnd
+        # stale even though "a Chrome window" is still what's on screen.
+        target = window_focus.arm_process_window(chrome_process.pid, timeout_s=window_arm_timeout_s)
+
         controller = Controller(panic_key=panic_key)
         policy = BrowserPolicy()
         held = _HeldInputs()

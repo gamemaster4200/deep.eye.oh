@@ -123,6 +123,22 @@ def test_invalid_snapshot_is_dropped_and_does_not_clobber_last_good_state(server
     assert server.latest().polled_at_ms == 1.0, "a malformed message must not overwrite the last good state"
 
 
+def test_accepts_a_large_oracle_snapshot_from_a_busy_match(server):
+    # Regression: a real busy match's shapes/circles arrays can legitimately
+    # exceed the `websockets` library's own 1 MiB default frame-size limit
+    # -- live-smoke-confirmed to otherwise silently drop the connection
+    # (taking lifecycle_snapshot down with it on the same socket) and
+    # produce spurious LOBBY/stale-telemetry flicker during ordinary,
+    # dense gameplay. This must be accepted, not dropped/disconnected.
+    big_shapes = [{"class": "square", "cx": float(i), "cy": 0.0, "radius": 1.0, "timestamp": 0.0} for i in range(30000)]
+    with _connect(server) as client:
+        client.send(json.dumps(_valid_raw_message(polledAtMs=1.0, snapshot={"shapes": big_shapes})))
+        _wait_until(lambda: server.latest() is not None)
+
+    assert server.latest().polled_at_ms == 1.0
+    assert len(server.latest().shapes) == 30000
+
+
 def test_multiple_messages_keep_only_the_latest(server):
     with _connect(server) as client:
         for i in range(5):

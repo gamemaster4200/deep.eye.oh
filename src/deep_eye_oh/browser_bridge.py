@@ -39,6 +39,16 @@ from deep_eye_oh.browser_lifecycle import (
 logger = logging.getLogger(__name__)
 
 DEFAULT_PORT = 8765
+# The `websockets` library's own default (1 MiB) -- live-smoke-confirmed
+# too small for a real busy match: oracle_snapshot's shapes/circles arrays
+# can legitimately exceed it (hundreds of shapes), and the resulting
+# server-initiated close silently takes lifecycle_snapshot down with it on
+# the SAME connection, producing spurious LOBBY/stale-telemetry flicker
+# and repeated gameplay-input suspend/resume even though nothing about the
+# lifecycle actually changed. Generous, not unbounded -- still fails
+# closed (a genuinely pathological frame still gets rejected), just no
+# longer trips on ordinary, dense, real gameplay.
+MAX_MESSAGE_SIZE_BYTES = 16 * 1024 * 1024
 
 
 class BrowserBridgeServer:
@@ -119,7 +129,9 @@ class BrowserBridgeServer:
     def start(self) -> None:
         if self._thread is not None:
             raise RuntimeError("BrowserBridgeServer is already started")
-        self._server = serve(self._handle_connection, "127.0.0.1", self._port)
+        self._server = serve(
+            self._handle_connection, "127.0.0.1", self._port, max_size=MAX_MESSAGE_SIZE_BYTES
+        )
         self._thread = threading.Thread(
             target=self._server.serve_forever, name="BrowserBridgeServer", daemon=True
         )
