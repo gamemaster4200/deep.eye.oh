@@ -111,6 +111,38 @@ def test_prepare_profile_for_launch_disables_session_restore(tmp_path):
     assert data["session"]["startup_urls"] == []
 
 
+def test_prepare_profile_for_launch_deletes_session_snapshot_directories(tmp_path):
+    # Regression: the Preferences-only fix above (restore_on_startup=5) was
+    # NOT sufficient live -- repeated real relaunches still reopened old
+    # diep.io tabs. Root cause, confirmed by direct filesystem inspection:
+    # Chrome restores tabs from its own binary snapshot files under
+    # Default/Sessions and Default/Sessions_Encrypted, independently of any
+    # Preferences flag. If there is nothing there to restore FROM, nothing
+    # can be restored, so these must be wiped before every launch.
+    profile = tmp_path / "profile"
+    sessions = profile / "Default" / "Sessions"
+    sessions_encrypted = profile / "Default" / "Sessions_Encrypted"
+    sessions.mkdir(parents=True)
+    sessions_encrypted.mkdir(parents=True)
+    (sessions / "Session_123").write_bytes(b"fake session data")
+    (sessions / "Tabs_123").write_bytes(b"fake tabs data")
+    (sessions_encrypted / "Session_456").write_bytes(b"fake encrypted session data")
+
+    br._prepare_profile_for_launch(profile)
+
+    assert not sessions.exists()
+    assert not sessions_encrypted.exists()
+
+
+def test_prepare_profile_for_launch_is_a_noop_when_session_dirs_absent(tmp_path):
+    # A brand-new profile has no Sessions directories yet -- nothing to
+    # delete, not an error.
+    profile = tmp_path / "profile"
+    profile.mkdir()
+    br._prepare_profile_for_launch(profile)  # must not raise
+    assert not (profile / "Default" / "Sessions").exists()
+
+
 def test_prepare_profile_for_launch_on_corrupt_preferences_is_a_noop(tmp_path):
     profile = tmp_path / "profile"
     prefs_path = profile / "Default" / "Preferences"

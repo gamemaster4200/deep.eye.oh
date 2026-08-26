@@ -19,6 +19,7 @@ import importlib.resources
 import json
 import logging
 import os
+import shutil
 import subprocess
 import urllib.request
 import zipfile
@@ -178,39 +179,48 @@ def build_chrome_argv(
 
 
 def _prepare_profile_for_launch(profile: Path) -> None:
-    """Patches <profile>/Default/Preferences before every launch so this
-    persistent, isolated profile (its own --user-data-dir under the
-    app-data root, never the user's real Chrome profile) always starts
-    from a clean, single, predictable diep.io tab -- never a crash-restore
-    prompt, and never Chrome re-opening whatever tabs happened to be open
-    across ALL of this profile's previous killed sessions.
+    """Prepares <profile> before every launch so this persistent, isolated
+    profile (its own --user-data-dir under the app-data root, never the
+    user's real Chrome profile) always starts from a clean, single,
+    predictable diep.io tab -- never a crash-restore prompt, and never
+    Chrome re-opening whatever tabs happened to be open across ALL of
+    this profile's previous killed sessions.
 
-    Two independent things Chrome checks on disk at startup, both
-    live-smoke-confirmed to actually happen with this profile:
+    Three independent things, all live-smoke-confirmed to actually matter
+    for this profile (terminate_chrome() below always tears the process
+    down via `taskkill /F` -- see its own docstring for why -- which is
+    exactly the kind of abrupt exit each of these three reacts to):
 
-    1. `profile.exit_type`/`exited_cleanly`: terminate_chrome() below
-       always tears this process down via `taskkill /F` (see its own
-       docstring for why), which Chrome's crash heuristics read as an
-       unclean exit and surface as a "Restore pages?" prompt on the next
-       launch -- confirmed to visibly steal focus mid-session, not just
-       at startup. --disable-session-crashed-bubble (see
-       build_chrome_argv) alone did not fully suppress every variant of
-       this live.
-    2. `session.restore_on_startup`: independently of the crash prompt,
-       Chrome's own "continue where you left off" session restore can
-       silently reopen every diep.io tab from every previous run of this
-       profile (live-observed: several old, already-dead diep.io tabs
-       reopening alongside the freshly launched one) -- ambiguous for
-       arm_process_window's own tab/window selection and for the
-       background bridge's pickTargetTab, and visibly wrong to a human
-       watching. Forced to 5 (Chrome's own "open the New Tab page, do
-       not restore" value) so only the one tab this process explicitly
-       opens (see build_chrome_argv's own `url` argument) ever exists.
+    1. `Default/Sessions` and `Default/Sessions_Encrypted`: Chrome's own
+       on-disk tab/session snapshots -- confirmed live to be the actual
+       DATA a restore reopens tabs FROM, independently of every
+       Preferences flag below (deleting the Preferences flags alone was
+       NOT sufficient live: multiple old diep.io tabs still reopened
+       across repeated real launches of this same profile). Deleted
+       entirely before each launch -- if there is nothing to restore
+       FROM, no flag or heuristic can restore it, and Chrome recreates
+       these directories fresh on its own.
+    2. `Default/Preferences`: `profile.exit_type`/`exited_cleanly` --
+       Chrome's crash heuristics otherwise read the abrupt exit as
+       unclean and surface a "Restore pages?" prompt on the next launch,
+       confirmed to visibly steal focus mid-session, not just at
+       startup. `session.restore_on_startup` forced to 5 ("open the New
+       Tab page") as defense in depth alongside (1) above.
+       --disable-session-crashed-bubble (see build_chrome_argv) alone
+       did not fully suppress every variant of this live.
 
-    Best-effort: a brand-new profile has no Preferences file yet (nothing
-    to patch, not an error), and a corrupt/unreadable one is left alone
-    rather than risking corrupting an otherwise-working profile -- a
-    launch must never fail because of this."""
+    Best-effort throughout: a brand-new profile has nothing to delete/
+    patch yet (not an error), and a corrupt/unreadable Preferences file
+    is left alone rather than risking corrupting an otherwise-working
+    profile -- a launch must never fail because of this."""
+    for session_dir_name in ("Sessions", "Sessions_Encrypted"):
+        session_dir = profile / "Default" / session_dir_name
+        try:
+            if session_dir.is_dir():
+                shutil.rmtree(session_dir)
+        except OSError:
+            pass
+
     prefs_path = profile / "Default" / "Preferences"
     try:
         if prefs_path.is_file():

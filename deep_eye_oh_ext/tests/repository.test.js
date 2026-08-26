@@ -87,6 +87,14 @@ for (const requiredToken of [
   'colorMatchesClass',
   'recordClassDiagnostics',
   'RADIUS_RATIO_TOLERANCE',
+  // browser-lifecycle-v0 live-smoke fix: the canvas backing-store rect
+  // alone is not enough to compute a correct screen-space transform --
+  // the browser's own chrome (tab strip/omnibox/infobar) must also be
+  // reported, or Python computes screen points landing in the browser's
+  // own UI instead of the game (see browser_game_state.py).
+  'browserChromeOffsetCss',
+  'browserChromeWidthCss',
+  'browserChromeHeightCss',
 ]) {
   assert.ok(oracleSource.includes(requiredToken), `oracle.js is missing the subdivided-contour detector slice: ${requiredToken}`);
 }

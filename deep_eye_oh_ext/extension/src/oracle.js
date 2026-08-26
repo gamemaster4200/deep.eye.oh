@@ -1038,6 +1038,33 @@
     }
   }
 
+  // window.outerWidth/outerHeight (the WHOLE browser window, including its
+  // own tab strip/omnibox/any infobar) minus window.innerWidth/innerHeight
+  // (just the page viewport) -- the browser's own chrome height/width, in
+  // CSS px, directly from the browser itself. Live-smoke-confirmed
+  // necessary: deep_eye_oh's own screen-coordinate transform
+  // (browser_game_state.compute_screen_transform) previously assumed the
+  // canvas fills the ENTIRE OS window client area, which is false --
+  // win32's GetClientRect includes Chrome's own toolbar (and, for Chrome
+  // for Testing specifically, an additional "for automated testing only"
+  // infobar), so screen points computed without this offset land inside
+  // the browser's own UI (confirmed live: clicks landing in the address
+  // bar) instead of the game canvas. Clamped to >= 0 -- a negative value
+  // would only mean outerWidth/innerWidth were read inconsistently
+  // (e.g. mid-resize), and 0 (i.e. "assume no offset", the old behavior)
+  // is a safer fallback than a nonsensical negative offset.
+  function browserChromeOffsetCss() {
+    const outerWidth = finiteNumber(safeRead(window, 'outerWidth'));
+    const outerHeight = finiteNumber(safeRead(window, 'outerHeight'));
+    const innerWidth = finiteNumber(safeRead(window, 'innerWidth'));
+    const innerHeight = finiteNumber(safeRead(window, 'innerHeight'));
+    const widthCss = outerWidth !== undefined && innerWidth !== undefined
+      ? Math.max(0, outerWidth - innerWidth) : undefined;
+    const heightCss = outerHeight !== undefined && innerHeight !== undefined
+      ? Math.max(0, outerHeight - innerHeight) : undefined;
+    return { widthCss, heightCss };
+  }
+
   // Reads a canvas element's own geometry (backing store + CSS rect) and
   // returns undefined unless every dimension involved is a positive,
   // finite number -- see the "screen-mappable" contract in this section's
@@ -1058,7 +1085,8 @@
     ) {
       return undefined;
     }
-    return {
+    const chromeOffset = browserChromeOffsetCss();
+    const result = {
       width,
       height,
       clientWidth: finiteNumber(safeRead(canvas, 'clientWidth')),
@@ -1068,6 +1096,9 @@
       },
       devicePixelRatio: finiteNumber(safeRead(window, 'devicePixelRatio')),
     };
+    addValue(result, 'browserChromeWidthCss', chromeOffset.widthCss);
+    addValue(result, 'browserChromeHeightCss', chromeOffset.heightCss);
+    return result;
   }
 
   // The single source of truth for "which canvas (if any) is

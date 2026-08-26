@@ -59,7 +59,17 @@ class BrowserCircle:
 @dataclass(frozen=True)
 class CanvasInfo:
     """Oracle canvas positioning metadata (deepEyeOracle.snapshot().canvas),
-    used only for the browser->screen coordinate transform below."""
+    used only for the browser->screen coordinate transform below.
+
+    browser_chrome_width_css/browser_chrome_height_css (window.outerWidth -
+    innerWidth / outerHeight - innerHeight, CSS px, from oracle.js's own
+    browserChromeOffsetCss()) default to 0.0 for backward compatibility
+    with an older Oracle build/stored fixture that doesn't report them --
+    matching this module's existing pattern for `circles` (see
+    parse_bridge_message below). 0.0 means "assume no offset" -- live-
+    smoke-confirmed to be the WRONG assumption for a real running browser
+    (see compute_screen_transform's own docstring), but it is the only
+    sensible default for data that genuinely never captured this."""
 
     width: float
     height: float
@@ -68,6 +78,8 @@ class CanvasInfo:
     rect_width: float
     rect_height: float
     device_pixel_ratio: float
+    browser_chrome_width_css: float = 0.0
+    browser_chrome_height_css: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -125,6 +137,18 @@ def _parse_circle(raw: object, index: int) -> BrowserCircle:
     )
 
 
+def _optional_number(d: dict, key: str, context: str) -> float:
+    """Like _require_number, but 0.0 (never present in a well-formed
+    message from a current Oracle build -- see browserChromeOffsetCss's
+    own fallback -- but absent entirely from an OLDER build, which is a
+    strictly-additive-capability gap, not a malformed message) when the
+    key is simply missing. Present-but-wrong-type still rejects the whole
+    message, exactly like every other field here."""
+    if key not in d:
+        return 0.0
+    return _require_number(d, key, context)
+
+
 def _parse_canvas(raw: object) -> CanvasInfo:
     canvas = _require_dict(raw, "snapshot.canvas")
     rect = _require_dict(canvas.get("rect"), "snapshot.canvas.rect")
@@ -136,6 +160,8 @@ def _parse_canvas(raw: object) -> CanvasInfo:
         rect_width=_require_number(rect, "width", "snapshot.canvas.rect"),
         rect_height=_require_number(rect, "height", "snapshot.canvas.rect"),
         device_pixel_ratio=_require_number(canvas, "devicePixelRatio", "snapshot.canvas"),
+        browser_chrome_width_css=_optional_number(canvas, "browserChromeWidthCss", "snapshot.canvas"),
+        browser_chrome_height_css=_optional_number(canvas, "browserChromeHeightCss", "snapshot.canvas"),
     )
 
 
@@ -222,29 +248,53 @@ def compute_screen_transform(
     space win32_input.send_mouse_move ultimately targets) and the
     Oracle's own CSS-pixel canvas rect (getBoundingClientRect()).
 
-    Assumes the canvas fills the browser's client area (true for diep.io's
-    fullscreen game canvas -- this is an assumption, not independently
-    verified without a live capture; see the calibration/debug mode in
-    browser_farming.py for how to check it empirically). Returns None
-    (fail closed) for degenerate/zero-sized input rather than dividing by
-    zero or guessing.
+    The win32 client rect covers the WHOLE OS window content area,
+    including the browser's OWN chrome (tab strip, omnibox, and -- for
+    Chrome for Testing specifically -- an "automated testing only"
+    infobar), which sits ABOVE the actual page viewport the canvas
+    renders into -- live-smoke-confirmed (~179 physical px gap on a real
+    diep.io session) that treating the whole client rect as if the canvas
+    filled it computes screen points landing inside the browser's own UI
+    (confirmed live: the address bar) instead of the game. canvas.
+    browser_chrome_width_css/height_css (window.outerWidth/outerHeight -
+    innerWidth/innerHeight, from oracle.js) are subtracted -- converted to
+    physical px via canvas.device_pixel_ratio, confirmed live to be the
+    correct CSS-to-physical-screen-pixel ratio for a DPI-aware process,
+    since backing-store width already equals client width exactly when
+    there is no horizontal chrome offset -- before deriving scale/offset,
+    so both describe the actual page viewport, not the whole OS window.
+    Both default to 0.0 for an older Oracle build/stored fixture that
+    never reported them, reproducing the old (now known-wrong) behavior
+    for that data rather than guessing.
+
+    Returns None (fail closed) for degenerate/zero-sized input -- now
+    including a viewport that would work out to zero or negative size --
+    rather than dividing by zero or guessing.
     """
     client_left, client_top, client_width, client_height = client_rect
     if (
         client_width <= 0 or client_height <= 0
         or canvas.width <= 0 or canvas.height <= 0
         or canvas.rect_width <= 0 or canvas.rect_height <= 0
+        or canvas.device_pixel_ratio <= 0
     ):
+        return None
+
+    chrome_width_physical = canvas.browser_chrome_width_css * canvas.device_pixel_ratio
+    chrome_height_physical = canvas.browser_chrome_height_css * canvas.device_pixel_ratio
+    viewport_width = client_width - chrome_width_physical
+    viewport_height = client_height - chrome_height_physical
+    if viewport_width <= 0 or viewport_height <= 0:
         return None
 
     # Physical screen pixels per Oracle backing pixel, directly -- see
     # this function's docstring for the derivation.
-    scale_x = client_width / canvas.width
-    scale_y = client_height / canvas.height
-    css_to_screen_x = client_width / canvas.rect_width
-    css_to_screen_y = client_height / canvas.rect_height
-    offset_x = client_left + (canvas.rect_left * css_to_screen_x)
-    offset_y = client_top + (canvas.rect_top * css_to_screen_y)
+    scale_x = viewport_width / canvas.width
+    scale_y = viewport_height / canvas.height
+    css_to_screen_x = viewport_width / canvas.rect_width
+    css_to_screen_y = viewport_height / canvas.rect_height
+    offset_x = client_left + chrome_width_physical + (canvas.rect_left * css_to_screen_x)
+    offset_y = client_top + chrome_height_physical + (canvas.rect_top * css_to_screen_y)
     return ScreenTransform(scale_x=scale_x, scale_y=scale_y, offset_x=offset_x, offset_y=offset_y)
 
 

@@ -1195,6 +1195,96 @@ function bboxCenterOf(points) {
   assert.equal(Object.hasOwn(snapshot, 'canvas'), false);
 }
 
+{
+  // browserChromeWidthCss/HeightCss (live-smoke regression -- see
+  // deep_eye_oh's browser_game_state.compute_screen_transform's own doc
+  // comment): window.outerWidth/outerHeight - innerWidth/innerHeight, so
+  // Python can subtract the browser's own chrome (tab strip/omnibox/any
+  // infobar) from the OS window's client rect before deriving the
+  // canvas's on-screen position -- without this, computed screen points
+  // land inside the browser's own UI instead of the game.
+  const { oracle, ctxCtor } = installOracle();
+  const canvas = {
+    width: 1600,
+    height: 900,
+    clientWidth: 800,
+    clientHeight: 450,
+    getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 450 }),
+  };
+  const ctx = new ctxCtor({ fillStyle: '#ffe869', canvas });
+  drawQuad(ctx, [[0, 0], [10, 0], [10, 10], [0, 10]], [IDENTITY]);
+  const snapshot = plain(oracle.snapshot());
+  // installOracle()'s pageWindow never sets outerWidth/innerWidth -- the
+  // fields must simply be absent, never a guessed 0 that looks like a
+  // confirmed reading.
+  assert.equal(Object.hasOwn(snapshot.canvas, 'browserChromeWidthCss'), false);
+  assert.equal(Object.hasOwn(snapshot.canvas, 'browserChromeHeightCss'), false);
+}
+
+{
+  // With outer/inner window dimensions present, the offsets must be
+  // computed and included, clamped at >= 0.
+  const pageWindow = {
+    performance: { now: () => 0 },
+    devicePixelRatio: 2,
+    outerWidth: 1050,
+    outerHeight: 950,
+    innerWidth: 1000,
+    innerHeight: 800,
+  };
+  const ctxCtor = createCanvasCtor();
+  pageWindow.CanvasRenderingContext2D = ctxCtor;
+  const context = vm.createContext({ window: pageWindow });
+  vm.runInContext(oracleSource, context, { filename: 'oracle.js' });
+  const oracle = pageWindow.deepEyeOracle;
+
+  const canvas = {
+    width: 1600,
+    height: 900,
+    clientWidth: 800,
+    clientHeight: 450,
+    getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 450 }),
+  };
+  const ctx = new ctxCtor({ fillStyle: '#ffe869', canvas });
+  drawQuad(ctx, [[0, 0], [10, 0], [10, 10], [0, 10]], [IDENTITY]);
+
+  const snapshot = plain(oracle.snapshot());
+  assert.equal(snapshot.canvas.browserChromeWidthCss, 50); // 1050 - 1000
+  assert.equal(snapshot.canvas.browserChromeHeightCss, 150); // 950 - 800
+  assert.doesNotThrow(() => JSON.stringify(snapshot));
+}
+
+{
+  // Never a negative offset (would only mean outer/inner were read
+  // inconsistently, e.g. mid-resize) -- clamped to 0, the same as "no
+  // offset reported".
+  const pageWindow = {
+    performance: { now: () => 0 },
+    devicePixelRatio: 1,
+    outerWidth: 800,
+    outerHeight: 600,
+    innerWidth: 900, // larger than outer -- nonsensical, must clamp
+    innerHeight: 700,
+  };
+  const ctxCtor = createCanvasCtor();
+  pageWindow.CanvasRenderingContext2D = ctxCtor;
+  const context = vm.createContext({ window: pageWindow });
+  vm.runInContext(oracleSource, context, { filename: 'oracle.js' });
+  const oracle = pageWindow.deepEyeOracle;
+
+  const canvas = {
+    width: 800,
+    height: 600,
+    getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 600 }),
+  };
+  const ctx = new ctxCtor({ fillStyle: '#ffe869', canvas });
+  drawQuad(ctx, [[0, 0], [10, 0], [10, 10], [0, 10]], [IDENTITY]);
+
+  const snapshot = plain(oracle.snapshot());
+  assert.equal(snapshot.canvas.browserChromeWidthCss, 0);
+  assert.equal(snapshot.canvas.browserChromeHeightCss, 0);
+}
+
 // ---------------------------------------------------------------------------
 // Canvas provenance: snapshot.canvas must describe the canvas that actually
 // produced the reported shapes, not merely the canvas most recently seen in

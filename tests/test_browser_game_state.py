@@ -231,6 +231,31 @@ def test_rejects_canvas_non_numeric_field():
         parse_bridge_message(message, received_at=1.0)
 
 
+def test_canvas_browser_chrome_offset_defaults_to_zero_when_absent():
+    # An older Oracle build's canvas payload (no browserChromeWidthCss/
+    # HeightCss at all) is a strictly-additive-capability gap, not a
+    # malformed message -- see _optional_number's own doc comment.
+    state = parse_bridge_message(_valid_message(), received_at=1.0)
+    assert state.canvas.browser_chrome_width_css == 0.0
+    assert state.canvas.browser_chrome_height_css == 0.0
+
+
+def test_canvas_parses_browser_chrome_offset_when_present():
+    message = _valid_message()
+    message["snapshot"]["canvas"]["browserChromeWidthCss"] = 8.0
+    message["snapshot"]["canvas"]["browserChromeHeightCss"] = 143.0
+    state = parse_bridge_message(message, received_at=1.0)
+    assert state.canvas.browser_chrome_width_css == 8.0
+    assert state.canvas.browser_chrome_height_css == 143.0
+
+
+def test_rejects_canvas_non_numeric_browser_chrome_offset():
+    message = _valid_message()
+    message["snapshot"]["canvas"]["browserChromeHeightCss"] = "tall"
+    with pytest.raises(InvalidSnapshotError):
+        parse_bridge_message(message, received_at=1.0)
+
+
 # ---------------------------------------------------------------------------
 # compute_screen_transform
 # ---------------------------------------------------------------------------
@@ -293,6 +318,79 @@ def test_transform_none_for_degenerate_client_rect(client_rect):
 def test_transform_none_for_degenerate_canvas():
     assert compute_screen_transform(_canvas(width=0), client_rect=(0, 0, 1600, 900)) is None
     assert compute_screen_transform(_canvas(rect_width=0), client_rect=(0, 0, 1600, 900)) is None
+
+
+def test_transform_none_for_non_positive_device_pixel_ratio():
+    assert compute_screen_transform(_canvas(device_pixel_ratio=0), client_rect=(0, 0, 1600, 900)) is None
+
+
+# ---------------------------------------------------------------------------
+# compute_screen_transform: browser chrome offset (live-smoke regression --
+# see this function's own docstring). win32's client rect includes the
+# browser's own tab-strip/omnibox/infobar, which sits ABOVE the actual page
+# viewport; live-confirmed to otherwise compute screen points landing in
+# the address bar instead of the game.
+# ---------------------------------------------------------------------------
+
+
+def test_transform_defaults_chrome_offset_to_zero_when_unset():
+    # An older Oracle build/stored fixture that never reported the offset
+    # must behave EXACTLY like before this fix -- never silently guess a
+    # nonzero correction from data that never captured one.
+    canvas = _canvas(rect_width=800, rect_height=450)
+    assert canvas.browser_chrome_width_css == 0.0
+    assert canvas.browser_chrome_height_css == 0.0
+    transform = compute_screen_transform(canvas, client_rect=(0, 0, 1600, 900))
+    assert transform.apply(0, 0) == (0, 0)
+    assert transform.apply(1600, 900) == (1600, 900)
+
+
+def test_transform_accounts_for_browser_chrome_height_offset():
+    # A canvas that fills its OWN page viewport exactly (rect == client
+    # size), but the win32 client rect additionally includes 100 physical
+    # px of browser chrome ABOVE that viewport -- canvas (0,0) (the very
+    # top of the game) must map to screen y=100 (the top of the actual
+    # page content), never y=0 (which would be inside the browser's own
+    # tab strip/address bar).
+    canvas = _canvas(
+        width=1600, height=900, rect_width=1600, rect_height=900,
+        device_pixel_ratio=1, browser_chrome_height_css=100,
+    )
+    transform = compute_screen_transform(canvas, client_rect=(0, 0, 1600, 1000))
+    assert transform.apply(0, 0) == (0, 100)
+    assert transform.apply(1600, 900) == (1600, 1000)
+
+
+def test_transform_accounts_for_browser_chrome_width_offset():
+    canvas = _canvas(
+        width=1600, height=900, rect_width=1600, rect_height=900,
+        device_pixel_ratio=1, browser_chrome_width_css=50,
+    )
+    transform = compute_screen_transform(canvas, client_rect=(0, 0, 1650, 900))
+    assert transform.apply(0, 0) == (50, 0)
+    assert transform.apply(1600, 900) == (1650, 900)
+
+
+def test_transform_chrome_offset_converted_via_device_pixel_ratio():
+    # The offset is reported in CSS px (window.outerHeight - innerHeight)
+    # but the client rect is physical screen px -- must be converted via
+    # devicePixelRatio, not applied as a raw 1:1 subtraction.
+    canvas = _canvas(
+        width=1600, height=900, rect_width=800, rect_height=450,
+        device_pixel_ratio=2, browser_chrome_height_css=50,  # 50 CSS px == 100 physical px
+    )
+    transform = compute_screen_transform(canvas, client_rect=(0, 0, 1600, 1000))
+    assert transform.apply(0, 0) == (0, 100)
+
+
+def test_transform_none_when_chrome_offset_consumes_entire_client_rect():
+    # Fail closed rather than dividing by zero/negative if the reported
+    # chrome offset is as large as (or larger than) the whole client rect.
+    canvas = _canvas(
+        width=1600, height=900, rect_width=1600, rect_height=900,
+        device_pixel_ratio=1, browser_chrome_height_css=900,
+    )
+    assert compute_screen_transform(canvas, client_rect=(0, 0, 1600, 900)) is None
 
 
 # ---------------------------------------------------------------------------
