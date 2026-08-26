@@ -177,21 +177,40 @@ def build_chrome_argv(
     ]
 
 
-def _mark_profile_exited_cleanly(profile: Path) -> None:
-    """Patches <profile>/Default/Preferences so Chrome does not believe
-    its last run crashed/was killed abnormally. terminate_chrome() below
-    always tears this process down via `taskkill /F` (see its own
-    docstring for why), which Chrome's own crash heuristics interpret as
-    an unclean exit -- live-smoke-confirmed to surface a "Restore pages?"
-    prompt on the NEXT launch of this same persistent profile that
-    visibly steals focus mid-session, not just at startup.
-    --disable-session-crashed-bubble (see build_chrome_argv) alone did
-    not fully suppress every variant of this live -- this patches the
-    actual on-disk state Chrome checks at startup instead. Best-effort: a
-    brand-new profile has no Preferences file yet (nothing to patch, not
-    an error), and a corrupt/unreadable one is left alone rather than
-    risking corrupting an otherwise-working profile -- a launch must
-    never fail because of this."""
+def _prepare_profile_for_launch(profile: Path) -> None:
+    """Patches <profile>/Default/Preferences before every launch so this
+    persistent, isolated profile (its own --user-data-dir under the
+    app-data root, never the user's real Chrome profile) always starts
+    from a clean, single, predictable diep.io tab -- never a crash-restore
+    prompt, and never Chrome re-opening whatever tabs happened to be open
+    across ALL of this profile's previous killed sessions.
+
+    Two independent things Chrome checks on disk at startup, both
+    live-smoke-confirmed to actually happen with this profile:
+
+    1. `profile.exit_type`/`exited_cleanly`: terminate_chrome() below
+       always tears this process down via `taskkill /F` (see its own
+       docstring for why), which Chrome's crash heuristics read as an
+       unclean exit and surface as a "Restore pages?" prompt on the next
+       launch -- confirmed to visibly steal focus mid-session, not just
+       at startup. --disable-session-crashed-bubble (see
+       build_chrome_argv) alone did not fully suppress every variant of
+       this live.
+    2. `session.restore_on_startup`: independently of the crash prompt,
+       Chrome's own "continue where you left off" session restore can
+       silently reopen every diep.io tab from every previous run of this
+       profile (live-observed: several old, already-dead diep.io tabs
+       reopening alongside the freshly launched one) -- ambiguous for
+       arm_process_window's own tab/window selection and for the
+       background bridge's pickTargetTab, and visibly wrong to a human
+       watching. Forced to 5 (Chrome's own "open the New Tab page, do
+       not restore" value) so only the one tab this process explicitly
+       opens (see build_chrome_argv's own `url` argument) ever exists.
+
+    Best-effort: a brand-new profile has no Preferences file yet (nothing
+    to patch, not an error), and a corrupt/unreadable one is left alone
+    rather than risking corrupting an otherwise-working profile -- a
+    launch must never fail because of this."""
     prefs_path = profile / "Default" / "Preferences"
     try:
         if prefs_path.is_file():
@@ -203,10 +222,13 @@ def _mark_profile_exited_cleanly(profile: Path) -> None:
     if not isinstance(data, dict):
         return
     profile_section = data.setdefault("profile", {})
-    if not isinstance(profile_section, dict):
-        return
-    profile_section["exit_type"] = "Normal"
-    profile_section["exited_cleanly"] = True
+    if isinstance(profile_section, dict):
+        profile_section["exit_type"] = "Normal"
+        profile_section["exited_cleanly"] = True
+    session_section = data.setdefault("session", {})
+    if isinstance(session_section, dict):
+        session_section["restore_on_startup"] = 5  # "Open the New Tab page" -- never restore prior tabs
+        session_section["startup_urls"] = []
     try:
         prefs_path.parent.mkdir(parents=True, exist_ok=True)
         prefs_path.write_text(json.dumps(data), encoding="utf-8")
@@ -223,7 +245,7 @@ def launch_chrome(
 ) -> subprocess.Popen:
     profile = profile or profile_dir()
     profile.mkdir(parents=True, exist_ok=True)
-    _mark_profile_exited_cleanly(profile)
+    _prepare_profile_for_launch(profile)
     argv = build_chrome_argv(chrome_exe, extension_dir, profile=profile, url=url)
     return subprocess.Popen(argv)
 

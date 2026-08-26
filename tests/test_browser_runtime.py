@@ -44,20 +44,22 @@ def test_build_chrome_argv_contains_expected_flags():
     assert argv[-1] == br.DIEP_URL
 
 
-def test_mark_profile_exited_cleanly_on_missing_preferences_creates_a_minimal_one(tmp_path):
-    # A brand-new profile has no crash state to begin with -- writing a
-    # minimal Preferences file with the clean markers is harmless and
-    # avoids depending on Chrome's own not-yet-created defaults.
+def test_prepare_profile_for_launch_on_missing_preferences_creates_a_minimal_one(tmp_path):
+    # A brand-new profile has no crash/session state to begin with --
+    # writing a minimal Preferences file with the clean markers is
+    # harmless and avoids depending on Chrome's own not-yet-created
+    # defaults.
     profile = tmp_path / "profile"
     profile.mkdir()
-    br._mark_profile_exited_cleanly(profile)  # must not raise
+    br._prepare_profile_for_launch(profile)  # must not raise
     prefs_path = profile / "Default" / "Preferences"
     assert prefs_path.exists()
     data = json.loads(prefs_path.read_text(encoding="utf-8"))
     assert data["profile"]["exit_type"] == "Normal"
+    assert data["session"]["restore_on_startup"] == 5
 
 
-def test_mark_profile_exited_cleanly_patches_existing_preferences(tmp_path):
+def test_prepare_profile_for_launch_patches_existing_preferences(tmp_path):
     profile = tmp_path / "profile"
     prefs_path = profile / "Default" / "Preferences"
     prefs_path.parent.mkdir(parents=True)
@@ -66,7 +68,7 @@ def test_mark_profile_exited_cleanly_patches_existing_preferences(tmp_path):
         encoding="utf-8",
     )
 
-    br._mark_profile_exited_cleanly(profile)
+    br._prepare_profile_for_launch(profile)
 
     data = json.loads(prefs_path.read_text(encoding="utf-8"))
     assert data["profile"]["exit_type"] == "Normal"
@@ -74,35 +76,60 @@ def test_mark_profile_exited_cleanly_patches_existing_preferences(tmp_path):
     assert data["other"]["untouched"] == 1
 
 
-def test_mark_profile_exited_cleanly_creates_profile_section_if_absent(tmp_path):
+def test_prepare_profile_for_launch_creates_profile_section_if_absent(tmp_path):
     profile = tmp_path / "profile"
     prefs_path = profile / "Default" / "Preferences"
     prefs_path.parent.mkdir(parents=True)
     prefs_path.write_text(json.dumps({"other": {}}), encoding="utf-8")
 
-    br._mark_profile_exited_cleanly(profile)
+    br._prepare_profile_for_launch(profile)
 
     data = json.loads(prefs_path.read_text(encoding="utf-8"))
     assert data["profile"]["exit_type"] == "Normal"
     assert data["profile"]["exited_cleanly"] is True
 
 
-def test_mark_profile_exited_cleanly_on_corrupt_preferences_is_a_noop(tmp_path):
+def test_prepare_profile_for_launch_disables_session_restore(tmp_path):
+    # Regression: Chrome's own "continue where you left off" can silently
+    # reopen every diep.io tab from every previous killed run of this
+    # profile -- live-observed directly (several old, already-dead tabs
+    # reopening alongside the freshly launched one). Must be forced off
+    # (restore_on_startup=5, "open the New Tab page") regardless of
+    # whatever a previous session left behind.
+    profile = tmp_path / "profile"
+    prefs_path = profile / "Default" / "Preferences"
+    prefs_path.parent.mkdir(parents=True)
+    prefs_path.write_text(
+        json.dumps({"session": {"restore_on_startup": 1, "startup_urls": ["https://diep.io/", "https://diep.io/"]}}),
+        encoding="utf-8",
+    )
+
+    br._prepare_profile_for_launch(profile)
+
+    data = json.loads(prefs_path.read_text(encoding="utf-8"))
+    assert data["session"]["restore_on_startup"] == 5
+    assert data["session"]["startup_urls"] == []
+
+
+def test_prepare_profile_for_launch_on_corrupt_preferences_is_a_noop(tmp_path):
     profile = tmp_path / "profile"
     prefs_path = profile / "Default" / "Preferences"
     prefs_path.parent.mkdir(parents=True)
     prefs_path.write_text("{not valid json", encoding="utf-8")
 
-    br._mark_profile_exited_cleanly(profile)  # must not raise, must not corrupt further
+    br._prepare_profile_for_launch(profile)  # must not raise, must not corrupt further
 
     assert prefs_path.read_text(encoding="utf-8") == "{not valid json"
 
 
-def test_launch_chrome_marks_profile_exited_cleanly(monkeypatch, tmp_path):
+def test_launch_chrome_prepares_profile_for_launch(monkeypatch, tmp_path):
     profile = tmp_path / "profile"
     prefs_path = profile / "Default" / "Preferences"
     prefs_path.parent.mkdir(parents=True)
-    prefs_path.write_text(json.dumps({"profile": {"exit_type": "Crashed"}}), encoding="utf-8")
+    prefs_path.write_text(
+        json.dumps({"profile": {"exit_type": "Crashed"}, "session": {"restore_on_startup": 1}}),
+        encoding="utf-8",
+    )
 
     popen_calls = []
     monkeypatch.setattr(subprocess, "Popen", lambda argv: popen_calls.append(argv) or object())
@@ -111,6 +138,7 @@ def test_launch_chrome_marks_profile_exited_cleanly(monkeypatch, tmp_path):
 
     data = json.loads(prefs_path.read_text(encoding="utf-8"))
     assert data["profile"]["exit_type"] == "Normal"
+    assert data["session"]["restore_on_startup"] == 5
     assert len(popen_calls) == 1
 
 
