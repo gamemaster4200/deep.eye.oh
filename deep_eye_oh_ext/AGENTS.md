@@ -24,10 +24,30 @@ ordinary Controller (keyboard/mouse) -- a sanctioned, explicit
 exception-consumer, not the canonical agent silently reaching into this
 extension.
 
-CURRENT MILESTONE IS STRICTLY READ-ONLY -- scoped to this repo
-(deep.eye.oh.ext) itself. The extension/Oracle only observes the Canvas
-and reports snapshots outward; it never simulates input, in this repo,
-under any circumstance.
+`oracle.js` remains strictly read-only; browser-lifecycle-v0 introduces
+one narrow exception: an isolated-world lifecycle script
+(`extension/src/lifecycle.js`) may interact with known pre-game, lobby,
+and death/respawn DOM UI for name/mode/start/respawn only.
+
+It may not:
+- move the tank
+- aim
+- shoot
+- upgrade
+- synthesize gameplay keyboard/mouse input
+- patch game networking
+- execute arbitrary commands from Python
+- interact with CAPTCHA controls
+
+That is the ONLY exception to this repo's read-only milestone -- scoped
+to `lifecycle.js` and nothing else. `oracle.js`, `popup.js`, and
+`background/bridge.js` remain exactly as read-only as before this slice:
+the Oracle only observes the Canvas and reports snapshots outward, the
+bridge only forwards those snapshots (plus lifecycle.js's own read-only
+DOM observations) outward and accepts back exactly one validated
+player-name/game-mode config message from Python (see
+deep_eye_oh's browser_lifecycle.py) -- never a generic selector,
+JavaScript, shell command, URL, or action payload.
 
 Do not implement or invoke, anywhere in this repo:
 - automatic movement
@@ -38,6 +58,7 @@ Do not implement or invoke, anywhere in this repo:
 - gameplay keyboard/mouse control
 - WebSocket packet injection
 - WebSocket.send patching
+- CAPTCHA solving, bypassing, or any other CAPTCHA-control interaction
 
 deep.eye.oh (the separate, sibling project) is not bound by this rule --
 it may aim/shoot/move via its own Controller, informed by the snapshots

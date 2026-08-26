@@ -8,17 +8,26 @@
 // read-only observation) and extension/popup/popup.js are unaffected and
 // remain free of any control/network primitives (see scripts/validate.ps1).
 //
-// Deliberately NOT a general-purpose message bus or protocol: one fixed
-// message shape (oracle_snapshot), one fixed outbound destination
-// (localhost), no inbound command channel from the WebSocket at all -- the
-// agent process cannot use this connection to make the extension do
-// anything. Read-only in the same sense oracle.js is read-only.
+// Deliberately NOT a general-purpose message bus or protocol.
+// browser-lifecycle-v0 narrows (does not remove) the prior "no inbound
+// channel at all" invariant: on each connection this file now sends one
+// `bridge_hello` and accepts back exactly one message TYPE in reply --
+// `lifecycle_config` (validated player-name/game-mode only, see
+// deep_eye_oh's browser_lifecycle.py) -- which it caches and exposes to
+// src/lifecycle.js via a narrow chrome.runtime request/response, nothing
+// else. It also forwards lifecycle.js's own read-only DOM observations
+// outward as `lifecycle_snapshot`, alongside the existing `oracle_snapshot`.
+// The agent process still cannot use this connection to make the extension
+// run arbitrary code, execute a shell command, or perform gameplay input --
+// see AGENTS.md.
 
 const DEFAULT_BRIDGE_PORT = 8765;
 const POLL_INTERVAL_MS = 100; // ~10Hz: fast enough for a simple farming loop
 const MIN_RECONNECT_DELAY_MS = 1000;
 const MAX_RECONNECT_DELAY_MS = 8000;
 const DIEP_URL_PATTERN = 'https://diep.io/*';
+const BRIDGE_PROTOCOL_VERSION = 1;
+const CAPABILITIES = Object.freeze(['oracle_snapshot', 'lifecycle_v0']);
 
 // --- Pure helpers (unit-testable without chrome.*/WebSocket) --------------
 
@@ -29,6 +38,44 @@ function buildOutboundMessage(snapshot, tabId, polledAtMs) {
     polledAtMs,
     snapshot,
   };
+}
+
+function buildBridgeHelloMessage() {
+  return {
+    type: 'bridge_hello',
+    protocolVersion: BRIDGE_PROTOCOL_VERSION,
+    capabilities: CAPABILITIES.slice(),
+  };
+}
+
+function buildLifecycleSnapshotMessage(tabId, observedAtMs, snapshot) {
+  return {
+    type: 'lifecycle_snapshot',
+    tabId,
+    observedAtMs,
+    snapshot,
+  };
+}
+
+// Validates an inbound WebSocket message: the ONLY type ever accepted from
+// Python is `lifecycle_config` with a string playerName/gameMode -- see
+// module doc comment above. Returns the validated {playerName, gameMode}
+// or null (never throws) so callers can log-and-drop exactly like every
+// other malformed-input path in this extension.
+function parseLifecycleConfigMessage(raw) {
+  if (!raw || typeof raw !== 'object') {
+    return null;
+  }
+  if (raw.type !== 'lifecycle_config') {
+    return null;
+  }
+  if (typeof raw.playerName !== 'string' || raw.playerName.length < 1) {
+    return null;
+  }
+  if (typeof raw.gameMode !== 'string' || raw.gameMode.length < 1) {
+    return null;
+  }
+  return { playerName: raw.playerName, gameMode: raw.gameMode };
 }
 
 // Exponential backoff with a floor and cap; `attempt` is the number of
@@ -69,6 +116,46 @@ function createBridge(port = DEFAULT_BRIDGE_PORT) {
   let reconnectTimer = null;
   let pollTimer = null;
   let stopped = false;
+  // The one piece of state Python is ever allowed to set here -- cached
+  // per-connection-lifetime, re-requested via a fresh bridge_hello on
+  // every (re)connect (see connect()'s 'open' handler) so a bridge
+  // restarted on the Python side always re-delivers current config
+  // rather than this extension coasting on a stale cached value forever.
+  let cachedLifecycleConfig = null;
+
+  function onMessageFromAgent(raw) {
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (_error) {
+      return; // malformed inbound JSON -- dropped, same as any other bad input
+    }
+    const config = parseLifecycleConfigMessage(parsed);
+    if (config) {
+      cachedLifecycleConfig = config;
+    }
+    // Any other/unrecognized message type from the WebSocket is silently
+    // ignored -- lifecycle_config is the ONLY inbound message type this
+    // extension ever acts on (see module doc comment).
+  }
+
+  function onRuntimeMessage(message, sender, sendResponse) {
+    if (!message || typeof message !== 'object') {
+      return undefined;
+    }
+    if (message.type === 'get_lifecycle_config') {
+      sendResponse({ config: cachedLifecycleConfig });
+      return undefined; // synchronous response -- no need to keep the channel open
+    }
+    if (message.type === 'lifecycle_observed' && sender && sender.tab) {
+      if (socketOpen && socket) {
+        const outbound = buildLifecycleSnapshotMessage(sender.tab.id, message.observedAtMs, message.snapshot);
+        socket.send(JSON.stringify(outbound));
+      }
+      return undefined;
+    }
+    return undefined;
+  }
 
   function connect() {
     if (stopped) {
@@ -83,6 +170,10 @@ function createBridge(port = DEFAULT_BRIDGE_PORT) {
     socket.addEventListener('open', () => {
       socketOpen = true;
       reconnectAttempt = 0;
+      socket.send(JSON.stringify(buildBridgeHelloMessage()));
+    });
+    socket.addEventListener('message', (event) => {
+      onMessageFromAgent(event.data);
     });
     socket.addEventListener('close', () => {
       socketOpen = false;
@@ -140,6 +231,9 @@ function createBridge(port = DEFAULT_BRIDGE_PORT) {
       stopped = false;
       connect();
       pollTimer = setTimeout(pollOnce, POLL_INTERVAL_MS);
+      if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
+        chrome.runtime.onMessage.addListener(onRuntimeMessage);
+      }
     },
     stop() {
       stopped = true;
@@ -156,6 +250,9 @@ function createBridge(port = DEFAULT_BRIDGE_PORT) {
         socket = null;
       }
       socketOpen = false;
+      if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
+        chrome.runtime.onMessage.removeListener(onRuntimeMessage);
+      }
     },
   };
 }
@@ -168,11 +265,16 @@ function createBridge(port = DEFAULT_BRIDGE_PORT) {
 globalThis.__deepEyeBridgeInternals = {
   createBridge,
   buildOutboundMessage,
+  buildBridgeHelloMessage,
+  buildLifecycleSnapshotMessage,
+  parseLifecycleConfigMessage,
   nextReconnectDelayMs,
   pickTargetTab,
   bridgeUrl,
   DEFAULT_BRIDGE_PORT,
   POLL_INTERVAL_MS,
+  BRIDGE_PROTOCOL_VERSION,
+  CAPABILITIES,
 };
 
 // Only auto-start in a real extension service-worker context (chrome.tabs

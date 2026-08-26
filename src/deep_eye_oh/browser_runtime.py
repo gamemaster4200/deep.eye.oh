@@ -147,7 +147,18 @@ def build_chrome_argv(
     unpacked extension disabled unless paired with
     --disable-extensions-except), and diep.io opened directly -- no
     first-run/default-browser/sync noise that could stall an unattended
-    launch."""
+    launch.
+
+    --disable-session-crashed-bubble: terminate_chrome() below always
+    tears this process down via `taskkill /F` (see its own docstring for
+    why -- a graceful shutdown risks losing the tree-kill's only valid
+    anchor). Chrome's own crash heuristics see that as "did not shut down
+    correctly" and show a "Restore pages?" prompt on the NEXT launch of
+    this same persistent profile -- live-smoke-confirmed to visibly
+    interfere with focus/input mid-session, not just at startup. Since an
+    abrupt teardown is the deliberate, permanent design here, this prompt
+    would otherwise fire on every single run.
+    """
     profile = profile or profile_dir()
     ext = str(extension_dir)
     return [
@@ -160,9 +171,47 @@ def build_chrome_argv(
         "--no-default-browser-check",
         "--disable-sync",
         "--disable-background-networking",
+        "--disable-session-crashed-bubble",
         "--new-window",
         url,
     ]
+
+
+def _mark_profile_exited_cleanly(profile: Path) -> None:
+    """Patches <profile>/Default/Preferences so Chrome does not believe
+    its last run crashed/was killed abnormally. terminate_chrome() below
+    always tears this process down via `taskkill /F` (see its own
+    docstring for why), which Chrome's own crash heuristics interpret as
+    an unclean exit -- live-smoke-confirmed to surface a "Restore pages?"
+    prompt on the NEXT launch of this same persistent profile that
+    visibly steals focus mid-session, not just at startup.
+    --disable-session-crashed-bubble (see build_chrome_argv) alone did
+    not fully suppress every variant of this live -- this patches the
+    actual on-disk state Chrome checks at startup instead. Best-effort: a
+    brand-new profile has no Preferences file yet (nothing to patch, not
+    an error), and a corrupt/unreadable one is left alone rather than
+    risking corrupting an otherwise-working profile -- a launch must
+    never fail because of this."""
+    prefs_path = profile / "Default" / "Preferences"
+    try:
+        if prefs_path.is_file():
+            data = json.loads(prefs_path.read_text(encoding="utf-8"))
+        else:
+            data = {}
+    except (OSError, json.JSONDecodeError):
+        return
+    if not isinstance(data, dict):
+        return
+    profile_section = data.setdefault("profile", {})
+    if not isinstance(profile_section, dict):
+        return
+    profile_section["exit_type"] = "Normal"
+    profile_section["exited_cleanly"] = True
+    try:
+        prefs_path.parent.mkdir(parents=True, exist_ok=True)
+        prefs_path.write_text(json.dumps(data), encoding="utf-8")
+    except OSError:
+        pass
 
 
 def launch_chrome(
@@ -174,6 +223,7 @@ def launch_chrome(
 ) -> subprocess.Popen:
     profile = profile or profile_dir()
     profile.mkdir(parents=True, exist_ok=True)
+    _mark_profile_exited_cleanly(profile)
     argv = build_chrome_argv(chrome_exe, extension_dir, profile=profile, url=url)
     return subprocess.Popen(argv)
 

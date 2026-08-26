@@ -6,6 +6,7 @@
     python -m deep_eye_oh.cli replay-timing --in replays\r1
     python -m deep_eye_oh.cli capture-inspect --left 0 --top 0 --width 800 --height 600 --save live.png
     python -m deep_eye_oh.cli control-smoke-test
+    python -m deep_eye_oh.cli configure --player-name "name" --game-mode "ffa"
 """
 
 from __future__ import annotations
@@ -14,7 +15,7 @@ import argparse
 import statistics
 from pathlib import Path
 
-from deep_eye_oh import __version__
+from deep_eye_oh import __version__, browser_lifecycle
 from deep_eye_oh.capture import ScreenCapture
 from deep_eye_oh.observation import Viewport
 from deep_eye_oh.replay import ReplayReader, ReplayWriter
@@ -189,6 +190,17 @@ def _cmd_browser_calibrate(args: argparse.Namespace) -> None:
     run_calibration_check(port=args.port, panic_key=args.panic_key, duration_s=args.duration)
 
 
+def _cmd_configure(args: argparse.Namespace) -> None:
+    current = browser_lifecycle.load_config()
+    player_name = args.player_name if args.player_name is not None else current.player_name
+    game_mode = args.game_mode if args.game_mode is not None else current.game_mode
+    config = browser_lifecycle.validate_config(player_name, game_mode, context="--player-name/--game-mode")
+    browser_lifecycle.save_config(config)
+    print(f"player_name: {config.player_name}")
+    print(f"game_mode: {config.game_mode}")
+    print(f"saved to: {browser_lifecycle.config_path()}")
+
+
 def _cmd_doctor(args: argparse.Namespace) -> None:
     from deep_eye_oh.doctor import run_doctor
 
@@ -260,6 +272,16 @@ def build_parser() -> argparse.ArgumentParser:
     p_browser_calibrate.add_argument("--panic-key", type=str, default="pause")
     p_browser_calibrate.add_argument("--duration", type=float, default=30.0, help="seconds")
     p_browser_calibrate.set_defaults(func=_cmd_browser_calibrate)
+
+    p_configure = sub.add_parser(
+        "configure",
+        help="browser-lifecycle-v0: view/set the stored player name and game mode used by browser-farm",
+    )
+    p_configure.add_argument("--player-name", type=str, default=None)
+    p_configure.add_argument(
+        "--game-mode", type=str, default=None, choices=sorted(browser_lifecycle.VALID_GAME_MODES)
+    )
+    p_configure.set_defaults(func=_cmd_configure)
 
     p_doctor = sub.add_parser(
         "doctor", help="check that the installed runtime/browser/extension/bridge prerequisites are ready"

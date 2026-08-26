@@ -1,18 +1,25 @@
 """Tests for browser_farming.py: pure helpers (_canvas_origin,
 _apply_action, _format_status) against a real (fake-backed) armed
-Controller, plus fail-closed single-tick behavior and startup-sequencing
-behavior of run_farming_loop against fake browser_runtime/window_focus/
-bridge dependencies -- no real Chrome process, no real window, no real
-SendInput, no real WebSocket server."""
+Controller, plus fail-closed single-tick behavior, startup-sequencing
+behavior (browser-lifecycle-v0: CAPTCHA/loading/lobby/entering-game
+waiting, arm-only-after-PLAYING-plus-fresh-Oracle), and the per-tick
+runtime gameplay gate (DEAD/stale-lifecycle/UNKNOWN suppression, no
+acting on a pre-respawn Oracle snapshot, latching safety) against fake
+browser_runtime/window_focus/browser_lifecycle/bridge dependencies -- no
+real Chrome process, no real window, no real SendInput, no real
+WebSocket server."""
 
+import time
 from pathlib import Path
 
 import pytest
 
 from deep_eye_oh import browser_farming as bf
-from deep_eye_oh import browser_runtime, control as ctrl_mod, paths
+from deep_eye_oh import browser_lifecycle, browser_runtime, paths
+from deep_eye_oh import control as ctrl_mod
 from deep_eye_oh import win32_input, window_focus
 from deep_eye_oh.browser_game_state import BrowserCircle, BrowserGameState, BrowserShape, CanvasInfo, ScreenTransform
+from deep_eye_oh.browser_lifecycle import BrowserFarmConfig, BrowserLifecycleSnapshot, BrowserLifecycleState
 from deep_eye_oh.browser_policy import NOOP, BrowserAction
 from deep_eye_oh.intercept import solve_intercept
 from deep_eye_oh.window_focus import TargetWindow
@@ -203,15 +210,62 @@ def test_apply_action_stops_continuing_to_shoot_once_point_leaves_target_window(
 
 
 # ---------------------------------------------------------------------------
-# run_farming_loop: startup orchestration (Chrome/extension/bridge
-# resolution, readiness gating, arm-after-readiness ordering, teardown)
+# FakeBridge: a single unified fake covering both the Oracle and lifecycle
+# telemetry slots, used by every startup/runtime-gate test below.
 # ---------------------------------------------------------------------------
 
 
+def _sequence(value):
+    """A bare (non-list/tuple) value becomes a single-item list (read
+    forever); a list/tuple is used as-is and held at its last entry once
+    exhausted."""
+    return list(value) if isinstance(value, (list, tuple)) else [value]
+
+
+def _lifecycle_snapshot(state):
+    if state is None:
+        return None
+    return BrowserLifecycleSnapshot(state=state, reason="test", selected_mode="ffa", received_at=0.0)
+
+
 class FakeBridge:
-    def __init__(self, state, age, *, connected=True):
-        self._state = state
-        self._age = age
+    """Oracle and lifecycle telemetry are independent, each-call-advancing
+    (held at the last entry once exhausted) sequences -- e.g.
+    `lifecycle=[PLAYING, DEAD]` reports PLAYING on the first call
+    (startup) and DEAD on every call after (the main tick loop).
+
+    Oracle `received_at` defaults to being dynamically restamped to
+    `time.monotonic()` on every latest() call (auto-fresh) -- a real
+    bridge's telemetry is always "just received" in a fast test loop,
+    and this is what lets every EXISTING (pre-browser-lifecycle-v0) test
+    fixture satisfy the new post-PLAYING-transition freshness gate
+    without computing a live timestamp itself. Pass an explicit
+    `oracle_received_at` sequence for tests that need precise control
+    over that (e.g. "a pre-respawn snapshot must never cause action").
+    """
+
+    def __init__(
+        self,
+        state=None,
+        age=None,
+        *,
+        connected=True,
+        lifecycle=BrowserLifecycleState.PLAYING,
+        lifecycle_age=0.0,
+        oracle_received_at=None,
+        freeze_oracle_received_at=False,
+    ):
+        self._oracle_states = _sequence(state)
+        self._oracle_ages = _sequence(age)
+        self._oracle_received_ats = _sequence(oracle_received_at) if oracle_received_at is not None else None
+        self._freeze_oracle_received_at = freeze_oracle_received_at
+        self._frozen_received_at = None
+        self._oracle_index = -1
+
+        self._lifecycle_states = _sequence(lifecycle)
+        self._lifecycle_ages = _sequence(lifecycle_age)
+        self._lifecycle_index = -1
+
         self._connected = connected
         self.started = False
         self.stopped = False
@@ -228,10 +282,40 @@ class FakeBridge:
 
     def latest(self):
         self.latest_calls += 1
-        return self._state
+        if self._oracle_index + 1 < len(self._oracle_states):
+            self._oracle_index += 1
+        state = self._oracle_states[self._oracle_index]
+        if state is None:
+            return None
+        if self._oracle_received_ats is not None:
+            idx = min(self._oracle_index, len(self._oracle_received_ats) - 1)
+            received_at = self._oracle_received_ats[idx]
+        elif self._freeze_oracle_received_at:
+            if self._frozen_received_at is None:
+                self._frozen_received_at = time.monotonic()
+            received_at = self._frozen_received_at
+        else:
+            received_at = time.monotonic()
+        return BrowserGameState(
+            shapes=state.shapes, circles=state.circles, canvas=state.canvas,
+            polled_at_ms=state.polled_at_ms, performance_now_ms=state.performance_now_ms,
+            received_at=received_at,
+        )
 
     def age_s(self, now=None):
-        return self._age
+        idx = max(self._oracle_index, 0)
+        idx = min(idx, len(self._oracle_ages) - 1)
+        return self._oracle_ages[idx]
+
+    def latest_lifecycle(self):
+        if self._lifecycle_index + 1 < len(self._lifecycle_states):
+            self._lifecycle_index += 1
+        return _lifecycle_snapshot(self._lifecycle_states[self._lifecycle_index])
+
+    def lifecycle_age_s(self, now=None):
+        idx = max(self._lifecycle_index, 0)
+        idx = min(idx, len(self._lifecycle_ages) - 1)
+        return self._lifecycle_ages[idx]
 
 
 class FakeChromeProcess:
@@ -250,15 +334,18 @@ def _patch_startup(
     connected=True,
     arm_target=TARGET,
     arm_error: Exception | None = None,
+    config: BrowserFarmConfig | None = None,
 ):
     """Patches every dependency run_farming_loop's startup sequence talks
     to *before* Controller.arm() -- Chrome resolution/launch/teardown, the
-    bundled extension path, and window-arming -- with fast, deterministic
-    fakes. Returns (bridge_factory, terminate_calls) so callers can supply
-    their own FakeBridge per test and assert on teardown calls."""
+    bundled extension path, window-arming, and the stored browser-farm
+    config (never touches the real filesystem/LOCALAPPDATA) -- with fast,
+    deterministic fakes. Returns (terminate_calls,) so callers can assert
+    on teardown calls."""
     monkeypatch.setattr(browser_runtime, "find_or_download_chrome", lambda: FAKE_CHROME_EXE)
     monkeypatch.setattr(paths, "resolve_extension_dir", lambda: FAKE_EXTENSION_DIR)
     monkeypatch.setattr(browser_runtime, "launch_chrome", lambda *a, **k: FakeChromeProcess())
+    monkeypatch.setattr(browser_lifecycle, "load_config", lambda: config or BrowserFarmConfig())
 
     terminate_calls: list[FakeChromeProcess] = []
     monkeypatch.setattr(browser_runtime, "terminate_chrome", lambda proc, **k: terminate_calls.append(proc))
@@ -272,14 +359,12 @@ def _patch_startup(
     return terminate_calls
 
 
-def _run_one_tick(monkeypatch, sent, *, state, age, client_rect=(0, 0, 1600, 900)):
-    """Runs the loop through a successful startup (fresh, present
-    telemetry -- readiness only requires latest() is not None, so a stale
-    or canvas-less state still passes startup and is then exercised by the
-    per-tick fail-closed logic) straight into exactly one tick."""
+def _run_one_tick(monkeypatch, sent, *, state, age, client_rect=(0, 0, 1600, 900), lifecycle=BrowserLifecycleState.PLAYING):
+    """Runs the loop through a successful startup (immediately PLAYING,
+    fresh Oracle) straight into exactly one tick."""
     monkeypatch.setattr(window_focus, "client_rect_on_screen", lambda t: client_rect)
     _patch_startup(monkeypatch)
-    monkeypatch.setattr(bf, "BrowserBridgeServer", lambda port=None: FakeBridge(state, age))
+    monkeypatch.setattr(bf, "BrowserBridgeServer", lambda port=None, lifecycle_config=None: FakeBridge(state, age, lifecycle=lifecycle))
     bf.run_farming_loop(max_ticks=1, tick_interval_s=0.0)
 
 
@@ -312,14 +397,20 @@ def test_run_farming_loop_acts_on_fresh_valid_telemetry(monkeypatch):
     assert ("bdown", "left") in sent
 
 
-def test_run_farming_loop_no_input_when_only_offscreen_shapes_visible(monkeypatch):
+def test_run_farming_loop_never_aims_at_an_offscreen_shape(monkeypatch):
     # End-to-end regression for the live bug: an off-canvas shape (e.g.
-    # square @ (376,-195)) must never produce a mouse move/shoot, even
-    # though telemetry itself is fresh and otherwise usable.
+    # square @ (376,-195)) must never itself become the aim target, even
+    # though telemetry itself is fresh and otherwise usable. (Tick 1 does
+    # still fire ONE real click at canvas center regardless of any visible
+    # target -- see entered_playing_this_tick's own comment in
+    # browser_farming.py -- but that click must never land on/aim at the
+    # offscreen shape's own would-be screen point.)
     sent = _patch_healthy_environment(monkeypatch)
     state = _state(_shape("square", 376.0, -195.0), canvas=CANVAS)
     _run_one_tick(monkeypatch, sent, state=state, age=0.01)
-    assert not any(kind in ("move", "down", "bdown") for kind, *_ in sent)
+
+    offscreen_screen_point = IDENTITY_TRANSFORM.apply(376.0, -195.0)
+    assert ("move", *offscreen_screen_point) not in sent, "the offscreen shape must never itself become the aim target"
 
 
 def test_run_farming_loop_cleans_up_on_normal_exit(monkeypatch):
@@ -328,7 +419,7 @@ def test_run_farming_loop_cleans_up_on_normal_exit(monkeypatch):
     terminate_calls = _patch_startup(monkeypatch)
     state = _state(_shape("square", 900.0, 450.0), canvas=CANVAS)
     fake_bridge = FakeBridge(state, 0.01)
-    monkeypatch.setattr(bf, "BrowserBridgeServer", lambda port=None: fake_bridge)
+    monkeypatch.setattr(bf, "BrowserBridgeServer", lambda port=None, lifecycle_config=None: fake_bridge)
 
     bf.run_farming_loop(max_ticks=1, tick_interval_s=0.0)
 
@@ -338,15 +429,15 @@ def test_run_farming_loop_cleans_up_on_normal_exit(monkeypatch):
 
 # ---------------------------------------------------------------------------
 # run_farming_loop: Controller must stay disarmed until the whole
-# browser/extension/bridge readiness path is proven working
+# browser/extension/bridge/LIFECYCLE readiness path is proven working
 # ---------------------------------------------------------------------------
 
 
 def test_run_farming_loop_raises_and_never_arms_when_extension_never_connects(monkeypatch):
     _patch_healthy_environment(monkeypatch)
     terminate_calls = _patch_startup(monkeypatch, connected=False)
-    fake_bridge = FakeBridge(None, None, connected=False)
-    monkeypatch.setattr(bf, "BrowserBridgeServer", lambda port=None: fake_bridge)
+    fake_bridge = FakeBridge(connected=False)
+    monkeypatch.setattr(bf, "BrowserBridgeServer", lambda port=None, lifecycle_config=None: fake_bridge)
 
     with pytest.raises(bf.BrowserFarmStartupError, match="never connected"):
         bf.run_farming_loop(ready_connect_timeout_s=0.05, tick_interval_s=0.0)
@@ -355,25 +446,11 @@ def test_run_farming_loop_raises_and_never_arms_when_extension_never_connects(mo
     assert len(terminate_calls) == 1, "the spawned Chrome process must still be torn down on a pre-arm startup failure"
 
 
-def test_run_farming_loop_raises_and_never_arms_when_no_telemetry_ever_arrives(monkeypatch):
-    _patch_healthy_environment(monkeypatch)
-    terminate_calls = _patch_startup(monkeypatch)
-    fake_bridge = FakeBridge(None, None, connected=True)
-    monkeypatch.setattr(bf, "BrowserBridgeServer", lambda port=None: fake_bridge)
-
-    with pytest.raises(bf.BrowserFarmStartupError, match="no telemetry"):
-        bf.run_farming_loop(ready_connect_timeout_s=1.0, ready_telemetry_timeout_s=0.05, tick_interval_s=0.0)
-
-    assert fake_bridge.stopped is True
-    assert len(terminate_calls) == 1
-
-
 def test_run_farming_loop_never_arms_when_window_arming_fails(monkeypatch):
     _patch_healthy_environment(monkeypatch)
     terminate_calls = _patch_startup(monkeypatch, arm_error=RuntimeError("no window appeared"))
-    state = _state(_shape("square", 900.0, 450.0), canvas=CANVAS)
-    fake_bridge = FakeBridge(state, 0.01)
-    monkeypatch.setattr(bf, "BrowserBridgeServer", lambda port=None: fake_bridge)
+    fake_bridge = FakeBridge(_state(_shape("square", 900.0, 450.0), canvas=CANVAS), 0.01)
+    monkeypatch.setattr(bf, "BrowserBridgeServer", lambda port=None, lifecycle_config=None: fake_bridge)
 
     with pytest.raises(RuntimeError, match="no window appeared"):
         bf.run_farming_loop(tick_interval_s=0.0)
@@ -399,13 +476,157 @@ def test_run_farming_loop_arms_only_after_readiness_succeeds(monkeypatch):
 
     monkeypatch.setattr(ctrl_mod.Controller, "arm", recording_arm)
 
-    state = _state(_shape("square", 900.0, 450.0), canvas=CANVAS)
-    fake_bridge = FakeBridge(state, 0.01)
-    monkeypatch.setattr(bf, "BrowserBridgeServer", lambda port=None: fake_bridge)
+    fake_bridge = FakeBridge(_state(_shape("square", 900.0, 450.0), canvas=CANVAS), 0.01)
+    monkeypatch.setattr(bf, "BrowserBridgeServer", lambda port=None, lifecycle_config=None: fake_bridge)
 
     bf.run_farming_loop(max_ticks=1, tick_interval_s=0.0)
 
     assert arm_calls == [TARGET], "Controller.arm() must be called exactly once, after readiness succeeded"
+
+
+# ---------------------------------------------------------------------------
+# browser-lifecycle-v0: startup waits out CAPTCHA/LOADING/LOBBY/
+# ENTERING_GAME before ever arming, and CAPTCHA never counts against the
+# non-CAPTCHA stuck-diagnostic timeout.
+# ---------------------------------------------------------------------------
+
+
+def test_startup_does_not_arm_during_captcha(monkeypatch, capsys):
+    _patch_healthy_environment(monkeypatch)
+    _patch_startup(monkeypatch)
+
+    arm_calls: list[TargetWindow] = []
+    original_arm = ctrl_mod.Controller.arm
+
+    def recording_arm(self, target=None):
+        arm_calls.append(target)
+        original_arm(self, target)
+
+    monkeypatch.setattr(ctrl_mod.Controller, "arm", recording_arm)
+
+    # Stays CAPTCHA_REQUIRED for several polls (well past a would-be-tiny
+    # timeout -- see test below), then resolves.
+    lifecycle_sequence = [BrowserLifecycleState.CAPTCHA_REQUIRED] * 4 + [BrowserLifecycleState.PLAYING]
+    fake_bridge = FakeBridge(
+        _state(_shape("square", 900.0, 450.0), canvas=CANVAS), 0.01, lifecycle=lifecycle_sequence,
+    )
+    monkeypatch.setattr(bf, "BrowserBridgeServer", lambda port=None, lifecycle_config=None: fake_bridge)
+    monkeypatch.setattr(window_focus, "client_rect_on_screen", lambda t: (0, 0, 1600, 900))
+
+    bf.run_farming_loop(max_ticks=1, tick_interval_s=0.0, lifecycle_ready_timeout_s=0.05)
+
+    assert arm_calls == [TARGET], "Controller must arm only once CAPTCHA is actually resolved"
+    out = capsys.readouterr().out
+    assert "CAPTCHA required." in out
+    assert "Complete it manually in the managed browser." in out
+    assert "Controller is not armed." in out
+    assert "browser lifecycle: CAPTCHA_REQUIRED" in out
+    assert "browser lifecycle: PLAYING" in out
+
+
+def test_captcha_wait_is_not_killed_by_a_short_non_captcha_timeout(monkeypatch):
+    # The whole point of pausing the budget during CAPTCHA_REQUIRED: even
+    # a tiny non-CAPTCHA timeout must not fire while genuinely stuck on
+    # CAPTCHA, only once genuinely stuck on something else.
+    _patch_healthy_environment(monkeypatch)
+    _patch_startup(monkeypatch)
+    lifecycle_sequence = [BrowserLifecycleState.CAPTCHA_REQUIRED] * 6 + [BrowserLifecycleState.PLAYING]
+    fake_bridge = FakeBridge(
+        _state(_shape("square", 900.0, 450.0), canvas=CANVAS), 0.01, lifecycle=lifecycle_sequence,
+    )
+    monkeypatch.setattr(bf, "BrowserBridgeServer", lambda port=None, lifecycle_config=None: fake_bridge)
+    monkeypatch.setattr(window_focus, "client_rect_on_screen", lambda t: (0, 0, 1600, 900))
+
+    # 6 CAPTCHA polls * the internal 0.1s poll interval > this 0.02s
+    # budget -- if CAPTCHA did not pause the deadline, this would raise.
+    bf.run_farming_loop(max_ticks=1, tick_interval_s=0.0, lifecycle_ready_timeout_s=0.02)  # must not raise
+
+
+def test_startup_does_not_arm_during_loading_or_lobby(monkeypatch):
+    _patch_healthy_environment(monkeypatch)
+    _patch_startup(monkeypatch)
+
+    arm_calls: list[TargetWindow] = []
+    original_arm = ctrl_mod.Controller.arm
+
+    def recording_arm(self, target=None):
+        arm_calls.append(target)
+        original_arm(self, target)
+
+    monkeypatch.setattr(ctrl_mod.Controller, "arm", recording_arm)
+
+    lifecycle_sequence = [
+        BrowserLifecycleState.LOADING,
+        BrowserLifecycleState.LOBBY,
+        BrowserLifecycleState.LOBBY,
+        BrowserLifecycleState.ENTERING_GAME,
+        BrowserLifecycleState.PLAYING,
+    ]
+    fake_bridge = FakeBridge(
+        _state(_shape("square", 900.0, 450.0), canvas=CANVAS), 0.01, lifecycle=lifecycle_sequence,
+    )
+    monkeypatch.setattr(bf, "BrowserBridgeServer", lambda port=None, lifecycle_config=None: fake_bridge)
+    monkeypatch.setattr(window_focus, "client_rect_on_screen", lambda t: (0, 0, 1600, 900))
+
+    bf.run_farming_loop(max_ticks=1, tick_interval_s=0.0, lifecycle_ready_timeout_s=5.0)
+
+    assert arm_calls == [TARGET], "Controller must arm only once PLAYING is actually reached"
+
+
+def test_startup_raises_diagnostic_when_genuinely_stuck_in_lobby(monkeypatch):
+    _patch_healthy_environment(monkeypatch)
+    _patch_startup(monkeypatch)
+    fake_bridge = FakeBridge(
+        _state(_shape("square", 900.0, 450.0), canvas=CANVAS), 0.01, lifecycle=BrowserLifecycleState.LOBBY,
+    )
+    monkeypatch.setattr(bf, "BrowserBridgeServer", lambda port=None, lifecycle_config=None: fake_bridge)
+    monkeypatch.setattr(window_focus, "client_rect_on_screen", lambda t: (0, 0, 1600, 900))
+
+    with pytest.raises(bf.BrowserFarmStartupError, match="LOBBY"):
+        bf.run_farming_loop(tick_interval_s=0.0, lifecycle_ready_timeout_s=0.02)
+
+
+def test_startup_arms_only_after_playing_and_post_transition_oracle(monkeypatch):
+    # Oracle telemetry that only arrives (or is only fresh) AFTER the
+    # PLAYING transition is what unblocks arm() -- see
+    # _wait_for_fresh_oracle_after.
+    _patch_healthy_environment(monkeypatch)
+    _patch_startup(monkeypatch)
+    monkeypatch.setattr(window_focus, "client_rect_on_screen", lambda t: (0, 0, 1600, 900))
+
+    fake_bridge = FakeBridge(
+        _state(_shape("square", 900.0, 450.0), canvas=CANVAS), 0.01,
+        lifecycle=[BrowserLifecycleState.LOBBY, BrowserLifecycleState.PLAYING],
+    )
+    monkeypatch.setattr(bf, "BrowserBridgeServer", lambda port=None, lifecycle_config=None: fake_bridge)
+
+    arm_calls: list[TargetWindow] = []
+    original_arm = ctrl_mod.Controller.arm
+
+    def recording_arm(self, target=None):
+        arm_calls.append(target)
+        original_arm(self, target)
+
+    monkeypatch.setattr(ctrl_mod.Controller, "arm", recording_arm)
+
+    bf.run_farming_loop(max_ticks=1, tick_interval_s=0.0, lifecycle_ready_timeout_s=5.0)
+
+    assert arm_calls == [TARGET]
+
+
+def test_startup_raises_when_no_oracle_telemetry_ever_arrives_after_playing(monkeypatch):
+    _patch_healthy_environment(monkeypatch)
+    terminate_calls = _patch_startup(monkeypatch)
+    monkeypatch.setattr(window_focus, "client_rect_on_screen", lambda t: (0, 0, 1600, 900))
+
+    fake_bridge = FakeBridge(state=None, age=None, lifecycle=BrowserLifecycleState.PLAYING)
+    monkeypatch.setattr(bf, "BrowserBridgeServer", lambda port=None, lifecycle_config=None: fake_bridge)
+
+    with pytest.raises(bf.BrowserFarmStartupError, match="no Oracle telemetry"):
+        bf.run_farming_loop(tick_interval_s=0.0, oracle_after_playing_timeout_s=0.05)
+
+    assert fake_bridge.stopped is True
+    assert len(terminate_calls) == 1
 
 
 # ---------------------------------------------------------------------------
@@ -429,7 +650,7 @@ def test_run_farming_loop_stops_promptly_on_async_controller_trip(monkeypatch):
     _patch_startup(monkeypatch)
 
     fake_bridge = FakeBridge(_state(_shape("square", 900.0, 450.0), canvas=CANVAS), 0.01)
-    monkeypatch.setattr(bf, "BrowserBridgeServer", lambda port=None: fake_bridge)
+    monkeypatch.setattr(bf, "BrowserBridgeServer", lambda port=None, lifecycle_config=None: fake_bridge)
 
     # Trip Controller.arm() into an immediately-disarmed state -- directly
     # simulate a post-arm async trip (what FocusWatcher._check()/
@@ -457,7 +678,7 @@ def test_run_farming_loop_prints_trip_reason_when_disarmed(monkeypatch, capsys):
     _patch_startup(monkeypatch)
 
     fake_bridge = FakeBridge(_state(_shape("square", 900.0, 450.0), canvas=CANVAS), 0.01)
-    monkeypatch.setattr(bf, "BrowserBridgeServer", lambda port=None: fake_bridge)
+    monkeypatch.setattr(bf, "BrowserBridgeServer", lambda port=None, lifecycle_config=None: fake_bridge)
 
     original_arm = ctrl_mod.Controller.arm
 
@@ -470,6 +691,176 @@ def test_run_farming_loop_prints_trip_reason_when_disarmed(monkeypatch, capsys):
     bf.run_farming_loop(max_ticks=1000, tick_interval_s=0.0)
 
     assert "cursor_left_target_while_button_held" in capsys.readouterr().out
+
+
+# ---------------------------------------------------------------------------
+# browser-lifecycle-v0: per-tick runtime gameplay gate
+# ---------------------------------------------------------------------------
+
+
+def _usable_state():
+    return _state(_shape("square", 900.0, 450.0), canvas=CANVAS)
+
+
+def _run_n_ticks(monkeypatch, sent, *, n, lifecycle, oracle_received_at=None, freeze_oracle_received_at=False):
+    """`lifecycle` is a per-TICK sequence (lifecycle[0] == tick 1's
+    reported state, lifecycle[1] == tick 2's, ...) -- an extra leading
+    PLAYING is prepended automatically to account for the ONE
+    latest_lifecycle() call startup's own readiness wait already
+    consumes before the main tick loop ever runs."""
+    monkeypatch.setattr(window_focus, "client_rect_on_screen", lambda t: (0, 0, 1600, 900))
+    _patch_startup(monkeypatch)
+    full_sequence = [BrowserLifecycleState.PLAYING] + list(lifecycle)
+    fake_bridge = FakeBridge(
+        _usable_state(), 0.01, lifecycle=full_sequence,
+        oracle_received_at=oracle_received_at, freeze_oracle_received_at=freeze_oracle_received_at,
+    )
+    monkeypatch.setattr(bf, "BrowserBridgeServer", lambda port=None, lifecycle_config=None: fake_bridge)
+    bf.run_farming_loop(max_ticks=n, tick_interval_s=0.0)
+    return fake_bridge
+
+
+def test_runtime_dead_immediately_release_all(monkeypatch):
+    sent = _patch_healthy_environment(monkeypatch)
+    # tick 1: PLAYING (fires); tick 2: DEAD (must release).
+    _run_n_ticks(monkeypatch, sent, n=2, lifecycle=[BrowserLifecycleState.PLAYING, BrowserLifecycleState.DEAD])
+    assert ("bdown", "left") in sent, "tick 1 (PLAYING) must have fired for this test to be meaningful"
+    assert ("bup", "left") in sent, "DEAD must release the held shot"
+
+
+def test_runtime_dead_prints_suspended_diagnostic(monkeypatch, capsys):
+    sent = _patch_healthy_environment(monkeypatch)
+    _run_n_ticks(monkeypatch, sent, n=2, lifecycle=[BrowserLifecycleState.PLAYING, BrowserLifecycleState.DEAD])
+    out = capsys.readouterr().out
+    assert "browser lifecycle: DEAD" in out
+    assert "gameplay input: suspended" in out
+
+
+def test_runtime_stale_lifecycle_immediately_release_all(monkeypatch):
+    sent = _patch_healthy_environment(monkeypatch)
+    monkeypatch.setattr(window_focus, "client_rect_on_screen", lambda t: (0, 0, 1600, 900))
+    _patch_startup(monkeypatch)
+    # State stays PLAYING throughout, but the AGE goes stale on tick 2 --
+    # must be treated identically to DEAD/UNKNOWN (immediate release_all()).
+    # lifecycle_age[0] covers both startup's consumption and tick 1 (fresh,
+    # fires); lifecycle_age[1] covers tick 2 (stale, must release).
+    fake_bridge = FakeBridge(
+        _usable_state(), 0.01,
+        lifecycle=BrowserLifecycleState.PLAYING,
+        lifecycle_age=[0.0, 0.0, bf.LIFECYCLE_STALE_AFTER_S + 1.0],
+    )
+    monkeypatch.setattr(bf, "BrowserBridgeServer", lambda port=None, lifecycle_config=None: fake_bridge)
+
+    bf.run_farming_loop(max_ticks=2, tick_interval_s=0.0)
+
+    assert ("bdown", "left") in sent, "tick 1 must have fired for this test to be meaningful"
+    assert ("bup", "left") in sent, "stale lifecycle telemetry must release the held shot"
+
+
+def test_runtime_unknown_immediately_release_all(monkeypatch):
+    sent = _patch_healthy_environment(monkeypatch)
+    _run_n_ticks(monkeypatch, sent, n=2, lifecycle=[BrowserLifecycleState.PLAYING, BrowserLifecycleState.UNKNOWN])
+    assert ("bdown", "left") in sent
+    assert ("bup", "left") in sent
+
+
+def test_runtime_lobby_and_entering_game_and_captcha_all_release_all(monkeypatch):
+    for state in (BrowserLifecycleState.LOBBY, BrowserLifecycleState.ENTERING_GAME, BrowserLifecycleState.CAPTCHA_REQUIRED, BrowserLifecycleState.LOADING):
+        sent = _patch_healthy_environment(monkeypatch)
+        _run_n_ticks(monkeypatch, sent, n=2, lifecycle=[BrowserLifecycleState.PLAYING, state])
+        assert ("bdown", "left") in sent, f"tick 1 must have fired for the {state} case to be meaningful"
+        assert ("bup", "left") in sent, f"{state} must release the held shot"
+
+
+def test_old_pre_death_oracle_snapshot_never_causes_action_after_respawn(monkeypatch):
+    sent = _patch_healthy_environment(monkeypatch)
+    # Oracle telemetry is frozen at whatever received_at its FIRST ever
+    # latest() call captured (real time.monotonic(), taken during
+    # startup's _wait_for_fresh_oracle_after -- so it correctly satisfies
+    # the FIRST PLAYING transition) and never advances again after that --
+    # as if the tab/renderer effectively stopped updating right after the
+    # very first life. By the time lifecycle cycles PLAYING -> DEAD ->
+    # PLAYING (a fresh respawn, tick 3), real wall-clock time has moved
+    # on, so that same frozen received_at can no longer be after the
+    # SECOND transition -- farming must not act on tick 3 despite
+    # lifecycle already reporting PLAYING again.
+    _run_n_ticks(
+        monkeypatch, sent, n=3,
+        lifecycle=[BrowserLifecycleState.PLAYING, BrowserLifecycleState.DEAD, BrowserLifecycleState.PLAYING],
+        freeze_oracle_received_at=True,
+    )
+
+    assert ("bdown", "left") in sent, "tick 1 (first PLAYING) must have fired for this test to be meaningful"
+    fire_count = sent.count(("bdown", "left"))
+    assert fire_count == 1, (
+        "a stale, pre-respawn Oracle snapshot must never produce a NEW gameplay action after "
+        f"a fresh PLAYING transition (expected exactly 1 shot start, got {fire_count})"
+    )
+
+
+def test_fresh_oracle_after_new_playing_allows_action_again(monkeypatch):
+    sent = _patch_healthy_environment(monkeypatch)
+    # Same PLAYING -> DEAD -> PLAYING cycle, but this time Oracle telemetry
+    # is auto-freshened on every latest() call (the default -- omit
+    # freeze_oracle_received_at) -- once genuinely fresh telemetry arrives
+    # after the new PLAYING transition, farming must resume and fire
+    # again (a NEW press, not just the first life's still-held button).
+    _run_n_ticks(
+        monkeypatch, sent, n=3,
+        lifecycle=[BrowserLifecycleState.PLAYING, BrowserLifecycleState.DEAD, BrowserLifecycleState.PLAYING],
+    )
+
+    fire_count = sent.count(("bdown", "left"))
+    assert fire_count == 2, f"expected a fresh press on tick 1 AND again on tick 3 (post-respawn), got {fire_count}"
+
+
+def test_multiple_playing_dead_playing_cycles(monkeypatch):
+    sent = _patch_healthy_environment(monkeypatch)
+    lifecycle_sequence = [
+        BrowserLifecycleState.PLAYING,  # tick 1: playing
+        BrowserLifecycleState.DEAD,     # tick 2: dead
+        BrowserLifecycleState.PLAYING,  # tick 3: respawned, playing
+        BrowserLifecycleState.DEAD,     # tick 4: dead again
+        BrowserLifecycleState.PLAYING,  # tick 5: respawned again, playing
+    ]
+    _run_n_ticks(monkeypatch, sent, n=len(lifecycle_sequence), lifecycle=lifecycle_sequence)
+
+    # A fresh shot on every one of the three PLAYING stretches (ticks 1, 3, 5).
+    assert sent.count(("bdown", "left")) == 3
+    # One release for each of the two DEAD stretches, plus one more from
+    # run_farming_loop's own teardown (the loop ends mid-tick-5 still
+    # actively firing -- its `finally` block always releases held input).
+    assert sent.count(("bup", "left")) == 3
+
+
+def test_panic_trip_during_playing_terminates_and_is_never_rearmed_by_lifecycle(monkeypatch, capsys):
+    sent = _patch_healthy_environment(monkeypatch)
+    monkeypatch.setattr(window_focus, "client_rect_on_screen", lambda t: (0, 0, 1600, 900))
+    _patch_startup(monkeypatch)
+
+    # PLAYING throughout (lifecycle never reports DEAD/anything else), but
+    # Controller trips on tick 1 as if the panic key fired -- the loop
+    # must stop and stay disarmed even though lifecycle keeps saying
+    # PLAYING on every subsequent (never-reached) tick.
+    fake_bridge = FakeBridge(_usable_state(), 0.01, lifecycle=BrowserLifecycleState.PLAYING)
+    monkeypatch.setattr(bf, "BrowserBridgeServer", lambda port=None, lifecycle_config=None: fake_bridge)
+
+    original_arm = ctrl_mod.Controller.arm
+
+    def arm_then_trip(self, target=None):
+        original_arm(self, target)
+        self._trip_if_epoch(self._epoch, "emergency_stop")
+
+    monkeypatch.setattr(ctrl_mod.Controller, "arm", arm_then_trip)
+
+    bf.run_farming_loop(max_ticks=1000, tick_interval_s=0.0)
+
+    out = capsys.readouterr().out
+    assert "emergency_stop" in out
+    assert "stopping farming loop" in out
+    # Only one arm() call ever happened -- lifecycle transitions (even
+    # though this fake keeps reporting PLAYING) never re-armed Controller.
+    assert fake_bridge.latest_calls == 1
 
 
 # ---------------------------------------------------------------------------
@@ -533,64 +924,6 @@ def test_target_candidates_excludes_claimed_and_near_self():
 
 
 # ---------------------------------------------------------------------------
-# run_farming_loop: own-projectile speed estimation + target lead wiring
-# ---------------------------------------------------------------------------
-
-
-class FakeSequenceBridge:
-    """Returns one (state, age) pair per latest()/age_s() call, advancing
-    through a scripted sequence -- unlike FakeBridge (fixed single state),
-    this lets a test script out several ticks of consistent motion."""
-
-    def __init__(self, items):
-        self._items = list(items)
-        self._index = -1
-        self.started = False
-        self.stopped = False
-
-    def start(self):
-        self.started = True
-
-    def stop(self, timeout=None):
-        self.stopped = True
-
-    def has_connected(self):
-        return True
-
-    def latest(self):
-        if self._index + 1 < len(self._items):
-            self._index += 1
-        return self._items[self._index][0]
-
-    def age_s(self, now=None):
-        return self._items[self._index][1]
-
-
-def _lead_scenario_states():
-    """A scripted 12-tick sequence: a stationary bait shape keeps farming
-    shooting every tick (so OwnProjectileTracker's shoot_active gate stays
-    open); starting tick 2, a projectile circle travels at a true 700px/s
-    along the aim direction (+x from self) and a target circle travels at
-    200px/s in +y, far enough from self/the projectile to never be
-    confused with either. By tick 12 there are 10 consistent own-
-    projectile speed samples (enough for ProjectileSpeedEstimate to cross
-    its confidence bar) and a fresh, confident TargetObservation -- lead
-    should become available exactly there."""
-    bait = _shape("square", 900.0, 450.0)
-    states = [_state(bait, canvas=CANVAS, received_at=0.0)]  # tick 1: no circles yet
-    for tick in range(2, 13):
-        t_ms = 50.0 * (tick - 1)
-        projectile = _circle(820.0 + (35.0 * (tick - 2)), 450.0, timestamp_ms=t_ms)
-        moving_target = _circle(1200.0, 450.0 + (10.0 * (tick - 2)), timestamp_ms=t_ms)
-        state = BrowserGameState(
-            shapes=(bait,), circles=(projectile, moving_target), canvas=CANVAS,
-            polled_at_ms=t_ms, performance_now_ms=t_ms, received_at=0.0,
-        )
-        states.append(state)
-    return states
-
-
-# ---------------------------------------------------------------------------
 # _format_lead_diagnostics
 # ---------------------------------------------------------------------------
 
@@ -650,6 +983,30 @@ def test_format_lead_diagnostics_available_state_shows_values():
     assert "commanded_aim: (1200, 600)" in output
 
 
+def _lead_scenario_states():
+    """A scripted 12-tick sequence: a stationary bait shape keeps farming
+    shooting every tick (so OwnProjectileTracker's shoot_active gate stays
+    open); starting tick 2, a projectile circle travels at a true 700px/s
+    along the aim direction (+x from self) and a target circle travels at
+    200px/s in +y, far enough from self/the projectile to never be
+    confused with either. By tick 12 there are 10 consistent own-
+    projectile speed samples (enough for ProjectileSpeedEstimate to cross
+    its confidence bar) and a fresh, confident TargetObservation -- lead
+    should become available exactly there."""
+    bait = _shape("square", 900.0, 450.0)
+    states = [_state(bait, canvas=CANVAS, received_at=0.0)]  # tick 1: no circles yet
+    for tick in range(2, 13):
+        t_ms = 50.0 * (tick - 1)
+        projectile = _circle(820.0 + (35.0 * (tick - 2)), 450.0, timestamp_ms=t_ms)
+        moving_target = _circle(1200.0, 450.0 + (10.0 * (tick - 2)), timestamp_ms=t_ms)
+        state = BrowserGameState(
+            shapes=(bait,), circles=(projectile, moving_target), canvas=CANVAS,
+            polled_at_ms=t_ms, performance_now_ms=t_ms, received_at=0.0,
+        )
+        states.append(state)
+    return states
+
+
 def test_run_farming_loop_wires_own_projectile_speed_and_target_lead(monkeypatch):
     sent = _patch_healthy_environment(monkeypatch)
     monkeypatch.setattr(window_focus, "client_rect_on_screen", lambda t: (0, 0, 1600, 900))
@@ -657,11 +1014,12 @@ def test_run_farming_loop_wires_own_projectile_speed_and_target_lead(monkeypatch
 
     states = _lead_scenario_states()
     # One extra leading copy of the first state: run_farming_loop's startup
-    # readiness stage (bridge.latest() is not None) legitimately consumes
-    # one FakeSequenceBridge item before the tick loop starts, so without
-    # this the whole scripted sequence would be shifted one tick early.
-    fake_bridge = FakeSequenceBridge([(states[0], 0.01)] + [(state, 0.01) for state in states])
-    monkeypatch.setattr(bf, "BrowserBridgeServer", lambda port=None: fake_bridge)
+    # readiness stage legitimately consumes one FakeBridge state before the
+    # tick loop starts, so without this the whole scripted sequence would
+    # be shifted one tick early. Age/received_at stay auto-fresh
+    # throughout (the default) so this is purely about circle/shape content.
+    fake_bridge = FakeBridge([states[0]] + states, 0.01)
+    monkeypatch.setattr(bf, "BrowserBridgeServer", lambda port=None, lifecycle_config=None: fake_bridge)
 
     bf.run_farming_loop(max_ticks=len(states), tick_interval_s=0.0)
 

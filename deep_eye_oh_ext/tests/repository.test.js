@@ -11,15 +11,34 @@ const manifest = JSON.parse(read('extension/manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.deepEqual(manifest.permissions.slice().sort(), ['clipboardWrite', 'scripting']);
 assert.deepEqual(manifest.host_permissions, ['https://diep.io/*']);
-assert.equal(manifest.content_scripts.length, 1);
-assert.deepEqual(manifest.content_scripts[0].matches, ['https://diep.io/*']);
-assert.equal(manifest.content_scripts[0].world, 'MAIN');
-assert.deepEqual(manifest.content_scripts[0].js, ['src/oracle.js']);
+// browser-lifecycle-v0: two content scripts now expected -- oracle.js
+// (MAIN world, unchanged, strictly read-only) and lifecycle.js (a second,
+// ISOLATED-world script; the one narrow, explicitly reviewed exception to
+// this extension's read-only invariant -- see AGENTS.md).
+assert.equal(manifest.content_scripts.length, 2, 'exactly two content scripts: oracle.js (MAIN) and lifecycle.js (ISOLATED)');
+
+const oracleScript = manifest.content_scripts.find((cs) => cs.js.includes('src/oracle.js'));
+assert.ok(oracleScript, 'oracle.js content script entry must exist');
+assert.deepEqual(oracleScript.matches, ['https://diep.io/*']);
+assert.equal(oracleScript.world, 'MAIN');
+assert.deepEqual(oracleScript.js, ['src/oracle.js']);
+assert.equal(oracleScript.run_at, 'document_start');
+
+const lifecycleScript = manifest.content_scripts.find((cs) => cs.js.includes('src/lifecycle.js'));
+assert.ok(lifecycleScript, 'lifecycle.js content script entry must exist');
+assert.deepEqual(lifecycleScript.matches, ['https://diep.io/*']);
+assert.equal(lifecycleScript.world, 'ISOLATED', 'lifecycle.js must run in the isolated world, never MAIN');
+assert.deepEqual(lifecycleScript.js, ['src/lifecycle.js']);
+assert.equal(lifecycleScript.run_at, 'document_start');
+
 assert.equal(
   JSON.stringify(manifest).includes('diepAPI'),
   false,
   'the pinned vendor must not be a manifest-loaded runtime script',
 );
+// Python remains the canonical config owner (see browser_lifecycle.py) --
+// no duplicate independent lifecycle config store in chrome.storage.
+assert.equal(JSON.stringify(manifest).includes('storage'), false, 'no chrome.storage permission for lifecycle config');
 // browser-informed-farming-v0: a background service worker is now expected
 // (the bridge that forwards Oracle snapshots to the local agent process),
 // but it must be exactly the reviewed bridge file -- nothing else.
@@ -102,6 +121,42 @@ for (const forbiddenPattern of [
 ]) {
   assert.doesNotMatch(bridgeSource, forbiddenPattern, `read-only boundary violation in bridge.js: ${forbiddenPattern}`);
 }
+// browser-lifecycle-v0: the bridge accepts back exactly one inbound
+// message TYPE from Python (`lifecycle_config`) -- never a generic
+// selector/JS/shell-command/URL/action payload, never eval, never
+// remotely-fetched/executed code.
+assert.match(bridgeSource, /buildBridgeHelloMessage/);
+assert.match(bridgeSource, /parseLifecycleConfigMessage/);
+assert.match(bridgeSource, /'lifecycle_config'/);
+for (const forbiddenPattern of [
+  /\beval\s*\(/, /\bnew Function\s*\(/, /\bimportScripts\s*\(/,
+  /\bexecuteScript\s*\(\s*\{\s*[^}]*func\s*:\s*[^,}]*message/is,
+]) {
+  assert.doesNotMatch(bridgeSource, forbiddenPattern, `no remote-code-execution pattern allowed in bridge.js: ${forbiddenPattern}`);
+}
+
+const lifecycleSource = read('extension/src/lifecycle.js');
+assert.match(lifecycleSource, /__deepEyeLifecycleInternals/);
+assert.match(lifecycleSource, /CAPTCHA_REQUIRED/);
+assert.match(lifecycleSource, /challenges\.cloudflare\.com/, 'CAPTCHA detection must be grounded in the real Turnstile iframe origin');
+assert.match(lifecycleSource, /never interacts with CAPTCHA controls/i);
+// Gameplay input (movement/aim/shoot/upgrade) and CAPTCHA interaction of
+// any kind must never appear in lifecycle.js -- it may only touch known
+// pre-game/lobby/death UI (name/mode/start/respawn). Real OS-level
+// gameplay input stays exclusively in Python's Controller (control.py).
+for (const forbiddenPattern of [
+  /\bmoveTank\s*\(/, /\baim\s*\(/, /\bshoot\s*\(/, /\bupgrade\s*\(/,
+  /\bKeyboardEvent\s*\(/, /\bsendKey/i, /\bWASD\b/,
+  /turnstile\.(?:execute|reset|render)/, /solveCaptcha/i, /bypassCaptcha/i,
+  /\beval\s*\(/, /\bnew Function\s*\(/,
+]) {
+  assert.doesNotMatch(lifecycleSource, forbiddenPattern, `gameplay/CAPTCHA boundary violation in lifecycle.js: ${forbiddenPattern}`);
+}
+// No generic "click anything that looks like X" rule -- every applyAction
+// branch must target an exact, known element id/selector, not a text-
+// content or role-based blind search.
+assert.doesNotMatch(lifecycleSource, /querySelectorAll\(['"]button['"]\)/);
+assert.doesNotMatch(lifecycleSource, /textContent.*includes\(['"]close['"]/i);
 
 const refreshSource = read('scripts/dev-refresh.ps1');
 assert.match(refreshSource, /\[switch\]\$UpdateVendor/);
@@ -143,6 +198,7 @@ const ownedTextFiles = [
   'dev-refresh.cmd',
   'extension/manifest.json',
   'extension/src/oracle.js',
+  'extension/src/lifecycle.js',
   'extension/background/bridge.js',
   'extension/popup/popup.css',
   'extension/popup/popup.html',
@@ -152,6 +208,7 @@ const ownedTextFiles = [
   'scripts/validate.ps1',
   'tests/oracle.test.js',
   'tests/bridge.test.js',
+  'tests/lifecycle.test.js',
 ];
 const mojibakePattern = /\uFFFD|\u00C3.|\u00C2.|\u00E2(?:\u20AC|\u2122)|\u0432\u0402/u;
 for (const relativePath of ownedTextFiles) {

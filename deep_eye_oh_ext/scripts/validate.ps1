@@ -58,10 +58,15 @@ try {
     $allowedPattern = 'https://diep.io/*'
     $scopes = @()
     $scopes += @($manifest.host_permissions)
+    # browser-lifecycle-v0: exactly two content scripts are now expected --
+    # oracle.js (MAIN world, unchanged, strictly read-only) and lifecycle.js
+    # (a second, ISOLATED-world script; the one narrow, explicitly reviewed
+    # exception to this extension's read-only invariant -- see AGENTS.md).
+    # Each is checked against its OWN expected world below, not a blanket
+    # "every content script is MAIN" rule.
     foreach ($contentScript in @($manifest.content_scripts)) {
         $scopes += @($contentScript.matches)
         $scopes += @($contentScript.exclude_matches)
-        Assert-True ($contentScript.world -eq 'MAIN') 'Every content script must explicitly use world MAIN.'
         foreach ($script in @($contentScript.js)) {
             Assert-ExtensionFile $script
         }
@@ -77,11 +82,21 @@ try {
         }
     }
     Assert-True (@($manifest.host_permissions).Count -eq 1) 'Exactly one host permission is expected.'
-    Assert-True (@($manifest.content_scripts).Count -eq 1) 'Exactly one content script declaration is expected.'
-    $mainScripts = @($manifest.content_scripts[0].js)
+    Assert-True (@($manifest.content_scripts).Count -eq 2) 'Exactly two content script declarations are expected (oracle.js, lifecycle.js).'
+
+    $oracleScript = @($manifest.content_scripts | Where-Object { @($_.js) -contains 'src/oracle.js' })[0]
+    Assert-True ($null -ne $oracleScript) 'oracle.js content script entry must exist.'
+    Assert-True ($oracleScript.world -eq 'MAIN') 'oracle.js must run in world MAIN.'
+    $mainScripts = @($oracleScript.js)
     Assert-True ($mainScripts.Count -eq 1) 'Exactly one MAIN-world script is expected.'
     Assert-True ($mainScripts[0] -eq 'src/oracle.js') `
-        'The oracle must be the only runtime script; the pinned vendor must not be manifest-loaded.'
+        'The oracle must be the only MAIN-world runtime script; the pinned vendor must not be manifest-loaded.'
+
+    $lifecycleScript = @($manifest.content_scripts | Where-Object { @($_.js) -contains 'src/lifecycle.js' })[0]
+    Assert-True ($null -ne $lifecycleScript) 'lifecycle.js content script entry must exist.'
+    Assert-True ($lifecycleScript.world -eq 'ISOLATED') 'lifecycle.js must run in the isolated world, never MAIN.'
+    Assert-True (@($lifecycleScript.js).Count -eq 1 -and @($lifecycleScript.js)[0] -eq 'src/lifecycle.js') `
+        'lifecycle.js must be declared as its own isolated-world content script.'
     # browser-informed-farming-v0: exactly one background service worker is
     # now expected -- the reviewed Oracle-snapshot-to-localhost bridge, and
     # nothing else (no extra background keys, e.g. no persistent page).
@@ -176,6 +191,27 @@ try {
     Assert-True ($bridgeText -match '\bnew\s+WebSocket\s*\(') `
         'background/bridge.js must use a plain WebSocket client (not found).'
 
+    # extension/src/lifecycle.js is browser-lifecycle-v0's one narrow,
+    # explicitly reviewed exception to the read-only invariant above (see
+    # AGENTS.md): it may touch known pre-game/lobby/death UI, but it must
+    # NEVER contain a gameplay-control primitive (same $gameControlPatterns
+    # every other runtime source is checked against) and must NEVER
+    # interact with a CAPTCHA/Turnstile widget in any way.
+    $lifecyclePath = Join-Path $extensionRoot 'src\lifecycle.js'
+    Assert-True (Test-Path -LiteralPath $lifecyclePath -PathType Leaf) 'The lifecycle script is missing: src/lifecycle.js.'
+    $lifecycleText = Get-Content -Raw -LiteralPath $lifecyclePath
+    $captchaInteractionPatterns = @(
+        'turnstile\.(?:execute|reset|render)',
+        'solveCaptcha',
+        'bypassCaptcha'
+    )
+    foreach ($pattern in ($gameControlPatterns + $captchaInteractionPatterns)) {
+        Assert-True ($lifecycleText -notmatch $pattern) `
+            "Gameplay/CAPTCHA boundary violation in src/lifecycle.js (pattern: $pattern)"
+    }
+    Assert-True ($lifecycleText -match 'challenges\.cloudflare\.com') `
+        'lifecycle.js CAPTCHA detection must be grounded in the real Turnstile iframe origin.'
+
     $extensionJavaScript = @(Get-ChildItem -LiteralPath $extensionRoot -Recurse -File -Filter '*.js')
     foreach ($scriptFile in $extensionJavaScript) {
         $scriptText = Get-Content -Raw -LiteralPath $scriptFile.FullName
@@ -214,11 +250,13 @@ try {
         foreach ($script in @(
             $vendorPath,
             (Join-Path $extensionRoot 'src\oracle.js'),
+            $lifecyclePath,
             (Join-Path $extensionRoot 'popup\popup.js'),
             $bridgePath,
             (Join-Path $repoRoot 'tests\oracle.test.js'),
             (Join-Path $repoRoot 'tests\repository.test.js'),
-            (Join-Path $repoRoot 'tests\bridge.test.js')
+            (Join-Path $repoRoot 'tests\bridge.test.js'),
+            (Join-Path $repoRoot 'tests\lifecycle.test.js')
         )) {
             & $node.Source --check $script
             Assert-True ($LASTEXITCODE -eq 0) "JavaScript syntax check failed: $script"
@@ -229,6 +267,8 @@ try {
         Assert-True ($LASTEXITCODE -eq 0) 'Repository tests failed.'
         & $node.Source (Join-Path $repoRoot 'tests\bridge.test.js')
         Assert-True ($LASTEXITCODE -eq 0) 'Bridge tests failed.'
+        & $node.Source (Join-Path $repoRoot 'tests\lifecycle.test.js')
+        Assert-True ($LASTEXITCODE -eq 0) 'Lifecycle tests failed.'
     }
 
     Write-Host 'Validation passed:'

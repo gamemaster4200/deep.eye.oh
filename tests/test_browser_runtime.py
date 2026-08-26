@@ -7,6 +7,7 @@ Popen -- no real network, no real Chrome, no real taskkill."""
 from __future__ import annotations
 
 import hashlib
+import json
 import subprocess
 import zipfile
 from pathlib import Path
@@ -39,7 +40,78 @@ def test_build_chrome_argv_contains_expected_flags():
     assert "--no-default-browser-check" in argv
     assert "--disable-sync" in argv
     assert "--disable-background-networking" in argv
+    assert "--disable-session-crashed-bubble" in argv
     assert argv[-1] == br.DIEP_URL
+
+
+def test_mark_profile_exited_cleanly_on_missing_preferences_creates_a_minimal_one(tmp_path):
+    # A brand-new profile has no crash state to begin with -- writing a
+    # minimal Preferences file with the clean markers is harmless and
+    # avoids depending on Chrome's own not-yet-created defaults.
+    profile = tmp_path / "profile"
+    profile.mkdir()
+    br._mark_profile_exited_cleanly(profile)  # must not raise
+    prefs_path = profile / "Default" / "Preferences"
+    assert prefs_path.exists()
+    data = json.loads(prefs_path.read_text(encoding="utf-8"))
+    assert data["profile"]["exit_type"] == "Normal"
+
+
+def test_mark_profile_exited_cleanly_patches_existing_preferences(tmp_path):
+    profile = tmp_path / "profile"
+    prefs_path = profile / "Default" / "Preferences"
+    prefs_path.parent.mkdir(parents=True)
+    prefs_path.write_text(
+        json.dumps({"profile": {"exit_type": "Crashed", "exited_cleanly": False}, "other": {"untouched": 1}}),
+        encoding="utf-8",
+    )
+
+    br._mark_profile_exited_cleanly(profile)
+
+    data = json.loads(prefs_path.read_text(encoding="utf-8"))
+    assert data["profile"]["exit_type"] == "Normal"
+    assert data["profile"]["exited_cleanly"] is True
+    assert data["other"]["untouched"] == 1
+
+
+def test_mark_profile_exited_cleanly_creates_profile_section_if_absent(tmp_path):
+    profile = tmp_path / "profile"
+    prefs_path = profile / "Default" / "Preferences"
+    prefs_path.parent.mkdir(parents=True)
+    prefs_path.write_text(json.dumps({"other": {}}), encoding="utf-8")
+
+    br._mark_profile_exited_cleanly(profile)
+
+    data = json.loads(prefs_path.read_text(encoding="utf-8"))
+    assert data["profile"]["exit_type"] == "Normal"
+    assert data["profile"]["exited_cleanly"] is True
+
+
+def test_mark_profile_exited_cleanly_on_corrupt_preferences_is_a_noop(tmp_path):
+    profile = tmp_path / "profile"
+    prefs_path = profile / "Default" / "Preferences"
+    prefs_path.parent.mkdir(parents=True)
+    prefs_path.write_text("{not valid json", encoding="utf-8")
+
+    br._mark_profile_exited_cleanly(profile)  # must not raise, must not corrupt further
+
+    assert prefs_path.read_text(encoding="utf-8") == "{not valid json"
+
+
+def test_launch_chrome_marks_profile_exited_cleanly(monkeypatch, tmp_path):
+    profile = tmp_path / "profile"
+    prefs_path = profile / "Default" / "Preferences"
+    prefs_path.parent.mkdir(parents=True)
+    prefs_path.write_text(json.dumps({"profile": {"exit_type": "Crashed"}}), encoding="utf-8")
+
+    popen_calls = []
+    monkeypatch.setattr(subprocess, "Popen", lambda argv: popen_calls.append(argv) or object())
+
+    br.launch_chrome(Path("chrome.exe"), Path("ext"), profile=profile)
+
+    data = json.loads(prefs_path.read_text(encoding="utf-8"))
+    assert data["profile"]["exit_type"] == "Normal"
+    assert len(popen_calls) == 1
 
 
 def test_build_chrome_argv_custom_url():

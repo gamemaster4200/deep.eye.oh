@@ -43,8 +43,9 @@ assert.equal(typeof internals, 'object', 'bridge.js must expose __deepEyeBridgeI
 assert.deepEqual(
   Object.keys(internals).sort(),
   [
-    'DEFAULT_BRIDGE_PORT', 'POLL_INTERVAL_MS', 'bridgeUrl', 'buildOutboundMessage',
-    'createBridge', 'nextReconnectDelayMs', 'pickTargetTab',
+    'BRIDGE_PROTOCOL_VERSION', 'CAPABILITIES', 'DEFAULT_BRIDGE_PORT', 'POLL_INTERVAL_MS',
+    'bridgeUrl', 'buildBridgeHelloMessage', 'buildLifecycleSnapshotMessage', 'buildOutboundMessage',
+    'createBridge', 'nextReconnectDelayMs', 'parseLifecycleConfigMessage', 'pickTargetTab',
   ],
 );
 
@@ -59,6 +60,61 @@ assert.deepEqual(
     type: 'oracle_snapshot', tabId: 42, polledAtMs: 12345, snapshot,
   });
   assert.doesNotThrow(() => JSON.stringify(message), 'the outbound message must be JSON-safe');
+}
+
+// ---------------------------------------------------------------------------
+// buildBridgeHelloMessage / buildLifecycleSnapshotMessage (browser-lifecycle-v0)
+// ---------------------------------------------------------------------------
+
+{
+  const hello = plain(internals.buildBridgeHelloMessage());
+  assert.deepEqual(hello, {
+    type: 'bridge_hello',
+    protocolVersion: 1,
+    capabilities: ['oracle_snapshot', 'lifecycle_v0'],
+  });
+  assert.ok(hello.capabilities.includes('oracle_snapshot'));
+  assert.ok(hello.capabilities.includes('lifecycle_v0'));
+  assert.doesNotThrow(() => JSON.stringify(hello), 'bridge_hello must be JSON-safe');
+}
+
+{
+  const snapshot = { state: 'LOBBY', reason: 'home_screen_ready', selectedMode: 'ffa' };
+  const message = plain(internals.buildLifecycleSnapshotMessage(7, 12345, snapshot));
+  assert.deepEqual(message, {
+    type: 'lifecycle_snapshot', tabId: 7, observedAtMs: 12345, snapshot,
+  });
+  assert.doesNotThrow(() => JSON.stringify(message), 'lifecycle_snapshot must be JSON-safe');
+  // Must never carry full DOM fragments/HTML -- see module doc comment.
+  assert.equal(JSON.stringify(message).includes('<'), false);
+}
+
+// ---------------------------------------------------------------------------
+// parseLifecycleConfigMessage: the ONLY inbound message type ever accepted
+// ---------------------------------------------------------------------------
+
+{
+  const valid = plain(internals.parseLifecycleConfigMessage({
+    type: 'lifecycle_config', playerName: 'deep.eye.oh', gameMode: 'ffa',
+  }));
+  assert.deepEqual(valid, { playerName: 'deep.eye.oh', gameMode: 'ffa' });
+}
+
+{
+  // Wrong/unknown type -- e.g. an attempted arbitrary command payload --
+  // must be rejected, not partially accepted.
+  for (const bad of [
+    null, undefined, 'not an object', 42,
+    { type: 'oracle_snapshot', playerName: 'x', gameMode: 'ffa' },
+    { type: 'run_command', command: 'rm -rf /' },
+    { type: 'lifecycle_config' }, // missing fields
+    { type: 'lifecycle_config', playerName: 123, gameMode: 'ffa' },
+    { type: 'lifecycle_config', playerName: 'x', gameMode: 456 },
+    { type: 'lifecycle_config', playerName: '', gameMode: 'ffa' },
+    { type: 'lifecycle_config', playerName: 'x', gameMode: '' },
+  ]) {
+    assert.equal(internals.parseLifecycleConfigMessage(bad), null, `must reject: ${JSON.stringify(bad)}`);
+  }
 }
 
 // ---------------------------------------------------------------------------
