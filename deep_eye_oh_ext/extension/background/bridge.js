@@ -261,6 +261,26 @@ function createBridge(port = DEFAULT_BRIDGE_PORT) {
     socket.addEventListener('close', () => {
       socketOpen = false;
       socket = null;
+      // The overlay's own `focused`/open state is local UI state this
+      // background page cannot see or reset for it -- if the WebSocket
+      // (not the chrome.runtime port to the overlay, which is unaffected)
+      // drops while the overlay had focus, PhysicalKeyboardCapture is
+      // independently force-stopped bridge-side on connection loss (see
+      // browser_bridge.py's _handle_connection finally block), but the
+      // overlay would otherwise never learn that and stay stuck
+      // "focused" -- silently ignoring every future backtick toggle,
+      // since its own physical keystrokes are no longer being relayed to
+      // it either. This synthetic push (never relayed from the
+      // WebSocket/Python -- see parseOverlayPushMessage, which this
+      // bypasses entirely) lets the overlay reset itself so `` ` `` keeps
+      // working after a transient bridge disconnect/reconnect.
+      if (overlayPort) {
+        try {
+          overlayPort.postMessage({ type: 'bridge_disconnected' });
+        } catch (_error) {
+          // Best-effort only -- same as every other overlay port push.
+        }
+      }
       scheduleReconnect();
     });
     socket.addEventListener('error', () => {

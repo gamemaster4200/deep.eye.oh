@@ -158,6 +158,17 @@
       appendLog(message.status === 'ok' ? 'ok' : message.status, `${message.text} -> ${message.message}`);
     } else if (message.type === 'overlay_key_event') {
       handleKeyEvent(message);
+    } else if (message.type === 'bridge_disconnected') {
+      // Synthesized locally by background/bridge.js on bridge-socket close --
+      // never relayed from Python (see that file's doc comment). The
+      // backend-side PhysicalKeyboardCapture is independently force-
+      // stopped on connection loss (browser_bridge.py) -- this closes the
+      // overlay's own focused/open state to match, so `` ` `` keeps
+      // working on the next physical press instead of silently no-op'ing
+      // forever (the toggle listener ignores every keydown while
+      // `focused` is stuck true).
+      closeOverlay();
+      appendLog('local', 'bridge disconnected -- overlay closed, reopen with `');
     }
   }
 
