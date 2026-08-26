@@ -154,6 +154,11 @@ assert.match(bridgeSource, /OVERLAY_PORT_NAME/, 'the overlay port relay must be 
 assert.match(bridgeSource, /chrome\.runtime\.onConnect/);
 assert.match(bridgeSource, /buildOverlayOutboundMessage/);
 assert.match(bridgeSource, /parseOverlayPushMessage/);
+// A WebSocket close must tell an active overlay port about it (never
+// silently leave the overlay's own focused/open state stuck true forever
+// -- live-smoke-found regression, see overlay.js's 'bridge_disconnected'
+// handler).
+assert.match(bridgeSource, /'bridge_disconnected'/);
 
 const lifecycleSource = read('extension/src/lifecycle.js');
 assert.match(lifecycleSource, /__deepEyeLifecycleInternals/);
@@ -190,6 +195,7 @@ assert.match(overlaySource, /chrome\.runtime\.connect\(/);
 assert.match(overlaySource, /Backquote/, 'the toggle must key off KeyboardEvent.code, not the layout-dependent event.key');
 assert.match(overlaySource, /__deepEyeOverlayInternals/);
 assert.match(overlaySource, /shell_refused/, "a leading '!' must be classified as refused, never executed");
+assert.match(overlaySource, /'bridge_disconnected'/, "the overlay must reset its own focused/open state when the bridge WebSocket drops");
 for (const forbiddenPattern of [
   /\bspawn\s*\(/, /\baimAt\s*\(/, /\blookAt\s*\(/, /\bshoot\s*\(/,
   /\bkeyDown\s*\(/, /\bkeyUp\s*\(/, /\bkeyPress\s*\(/, /\bmouse(?:Press)?\s*\(/,
