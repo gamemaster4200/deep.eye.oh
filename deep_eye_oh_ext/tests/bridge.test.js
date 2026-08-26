@@ -43,9 +43,10 @@ assert.equal(typeof internals, 'object', 'bridge.js must expose __deepEyeBridgeI
 assert.deepEqual(
   Object.keys(internals).sort(),
   [
-    'BRIDGE_PROTOCOL_VERSION', 'CAPABILITIES', 'DEFAULT_BRIDGE_PORT', 'POLL_INTERVAL_MS',
+    'BRIDGE_PROTOCOL_VERSION', 'CAPABILITIES', 'DEFAULT_BRIDGE_PORT', 'OVERLAY_PORT_NAME', 'POLL_INTERVAL_MS',
     'bridgeUrl', 'buildBridgeHelloMessage', 'buildLifecycleSnapshotMessage', 'buildOutboundMessage',
-    'createBridge', 'nextReconnectDelayMs', 'parseLifecycleConfigMessage', 'pickTargetTab',
+    'buildOverlayOutboundMessage', 'createBridge', 'nextReconnectDelayMs', 'parseLifecycleConfigMessage',
+    'parseOverlayPushMessage', 'pickTargetTab',
   ],
 );
 
@@ -118,6 +119,70 @@ assert.deepEqual(
 }
 
 // ---------------------------------------------------------------------------
+// buildOverlayOutboundMessage / parseOverlayPushMessage (overlay-control-center-v0)
+// ---------------------------------------------------------------------------
+
+{
+  const message = plain(internals.buildOverlayOutboundMessage({ type: 'overlay_command', text: 'pause' }, 7, 12345));
+  assert.deepEqual(message, { type: 'overlay_command', tabId: 7, sentAtMs: 12345, text: 'pause' });
+}
+
+{
+  const message = plain(internals.buildOverlayOutboundMessage({ type: 'overlay_focus', focused: true }, 7, 12345));
+  assert.deepEqual(message, { type: 'overlay_focus', tabId: 7, sentAtMs: 12345, focused: true });
+}
+
+{
+  // Anything that isn't exactly one of the two known port-message shapes
+  // must never be forwarded onto the WebSocket -- this is the entire
+  // point of the "narrow, explicit, reviewed exception", not a general
+  // message bus.
+  const cases = [
+    null,
+    undefined,
+    {},
+    { type: 'overlay_command' }, // missing text
+    { type: 'overlay_command', text: 42 }, // wrong type
+    { type: 'overlay_focus' }, // missing focused
+    { type: 'overlay_focus', focused: 'yes' }, // wrong type
+    { type: 'oracle_snapshot', snapshot: {} }, // wrong channel entirely
+    { type: 'shell_command', text: 'rm -rf /' },
+  ];
+  for (const raw of cases) {
+    assert.equal(internals.buildOverlayOutboundMessage(raw, 1, 0), null, `must reject ${JSON.stringify(raw)}`);
+  }
+}
+
+{
+  assert.deepEqual(
+    internals.parseOverlayPushMessage({ type: 'bot_status', connected: true }),
+    { type: 'bot_status', connected: true },
+  );
+  assert.deepEqual(
+    internals.parseOverlayPushMessage({ type: 'overlay_command_result', text: 'pause', status: 'ok', message: 'bot paused' }),
+    { type: 'overlay_command_result', text: 'pause', status: 'ok', message: 'bot paused' },
+  );
+  assert.deepEqual(
+    internals.parseOverlayPushMessage({ type: 'overlay_key_event', kind: 'char', value: 'w' }),
+    { type: 'overlay_key_event', kind: 'char', value: 'w' },
+  );
+}
+
+{
+  // Anything other than the three known overlay-outbound shapes
+  // (including the pre-existing lifecycle_config/oracle_snapshot
+  // channels) must never be forwarded onto the overlay port.
+  for (const bad of [
+    null, undefined, 'not an object', 42,
+    { type: 'lifecycle_config', playerName: 'x', gameMode: 'ffa' },
+    { type: 'oracle_snapshot' },
+    { type: 'unknown_type' },
+  ]) {
+    assert.equal(internals.parseOverlayPushMessage(bad), null, `must reject ${JSON.stringify(bad)}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // nextReconnectDelayMs: exponential backoff, floored and capped
 // ---------------------------------------------------------------------------
 
@@ -182,8 +247,13 @@ assert.deepEqual(
   const bridge = internals.createBridge(9999);
   assert.equal(typeof bridge.start, 'function');
   assert.equal(typeof bridge.stop, 'function');
+  assert.equal(typeof bridge.acceptOverlayPort, 'function');
   // stop() before start() must be a safe no-op, not throw.
   assert.doesNotThrow(() => bridge.stop());
 }
 
-console.log('Bridge tests passed: outbound message shape, reconnect backoff, tab selection, and URL construction.');
+{
+  assert.equal(internals.OVERLAY_PORT_NAME, 'deepEyeOverlay');
+}
+
+console.log('Bridge tests passed: outbound message shape, overlay port relay, reconnect backoff, tab selection, and URL construction.');

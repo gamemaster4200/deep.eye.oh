@@ -113,3 +113,86 @@ lead never substitutes a guessed or stale aim point.
 
 Safety-relevant behavior (`Controller`, focus/emergency-stop gates,
 Oracle canvas provenance) is unchanged by this slice.
+
+## overlay-control-center-v0: generic in-page Control Center (no live-game wiring)
+
+An in-page overlay in `deep_eye_oh_ext` (toggled by `` ` ``) lets a human
+view status/telemetry and issue text commands over the existing bridge.
+**Architectural invariant: the Control Center is "ears + language +
+instrumentation UI" for whatever backend is on the other end of the
+bridge -- it makes no game decisions itself, and does not require a
+live-game backend to exist, run, or be tested at all.** It must never be
+wired to targeting, farming, policy, or `Controller` actuation as part of
+this slice.
+
+Extends the existing one-way (browser -> bot) WebSocket bridge
+(`browser_bridge.py`) with a narrow, explicit, reviewed exception -- two
+new inbound message types (`overlay_command`, `overlay_focus`) and three
+new outbound ones (`overlay_command_result`, `bot_status`,
+`overlay_key_event`) on the same connection, independent of the existing
+`oracle_snapshot`/`lifecycle_snapshot`/`bridge_hello` slots.
+`overlay_command.py`'s `dispatch_command()` is the entire command surface:
+pure, no Controller/bridge access of its own, recognizing only
+`pause`/`resume` as real capability and reporting everything else
+`unsupported`/`rejected`. `browser_bridge.py` itself is pure transport
+(`pop_commands()`/`send_command_result()`/`push_status()`/
+`push_key_event()`) -- it never calls Controller, `browser_farming.py`,
+or any other game-policy code.
+
+**`overlay_dev_backend.py`** is this slice's own generic reference
+backend: it drains `pop_commands()`, dispatches through
+`dispatch_command()`, tracks a trivial in-memory pause flag, and pushes a
+synthetic `bot_status` (`connected`/`pausedByCommand`/`tickCount` only --
+nothing this module cannot honestly claim to know). It is what backs the
+overlay for manual dev-testing and the automated integration tests, and
+is explicitly NOT `run_farming_loop`. A future backend (the real farming
+loop, or a simulator/private-sandbox implementation) can replace it
+without any change to `BrowserBridgeServer`, `overlay_command.py`, or the
+extension side -- all three already only depend on this same generic
+`pop_commands()`/`send_command_result()`/`push_status()` surface. Wiring
+a live backend (and therefore reintroducing any Controller/farming
+coupling) is a deliberately separate, later decision, not part of this
+slice.
+
+**Physical/synthetic keyboard disambiguation (`physical_keyboard_hook.py`):**
+a live spike showed that giving the overlay's command input real DOM
+focus in the browser causes this project's own Controller-driven
+`SendInput` keyboard traffic to be consumed as literal text by that
+focused input instead of reaching the game -- `SendInput`-injected and
+physical hardware keyboard events are NOT distinguishable at the DOM/JS
+layer (both are `isTrusted: true`). The only place that distinction
+exists is a Windows low-level keyboard hook's `LLKHF_INJECTED` flag.
+`PhysicalKeyboardCapture`, active only while the overlay's command input
+actually has focus, suppresses and relays *physical* keystrokes to the
+overlay (which renders its own text buffer from them, since it is not
+natively focused in this mode) while passing every `SendInput`-injected
+event through completely untouched. Deliberately a separate, narrowly-
+scoped module (parallel to `win32_input.py`), not folded into
+`Controller`, and with no dependency on any particular backend being
+wired up.
+
+The extension's overlay content script (`deep_eye_oh_ext/extension/src/
+overlay.js`) never natively focuses any DOM element for command entry --
+it renders its own text buffer purely from `overlay_key_event` relays
+while `PhysicalKeyboardCapture` is active, and toggles/closes via the
+`` ` ``/backtick physical key (`KeyboardEvent.code === 'Backquote'`,
+never `event.key`, so the toggle works under any keyboard layout, e.g.
+Cyrillic) through the SAME relay when focused, or a normal isolated-world
+`keydown` listener when it is not. Ordinary typed text is relayed as an
+`overlay_command`; a leading `/` is a LOCAL overlay-only command (never
+sent anywhere); a leading `!` is refused outright (never sent anywhere,
+never executed) -- the overlay must never become a shell. It renders only
+whatever `bot_status` fields the connected backend actually sends (see
+`formatStatusLine`'s doc comment) -- never a fabricated field.
+
+**Exclusion-region scope note:** the overlay is excluded from the
+current Browser Oracle Canvas2D perception path only by construction --
+it is a plain DOM element (isolated-world content script, Shadow DOM),
+never a canvas draw call, so `oracle.js`'s hooked
+`CanvasRenderingContext2D` methods never see it; no filtering code was
+needed or added. This is *not* a general guarantee for a future
+screen-pixel `StateEstimator`: the canonical `Observation ->
+StateEstimator -> GameState -> Policy` pipeline still has no perception
+implementation (see above), and if it is ever built and used with the
+overlay on screen, it will need its own, separate masking/exclusion
+mechanism designed then, against its own real consumer.

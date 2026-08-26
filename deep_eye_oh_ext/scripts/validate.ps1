@@ -26,7 +26,11 @@ function Assert-ExtensionFile {
 
     Assert-True (-not [string]::IsNullOrWhiteSpace($RelativePath)) 'Manifest contains an empty file reference.'
     $fullPath = [System.IO.Path]::GetFullPath((Join-Path $extensionRoot $RelativePath))
-    $rootPrefix = [System.IO.Path]::GetFullPath($extensionRoot).TrimEnd('\') + '\'
+    # DirectorySeparatorChar (not a hardcoded '\') so this also works under
+    # pwsh on a non-Windows dev machine -- identical behavior on Windows,
+    # where it's still '\'.
+    $sep = [System.IO.Path]::DirectorySeparatorChar
+    $rootPrefix = [System.IO.Path]::GetFullPath($extensionRoot).TrimEnd($sep) + $sep
     Assert-True ($fullPath.StartsWith($rootPrefix, [StringComparison]::OrdinalIgnoreCase)) `
         "Manifest file reference escapes the extension root: $RelativePath"
     Assert-True (Test-Path -LiteralPath $fullPath -PathType Leaf) `
@@ -82,7 +86,10 @@ try {
         }
     }
     Assert-True (@($manifest.host_permissions).Count -eq 1) 'Exactly one host permission is expected.'
-    Assert-True (@($manifest.content_scripts).Count -eq 2) 'Exactly two content script declarations are expected (oracle.js, lifecycle.js).'
+    # overlay-control-center-v0: a third content script (overlay.js,
+    # ISOLATED world) is now expected alongside oracle.js (MAIN) and
+    # lifecycle.js (ISOLATED).
+    Assert-True (@($manifest.content_scripts).Count -eq 3) 'Exactly three content script declarations are expected (oracle.js, lifecycle.js, overlay.js).'
 
     $oracleScript = @($manifest.content_scripts | Where-Object { @($_.js) -contains 'src/oracle.js' })[0]
     Assert-True ($null -ne $oracleScript) 'oracle.js content script entry must exist.'
@@ -97,6 +104,12 @@ try {
     Assert-True ($lifecycleScript.world -eq 'ISOLATED') 'lifecycle.js must run in the isolated world, never MAIN.'
     Assert-True (@($lifecycleScript.js).Count -eq 1 -and @($lifecycleScript.js)[0] -eq 'src/lifecycle.js') `
         'lifecycle.js must be declared as its own isolated-world content script.'
+
+    $overlayScript = @($manifest.content_scripts | Where-Object { @($_.js) -contains 'src/overlay.js' })[0]
+    Assert-True ($null -ne $overlayScript) 'overlay.js content script entry must exist.'
+    Assert-True ($overlayScript.world -eq 'ISOLATED') 'overlay.js must run in the isolated world, never MAIN.'
+    Assert-True (@($overlayScript.js).Count -eq 1 -and @($overlayScript.js)[0] -eq 'src/overlay.js') `
+        'overlay.js must be declared as its own isolated-world content script.'
     # browser-informed-farming-v0: exactly one background service worker is
     # now expected -- the reviewed Oracle-snapshot-to-localhost bridge, and
     # nothing else (no extra background keys, e.g. no persistent page).
@@ -143,13 +156,17 @@ try {
     Assert-True (([string]$lock.sha256).ToLowerInvariant() -eq $actualSha256) `
         "Vendor lock SHA-256 does not match diepAPI.user.js ($actualSha256)."
 
-    # oracle.js and popup.js are page-context/popup-context observation
-    # code and must never touch the network or send game-control primitives
-    # -- WebSocket included, since either would mean this "read-only"
-    # runtime is quietly doing more than observing.
+    # oracle.js, popup.js, and overlay.js are page/popup/overlay-context
+    # code and must never touch the network or send game-control
+    # primitives -- WebSocket included, since any of them doing so would
+    # mean this "read-only"/UI-only runtime is quietly doing more than
+    # observing/rendering. overlay.js relays exclusively through a
+    # chrome.runtime.connect port to background/bridge.js (the one
+    # reviewed exception below), never a WebSocket of its own.
     $runtimeSources = @(
         (Join-Path $extensionRoot 'src\oracle.js'),
-        (Join-Path $extensionRoot 'popup\popup.js')
+        (Join-Path $extensionRoot 'popup\popup.js'),
+        (Join-Path $extensionRoot 'src\overlay.js')
     )
     $gameControlPatterns = @(
         '\bspawn\s*\(',
@@ -247,16 +264,19 @@ try {
     if (-not $SkipTests) {
         $node = Get-Command node -ErrorAction SilentlyContinue
         Assert-True ($null -ne $node) 'Node.js is required to run the lightweight JavaScript checks.'
+        $overlayPath = Join-Path $extensionRoot 'src\overlay.js'
         foreach ($script in @(
             $vendorPath,
             (Join-Path $extensionRoot 'src\oracle.js'),
             $lifecyclePath,
             (Join-Path $extensionRoot 'popup\popup.js'),
             $bridgePath,
+            $overlayPath,
             (Join-Path $repoRoot 'tests\oracle.test.js'),
             (Join-Path $repoRoot 'tests\repository.test.js'),
             (Join-Path $repoRoot 'tests\bridge.test.js'),
-            (Join-Path $repoRoot 'tests\lifecycle.test.js')
+            (Join-Path $repoRoot 'tests\lifecycle.test.js'),
+            (Join-Path $repoRoot 'tests\overlay.test.js')
         )) {
             & $node.Source --check $script
             Assert-True ($LASTEXITCODE -eq 0) "JavaScript syntax check failed: $script"
@@ -269,6 +289,8 @@ try {
         Assert-True ($LASTEXITCODE -eq 0) 'Bridge tests failed.'
         & $node.Source (Join-Path $repoRoot 'tests\lifecycle.test.js')
         Assert-True ($LASTEXITCODE -eq 0) 'Lifecycle tests failed.'
+        & $node.Source (Join-Path $repoRoot 'tests\overlay.test.js')
+        Assert-True ($LASTEXITCODE -eq 0) 'Overlay tests failed.'
     }
 
     Write-Host 'Validation passed:'
