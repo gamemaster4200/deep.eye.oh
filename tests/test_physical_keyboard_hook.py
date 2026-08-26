@@ -23,8 +23,10 @@ from deep_eye_oh.physical_keyboard_hook import (
     VK_BACK,
     VK_DOWN,
     VK_ESCAPE,
+    VK_F9,
     VK_OEM_2,
     VK_OEM_3,
+    VK_PAUSE,
     VK_RETURN,
     VK_SPACE,
     VK_UP,
@@ -33,6 +35,7 @@ from deep_eye_oh.physical_keyboard_hook import (
     KBDLLHOOKSTRUCT,
     KeyEvent,
     PhysicalKeyboardCapture,
+    _is_consumed_key,
     translate_key,
 )
 
@@ -98,6 +101,31 @@ def test_translate_unsupported_vk_returns_none():
 
 
 # ---------------------------------------------------------------------------
+# _is_consumed_key: the suppression gate -- must exclude panic keys and
+# anything translate_key() does not map, regardless of shift state
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("vk", [VK_PAUSE, VK_F9])
+def test_panic_key_vk_codes_are_never_consumed(vk):
+    # Both belt (translate_key structurally never maps these VKs -- see
+    # _SIMPLE_KEYS/_CHAR_KEYS) and suspenders (_NEVER_SUPPRESS_VK's
+    # explicit, future-proof override) must agree.
+    assert translate_key(vk, shift_held=False) is None
+    assert translate_key(vk, shift_held=True) is None
+    assert _is_consumed_key(vk) is False
+
+
+def test_unsupported_vk_is_not_consumed():
+    assert _is_consumed_key(0x70) is False  # VK_F1
+
+
+@pytest.mark.parametrize("vk", [ord("W"), VK_BACK, VK_RETURN, VK_ESCAPE, VK_UP, VK_DOWN, VK_OEM_3])
+def test_overlay_keys_are_consumed(vk):
+    assert _is_consumed_key(vk) is True
+
+
+# ---------------------------------------------------------------------------
 # _hook_proc: injected (SendInput) vs physical disambiguation
 # ---------------------------------------------------------------------------
 
@@ -146,6 +174,48 @@ def test_hook_proc_suppresses_physical_keyup_without_emitting_event(monkeypatch)
 
     assert result == 1
     assert events == [], "key-up is suppressed like key-down, but never itself produces an overlay event"
+
+
+# ---------------------------------------------------------------------------
+# Regression: a physical key this hook does not consume for the overlay
+# (panic keys, other unrelated OS shortcuts) must never be suppressed --
+# see _hook_proc's doc comment and _is_consumed_key.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("vk", [VK_PAUSE, VK_F9])
+@pytest.mark.parametrize("message", [WM_KEYDOWN, WM_KEYUP])
+def test_hook_proc_passes_through_physical_panic_key(monkeypatch, vk, message):
+    events = []
+    capture = PhysicalKeyboardCapture(on_key_event=events.append)
+    monkeypatch.setattr(pkh, "_GetAsyncKeyState", lambda vk: 0)
+
+    calls = []
+    monkeypatch.setattr(pkh, "_CallNextHookEx", lambda *a: calls.append(a) or 99)
+
+    address, info = _kbdllhookstruct_lparam(vk, injected=False)
+    result = capture._hook_proc(0, message, address)
+
+    assert result == 99, "a physical panic key must always reach CallNextHookEx, overlay focus or not"
+    assert len(calls) == 1
+    assert events == [], "a panic key must never be translated/relayed as overlay typing"
+
+
+@pytest.mark.parametrize("message", [WM_KEYDOWN, WM_KEYUP])
+def test_hook_proc_passes_through_unsupported_physical_key(monkeypatch, message):
+    events = []
+    capture = PhysicalKeyboardCapture(on_key_event=events.append)
+    monkeypatch.setattr(pkh, "_GetAsyncKeyState", lambda vk: 0)
+
+    calls = []
+    monkeypatch.setattr(pkh, "_CallNextHookEx", lambda *a: calls.append(a) or 7)
+
+    address, info = _kbdllhookstruct_lparam(0x70, injected=False)  # VK_F1
+    result = capture._hook_proc(0, message, address)
+
+    assert result == 7, "an unsupported/unrelated physical key must reach CallNextHookEx, not be swallowed"
+    assert len(calls) == 1
+    assert events == []
 
 
 def test_hook_proc_negative_ncode_always_forwards_untouched(monkeypatch):

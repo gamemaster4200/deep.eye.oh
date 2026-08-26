@@ -12,17 +12,25 @@ only place that distinction actually exists is here: a Windows low-level
 keyboard hook (WH_KEYBOARD_LL) sees an LLKHF_INJECTED flag on every event,
 set only for SendInput-originated input.
 
-PhysicalKeyboardCapture, while active, suppresses ONLY physical (non-
-injected) key events -- they never reach the browser or any other
-application at all -- and relays each keydown, translated to a small
-KeyEvent, to a caller-supplied callback (see browser_bridge.py's
-push_key_event, forwarded to the overlay over the existing bridge so it
-can render typed text itself, since its command input is not natively
-focused in this mode). SendInput-injected events (LLKHF_INJECTED) are
-always passed through completely untouched via CallNextHookEx, so
-Controller's own keyboard input keeps reaching the game exactly as if
-this hook did not exist -- the bot never pauses/degrades while the
-overlay is open, satisfying the mission's explicit invariant.
+PhysicalKeyboardCapture, while active, suppresses ONLY the physical
+(non-injected) key events it actually consumes for the overlay's own
+text/editing/toggle input (see translate_key()/_is_consumed_key()) --
+those never reach the browser or any other application, and each
+consumed keydown is relayed, translated to a small KeyEvent, to a
+caller-supplied callback (see browser_bridge.py's push_key_event,
+forwarded to the overlay over the existing bridge so it can render typed
+text itself, since its command input is not natively focused in this
+mode). Every OTHER physical key event -- unsupported/unrelated keys,
+and both configured panic-key VK codes unconditionally (see
+_NEVER_SUPPRESS_VK) -- passes through untouched via CallNextHookEx, same
+as an unsuppressed key always would; this hook must never make a panic
+key, Alt+Tab, or any other OS shortcut silently stop working just
+because the overlay has focus. SendInput-injected events (LLKHF_INJECTED)
+are, likewise, always passed through completely untouched via
+CallNextHookEx, so Controller's own keyboard input keeps reaching the
+game exactly as if this hook did not exist -- the bot never
+pauses/degrades while the overlay is open, satisfying the mission's
+explicit invariant.
 
 Deliberately a separate, narrowly-scoped module (parallel to
 win32_input.py), not folded into Controller: Controller stays exactly as
@@ -65,15 +73,31 @@ _KEYDOWN_MESSAGES = frozenset({WM_KEYDOWN, WM_SYSKEYDOWN})
 LLKHF_INJECTED = 0x00000010
 
 VK_BACK = 0x08
+VK_PAUSE = 0x13
 VK_RETURN = 0x0D
 VK_SHIFT = 0x10
 VK_ESCAPE = 0x1B
 VK_SPACE = 0x20
 VK_UP = 0x26
 VK_DOWN = 0x28
+VK_F9 = 0x78
 VK_OEM_MINUS = 0xBD  # '-' / '_'
 VK_OEM_2 = 0xBF  # '/' / '?'
 VK_OEM_3 = 0xC0  # '`' (toggle key) / '~'
+
+# emergency_stop.py's EmergencyStop supports exactly two panic-key options
+# (its own _VK_CODES = {"pause": 0x13, "f9": 0x78}) -- mirrored here BY
+# VALUE, not by importing that module, so this stays the same independent,
+# narrowly-scoped module the class docstring describes. Neither VK is
+# actually present in _SIMPLE_KEYS/_CHAR_KEYS below (so _is_consumed_key
+# already excludes them structurally) -- this frozenset is a second,
+# explicit, future-proof guarantee: a physical panic key must NEVER be
+# suppressed by this hook, even if _SIMPLE_KEYS/_CHAR_KEYS is ever edited
+# to (accidentally) start covering one of these VK codes. Note
+# EmergencyStop's own detection is GetAsyncKeyState polling, independent
+# of this hook's message suppression either way -- this is defense in
+# depth, not the only thing standing between a suppressed key and safety.
+_NEVER_SUPPRESS_VK: frozenset[int] = frozenset({VK_PAUSE, VK_F9})
 
 
 class KBDLLHOOKSTRUCT(ctypes.Structure):
@@ -167,6 +191,19 @@ def translate_key(vk_code: int, *, shift_held: bool) -> KeyEvent | None:
     return None
 
 
+def _is_consumed_key(vk_code: int) -> bool:
+    """True iff this VK code is one _hook_proc actually consumes for the
+    overlay -- i.e. translate_key() would produce a KeyEvent for it.
+    shift_held never changes whether translate_key returns a KeyEvent at
+    all (only which one -- see its own doc comment), so this check is
+    valid for BOTH a keydown and the matching keyup of the same physical
+    key, without needing shift state either. _NEVER_SUPPRESS_VK is
+    checked first and wins unconditionally -- see its own doc comment."""
+    if vk_code in _NEVER_SUPPRESS_VK:
+        return False
+    return translate_key(vk_code, shift_held=False) is not None
+
+
 class PhysicalKeyboardCapture:
     """Owns a WH_KEYBOARD_LL hook; installed/pumped on its own background
     thread only between start() and stop() (idempotent both ways). See
@@ -189,7 +226,18 @@ class PhysicalKeyboardCapture:
         # exceptions -- see SetWindowsHookEx/WH_KEYBOARD_LL documentation.
         if n_code >= 0 and w_param in _PHYSICAL_MESSAGES:
             info = ctypes.cast(l_param, ctypes.POINTER(KBDLLHOOKSTRUCT)).contents
-            if not (info.flags & LLKHF_INJECTED):
+            # LLKHF_INJECTED (this project's own SendInput traffic) always
+            # falls through to CallNextHookEx below, untouched -- see
+            # module docstring. A physical key this hook does not actually
+            # consume for the overlay (panic keys, unrelated OS shortcuts,
+            # anything translate_key() doesn't map) must ALSO fall through
+            # -- suppressing it here would silently break it system-wide
+            # for as long as the overlay has focus, which is not this
+            # hook's job. _is_consumed_key() answers the same way for a
+            # key's KEYDOWN and its matching KEYUP (see its own doc
+            # comment), so a consumed key's down/up pair is suppressed
+            # consistently -- never one without the other.
+            if not (info.flags & LLKHF_INJECTED) and _is_consumed_key(info.vkCode):
                 if w_param in _KEYDOWN_MESSAGES:
                     shift_held = bool(_GetAsyncKeyState(VK_SHIFT) & 0x8000)
                     event = translate_key(info.vkCode, shift_held=shift_held)
@@ -198,8 +246,8 @@ class PhysicalKeyboardCapture:
                             self._on_key_event(event)
                         except Exception:  # noqa: BLE001 -- a callback bug must never wedge the hook
                             logger.exception("overlay key-event callback raised")
-                # Suppress every physical key event (down AND up) while
-                # active -- never reaches the browser/game/any other app.
+                # Suppress only THIS consumed key's own down AND up --
+                # never reaches the browser/game/any other app.
                 return 1
         return _CallNextHookEx(0, n_code, w_param, l_param)
 
