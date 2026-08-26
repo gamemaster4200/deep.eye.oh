@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "deep.eye.oh Browser Oracle",
   "description": "Runtime observations from the official diep.io client for research and vision ground truth.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "minimum_chrome_version": "111",
   "permissions": [
     "clipboardWrite",
