@@ -11,11 +11,10 @@ const manifest = JSON.parse(read('extension/manifest.json'));
 assert.equal(manifest.manifest_version, 3);
 assert.deepEqual(manifest.permissions.slice().sort(), ['clipboardWrite', 'scripting']);
 assert.deepEqual(manifest.host_permissions, ['https://diep.io/*']);
-// browser-lifecycle-v0: two content scripts now expected -- oracle.js
-// (MAIN world, unchanged, strictly read-only) and lifecycle.js (a second,
-// ISOLATED-world script; the one narrow, explicitly reviewed exception to
-// this extension's read-only invariant -- see AGENTS.md).
-assert.equal(manifest.content_scripts.length, 2, 'exactly two content scripts: oracle.js (MAIN) and lifecycle.js (ISOLATED)');
+// overlay-control-center-v0: a third content script (overlay.js,
+// ISOLATED world) is now expected alongside oracle.js (MAIN world,
+// unchanged, strictly read-only) and lifecycle.js (ISOLATED).
+assert.equal(manifest.content_scripts.length, 3, 'exactly three content scripts: oracle.js (MAIN), lifecycle.js (ISOLATED), overlay.js (ISOLATED)');
 
 const oracleScript = manifest.content_scripts.find((cs) => cs.js.includes('src/oracle.js'));
 assert.ok(oracleScript, 'oracle.js content script entry must exist');
@@ -30,6 +29,12 @@ assert.deepEqual(lifecycleScript.matches, ['https://diep.io/*']);
 assert.equal(lifecycleScript.world, 'ISOLATED', 'lifecycle.js must run in the isolated world, never MAIN');
 assert.deepEqual(lifecycleScript.js, ['src/lifecycle.js']);
 assert.equal(lifecycleScript.run_at, 'document_start');
+
+const overlayScript = manifest.content_scripts.find((cs) => cs.js.includes('src/overlay.js'));
+assert.ok(overlayScript, 'overlay.js content script entry must exist');
+assert.deepEqual(overlayScript.matches, ['https://diep.io/*']);
+assert.equal(overlayScript.world, 'ISOLATED', 'overlay.js must run in the isolated world, never MAIN');
+assert.deepEqual(overlayScript.js, ['src/overlay.js']);
 
 assert.equal(
   JSON.stringify(manifest).includes('diepAPI'),
@@ -142,6 +147,13 @@ for (const forbiddenPattern of [
 ]) {
   assert.doesNotMatch(bridgeSource, forbiddenPattern, `no remote-code-execution pattern allowed in bridge.js: ${forbiddenPattern}`);
 }
+// overlay-control-center-v0: the overlay port relay must be present, and
+// still only relay the two known inbound shapes / three known outbound
+// types -- see bridge.js's own doc comment.
+assert.match(bridgeSource, /OVERLAY_PORT_NAME/, 'the overlay port relay must be present (overlay-control-center-v0)');
+assert.match(bridgeSource, /chrome\.runtime\.onConnect/);
+assert.match(bridgeSource, /buildOverlayOutboundMessage/);
+assert.match(bridgeSource, /parseOverlayPushMessage/);
 
 const lifecycleSource = read('extension/src/lifecycle.js');
 assert.match(lifecycleSource, /__deepEyeLifecycleInternals/);
@@ -165,6 +177,27 @@ for (const forbiddenPattern of [
 // content or role-based blind search.
 assert.doesNotMatch(lifecycleSource, /querySelectorAll\(['"]button['"]\)/);
 assert.doesNotMatch(lifecycleSource, /textContent.*includes\(['"]close['"]/i);
+
+// overlay.js (isolated-world content script) never touches
+// window.deepEyeOracle/diepAPI and never opens its own WebSocket -- it
+// relays exclusively through the reviewed chrome.runtime port above, and
+// never contains a gameplay-control primitive (same $forbiddenPattern set
+// every other runtime source is checked against).
+const overlaySource = read('extension/src/overlay.js');
+assert.doesNotMatch(overlaySource, /deepEyeOracle/, 'overlay.js must never touch the page-context Oracle directly');
+assert.doesNotMatch(overlaySource, /new WebSocket\(/, 'overlay.js must relay through the background port, not its own WebSocket');
+assert.match(overlaySource, /chrome\.runtime\.connect\(/);
+assert.match(overlaySource, /Backquote/, 'the toggle must key off KeyboardEvent.code, not the layout-dependent event.key');
+assert.match(overlaySource, /__deepEyeOverlayInternals/);
+assert.match(overlaySource, /shell_refused/, "a leading '!' must be classified as refused, never executed");
+for (const forbiddenPattern of [
+  /\bspawn\s*\(/, /\baimAt\s*\(/, /\blookAt\s*\(/, /\bshoot\s*\(/,
+  /\bkeyDown\s*\(/, /\bkeyUp\s*\(/, /\bkeyPress\s*\(/, /\bmouse(?:Press)?\s*\(/,
+  /\buseGamepad\s*\(/, /\bupgrade_(?:stat|tank)\s*\(/, /\bset_convar\s*\(/,
+  /\binput\.execute\s*\(/, /\beval\s*\(/, /\bnew Function\s*\(/,
+]) {
+  assert.doesNotMatch(overlaySource, forbiddenPattern, `read-only boundary violation in overlay.js: ${forbiddenPattern}`);
+}
 
 const refreshSource = read('scripts/dev-refresh.ps1');
 assert.match(refreshSource, /\[switch\]\$UpdateVendor/);
@@ -207,6 +240,7 @@ const ownedTextFiles = [
   'extension/manifest.json',
   'extension/src/oracle.js',
   'extension/src/lifecycle.js',
+  'extension/src/overlay.js',
   'extension/background/bridge.js',
   'extension/popup/popup.css',
   'extension/popup/popup.html',
@@ -217,6 +251,7 @@ const ownedTextFiles = [
   'tests/oracle.test.js',
   'tests/bridge.test.js',
   'tests/lifecycle.test.js',
+  'tests/overlay.test.js',
 ];
 const mojibakePattern = /\uFFFD|\u00C3.|\u00C2.|\u00E2(?:\u20AC|\u2122)|\u0432\u0402/u;
 for (const relativePath of ownedTextFiles) {
